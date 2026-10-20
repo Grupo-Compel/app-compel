@@ -1,0 +1,63 @@
+# Conferir e publicar (20/10/2026)
+#
+# Por que a publicação passa por aqui, e não pelo "publicar a partir da branch" do GitHub Pages: a conferência do
+# repositório tem de rodar ANTES de qualquer publicação, de qualquer frente (FRONTEIRA_APP_COMPEL, §4). Publicando
+# direto da branch, o celular receberia o arquivo errado e a conferência só acusaria depois.
+#
+# Para funcionar, o GitHub Pages do repositório fica em "Settings › Pages › Source: GitHub Actions".
+#
+# Limite conhecido: a regra das áreas (uma área por envio) olha os commits deste envio. Se um envio for recusado só por
+# ela, o envio seguinte, que passe, publica junto o anterior. As regras 1 a 4 olham a árvore inteira e não têm esse
+# furo.
+
+name: Conferir e publicar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: O teste da conferência (ela tem de recusar cada caso errado)
+        run: node conferencia/teste.js
+      - name: A conferência da árvore e das áreas deste envio
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BASE" 2>/dev/null; then
+            node conferencia/conferir.js --desde "$BASE"
+          else
+            node conferencia/conferir.js
+          fi
+
+  publicar:
+    needs: conferir
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacao.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: publicacao
+        uses: actions/deploy-pages@v4
