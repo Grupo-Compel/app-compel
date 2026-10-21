@@ -6,8 +6,9 @@ Segurança, Departamento Pessoal, RH). Quem não vai a campo usa o Portal, no co
 É uma página web instalável (PWA), em JavaScript puro, publicada pelo GitHub Pages. O app funciona sem sinal e envia
 quando o sinal volta.
 
-> **Estado em 20/10/2026:** o repositório nasceu hoje. A casca ainda não tem tela, porque a entrada depende do login
-> do Núcleo, que vai nascer num projeto novo. Por enquanto, o endereço publicado mostra uma página provisória.
+> **Estado em 21/10/2026:** a casca tem as telas de entrada (CPF e senha, primeiro acesso, senha temporária, esqueci
+> a senha, entrada sem sinal), o Início, os Avisos e o Perfil. **Ninguém entra ainda:** o endereço do login do Núcleo,
+> em `config/login.js`, está vazio até o projeto do login nascer (carta nº 12 do App ao Núcleo). Nenhum bloco entrou.
 
 ## As regras deste repositório
 
@@ -42,13 +43,16 @@ publicado. Ela recusa:
 4. bloco sem o `bloco.json`, ou com o servidor escrito como endereço;
 5. um envio que mexe em mais de uma área (a casca ou um bloco).
 
-Quando houver telas, ela passa a recusar também tela sem ajuda e tela que passa da largura do celular (360 e 412 px).
+Antes dela, roda a **bateria da casca** (`testes/casca.js`), que abre o app no Chromium e recusa a publicação se uma
+regra da entrada quebrar, se uma tela não tiver ajuda ou se uma tela passar da largura do celular (360 e 412 px). O
+login do Núcleo, nessa bateria, é imitado dentro do próprio teste; o app publicado não tem login imitado.
 
 Para rodar à mão:
 
 ```
 node conferencia/teste.js      # o teste: cada caso errado tem de ser recusado
 node conferencia/conferir.js   # a conferência deste repositório
+node testes/casca.js           # a bateria da casca (precisa do Playwright)
 ```
 
 ## Publicar

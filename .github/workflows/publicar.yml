@@ -36,6 +36,17 @@ jobs:
           fetch-depth: 0
       - name: O teste da conferência (ela tem de recusar cada caso errado)
         run: node conferencia/teste.js
+      # 21/10/2026: a casca tem telas, e a bateria dela abre o app no Chromium nas larguras de celular. É aqui que
+      # entram as duas regras prometidas para quando houvesse tela: toda tela com ajuda, e nenhuma passando de 360 e
+      # 412 px. A versão do Playwright é a mesma com que a bateria foi escrita e quebrada de propósito.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: A bateria da casca (entrada, Início, Avisos, Perfil, sem sinal)
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.0
+          npx playwright install --with-deps chromium
+          node testes/casca.js
       - name: A conferência da árvore e das áreas deste envio
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
