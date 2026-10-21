@@ -145,7 +145,9 @@ var MODULOS_DA_ANA = [
   { modulo: 'TREINAMENTO', nome: 'Treinamentos', url: 'https://modulo.teste.invalid/treino', perfil: 'ALUNO', liberado: true },
   { modulo: 'OPERACAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao', perfil: 'ENCARREGADO', liberado: true },
   { modulo: 'FINANCEIRO', nome: 'Financeiro', url: 'https://modulo.teste.invalid/fin', perfil: 'CONSULTA', liberado: false, motivo: 'Complete seu cadastro para liberar' },
-  { modulo: 'GESTAO_A_VISTA', nome: 'Gestão à Vista', url: '', perfil: 'CONSULTA', liberado: true }
+  { modulo: 'GESTAO_A_VISTA', nome: 'Gestão à Vista', url: '', perfil: 'CONSULTA', liberado: true },
+  // A célula com uma quebra de linha no meio (carta nº 11 do Núcleo): o trim do Núcleo não a tira.
+  { modulo: 'BENEFICIOS', nome: 'Benefícios', url: 'https://modulo.teste.invalid/bene\nficios', perfil: 'CONSULTA', liberado: true }
 ];
 function loginComAna(dados) {
   var L = novoLogin();
@@ -166,10 +168,12 @@ var TESTES = {
     await entrarCpf(a.page, formatado(x.cpf), 'senha-da-ana');
     await esperarTexto(a.page, 'Olá, Ana');
     var nomes = await a.page.$$eval('#modulos .n-modulo .n-nome', function (bs) { return bs.map(function (b) { return b.textContent; }); });
-    afirmar(nomes.join('|') === 'Treinamentos|Operação|Financeiro|Gestão à Vista', 'a ordem dos módulos tem de ser a do login, e veio ' + nomes.join('|'));
+    afirmar(nomes.join('|') === 'Treinamentos|Operação|Financeiro|Gestão à Vista|Benefícios', 'a ordem dos módulos tem de ser a do login, e veio ' + nomes.join('|'));
     afirmar(await a.page.isDisabled('#modulos .n-modulo[data-i="2"]'), 'o módulo não liberado devia estar apagado');
     afirmar((await texto(a.page, '#modulos .n-modulo[data-i="2"]')).indexOf('Complete seu cadastro') >= 0, 'o motivo do módulo não liberado não apareceu');
     afirmar((await texto(a.page, '#modulos .n-modulo[data-i="3"]')).indexOf('Em breve') >= 0, 'o módulo sem endereço devia dizer "Em breve"');
+    afirmar(await a.page.isDisabled('#modulos .n-modulo[data-i="4"]'), 'o endereço com quebra de linha não pode abrir');
+    afirmar((await texto(a.page, '#modulos .n-modulo[data-i="4"]')).indexOf('com defeito na planilha') >= 0, 'o cartão devia dizer que a célula está com defeito');
     afirmar((await texto(a.page, '#codigo')) === 'APP-05', 'o código da tela do Início');
     await a.ctx.close();
   },
@@ -432,7 +436,7 @@ var TESTES = {
     });
     afirmar(dentro.barra === 'rgb(35, 31, 32)', 'a barra de cima devia ser a grafite do Portal, e veio ' + dentro.barra);
     afirmar(dentro.marca, 'a barra devia ter a marca horizontal oficial');
-    afirmar(dentro.cartoes === 4, 'os sistemas deviam ser os cartões .n-modulo do Portal');
+    afirmar(dentro.cartoes === 5, 'os sistemas deviam ser os cartões .n-modulo do Portal');
     await a.ctx.close();
   },
   T17_tirar_meus_dados_deste_celular: async function () {

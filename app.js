@@ -305,7 +305,7 @@ function siglaDe(m) { return String(m.modulo || m.nome || '?').replace(/[^A-Za-z
 /* A ordem é a que veio do login (a coluna ORDEM da MODULOS): a casca não ordena nada (carta nº 9 do Núcleo). */
 function abrirModulo(i) {
   var p = pessoaAtual(), m = p && p.modulos[i];
-  if (!m || !m.url || m.liberado === false) return;
+  if (!m || !m.url || m.liberado === false || !/^https:\/\/\S+$/.test(m.url)) return;
   if (!comSinal()) return mostrarErro('Sem sinal: as telas do sistema só abrem com sinal.');
   // A janela abre no toque (senão o navegador a bloqueia), e o endereço entra quando o token chegar.
   var janela = window.open('', '_blank');
@@ -430,8 +430,11 @@ function telaInicio() {
   h += '<p class="etiqueta n-secao">Seus sistemas</p>';
   if (!mods.length) h += '<div class="vazio" id="semModulos">Nenhum sistema liberado para você ainda.<br>Fale com o seu supervisor.</div>';
   else h += '<div class="n-grade" id="modulos">' + mods.map(function (m, i) {
-    var breve = !m.url, travado = m.liberado === false, semRede = !comSinal();
-    var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : semRede ? 'Precisa de sinal para abrir.' : '';
+    // O endereço vem da célula URL da MODULOS como está, só sem os espaços das pontas (carta nº 11 do Núcleo, 21/10/2026).
+    // Uma quebra de linha ou um espaço no meio não sai com o trim, e o endereço não abre em lugar nenhum: o cartão diz
+    // que a célula está com defeito, em vez de abrir uma página de erro do Google.
+    var breve = !m.url, defeito = !breve && !/^https:\/\/\S+$/.test(m.url), travado = m.liberado === false, semRede = !comSinal();
+    var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : defeito ? 'O endereço deste sistema está com defeito na planilha. Avise a administração.' : semRede ? 'Precisa de sinal para abrir.' : '';
     return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
       (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
       (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : '') + '</button>';
