@@ -21,7 +21,7 @@
  */
 'use strict';
 
-var VERSAO_APP = '1.0 (21/10/2026)';
+var VERSAO_APP = '1.1 (21/10/2026)';
 var CHAVE_DO_DB = 'app-compel-casca';            // banco só da casca: os blocos têm o deles, e a casca nunca os apaga
 var DIAS_DOS_AVISOS = 30;                         // FRONTEIRA §2.1: os Avisos mostram 30 dias, pela data de cada um
 var FUSO_PADRAO = 'America/Sao_Paulo';            // pessoa sem base cai aqui (carta nº 9 do Núcleo): é o fuso que termina o dia primeiro
@@ -349,7 +349,11 @@ function marcarAvisosVistos() {
   if (maisNovo > String(p.vistoAvisos || '')) { E.avisosNovosAntes = p.vistoAvisos || ''; p.vistoAvisos = maisNovo; gravarPessoas(); }
 }
 
-/* ---------- as telas ---------- */
+/* ---------- as telas ----------
+   O VISUAL É O DO PORTAL (Dalton, 21/10/2026: "a estrutura visual não está adequada ao que temos hoje no portal").
+   As telas usam as classes da folha do Núcleo (estilo/nucleo.css), as mesmas do App.html do Portal: a tela de
+   entrada com a moldura vermelha e a marca quadrada, a barra grafite com a marca horizontal, a saudação, o rótulo
+   "Seus sistemas" e os cartões .n-modulo. O que só o app tem leva o prefixo app- e mora no index.html. */
 var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07' };
 var AJUDAS = {
   entrar: 'Entre com o seu CPF e a mesma senha do Portal. Quem já entrou neste celular aparece na lista: toque no seu nome e digite só a senha. Sem sinal, só entra quem já entrou neste celular com sinal antes. A entrada vale até o fim do dia; amanhã o app pede a senha de novo.',
@@ -360,100 +364,116 @@ var AJUDAS = {
   avisos: 'As comunicações da Compel dos últimos 30 dias. As marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
   perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal.'
 };
-function cabecalho(titulo, tela) {
-  return '<div class="etiqueta">' + esc(titulo) + '<button type="button" class="ajudar" data-acao="ajuda" aria-label="Ajuda desta tela">?</button></div>' +
-    (E.ajuda ? '<div class="texto-ajuda" id="textoAjuda">' + esc(AJUDAS[tela]) + '</div>' : '');
+function ajuda(tela) {
+  return '<button type="button" class="link-texto" data-acao="ajuda">' + (E.ajuda ? 'Fechar a ajuda' : 'Como funciona esta tela') + '</button>' +
+    (E.ajuda ? '<div class="aviso info" id="textoAjuda">' + esc(AJUDAS[tela]) + '</div>' : '');
 }
 function mensagens() {
   return (E.erro ? '<div class="aviso erro" id="erro" role="alert">' + esc(E.erro) + '</div>' : '') + (E.ok ? '<div class="aviso ok" id="ok">' + esc(E.ok) + '</div>' : '');
 }
-function campoCpf() { return '<label for="cpf">CPF</label><input id="cpf" inputmode="numeric" autocomplete="username" maxlength="14" placeholder="000.000.000-00">'; }
-function rodape() { return '<footer>App Compel · versão ' + esc(VERSAO_APP) + '</footer>'; }
+function campo(id, rotulo, extra, dica) {
+  return '<div class="campo"><label for="' + id + '">' + esc(rotulo) + '</label><input id="' + id + '" ' + extra + '>' + (dica ? '<div class="ajuda">' + esc(dica) + '</div>' : '') + '</div>';
+}
+function campoCpf() { return campo('cpf', 'Seu CPF', 'type="tel" inputmode="numeric" autocomplete="username" maxlength="14" placeholder="000.000.000-00"'); }
+function campoSenha(id, rotulo, nova) { return campo(id, rotulo, 'type="password" autocomplete="' + (nova ? 'new-password' : 'current-password') + '"'); }
+function botao(acao, texto, ocupado, fantasma, desligado) {
+  return '<button type="button" class="btn' + (fantasma ? ' fantasma' : '') + '" data-acao="' + acao + '"' + (desligado ? ' disabled' : '') + '>' + esc(texto) + '</button>';
+}
 function semLogin() { return enderecoDoLogin() ? '' : '<div class="aviso atencao" id="semLogin">O app ainda não está ligado ao login do Núcleo. Por enquanto, ninguém entra.</div>'; }
+function semSinalNaEntrada() { return '<div class="aviso atencao app-sem-sinal' + (comSinal() ? ' oculto' : '') + '">Sem sinal: só entra quem já entrou neste celular.</div>'; }
+// A tela de entrada é a do Portal: a moldura vermelha, a marca quadrada e o rodapé da Compel. O código da tela fica no
+// mesmo canto das outras telas, como no Portal (o App.html dele explica: quem liga para pedir ajuda procura ali).
+function telaDeEntrada(tela, corpo) {
+  return '<div class="login-tela"><span class="n-codigo-tela">' + CODIGOS[tela] + '</span><div class="moldura">' +
+    '<div class="login-marca"><svg class="logo-oficial" role="img" aria-label="Grupo Compel"><use href="#marca-quadrada"/></svg><div class="sub">App</div></div>' +
+    '<div class="cartao">' + semLogin() + semSinalNaEntrada() + corpo + mensagens() + ajuda(tela) + '</div>' +
+    '<div class="login-rodape">Desde 1983, excelência em energia elétrica</div><div class="app-versao">versão ' + esc(VERSAO_APP) + '</div></div></div>';
+}
 
 function telaEntrar() {
   var ja = Object.keys(E.pessoas).map(function (k) { return { chave: k, p: E.pessoas[k] }; })
     .sort(function (a, b) { return String(a.p.nome).localeCompare(String(b.p.nome)); });
-  var h = '<div class="cartao">' + cabecalho('Entrar', 'entrar') + semLogin();
+  var comNome = E.escolhida && E.pessoas[E.escolhida], h = '';
   if (ja.length) {
-    h += '<p class="media" style="margin:0 0 8px">Já entraram neste celular:</p><div class="pessoas">' + ja.map(function (x) {
+    h += '<p class="etiqueta app-rotulo">Já entraram neste celular</p><div class="app-pessoas">' + ja.map(function (x) {
       var trava = x.p.travadoAte && Date.parse(x.p.travadoAte) > Date.now();
-      return '<button type="button" data-acao="escolher" data-chave="' + esc(x.chave) + '" class="' + (E.escolhida === x.chave ? 'ativo' : '') + '"><span class="inicial">' + esc(primeiroNome(x.p.nome).charAt(0)) + '</span><span><b>' + esc(x.p.nome) + '</b><small>' + esc(x.p.funcao || '') + '</small></span>' + (trava ? '<span class="chip travado">aguarde</span>' : '') + '</button>';
-    }).join('') + '<button type="button" data-acao="escolher" data-chave="" class="' + (E.escolhida && E.pessoas[E.escolhida] ? '' : 'ativo') + '"><span class="inicial">+</span><span><b>Outra pessoa</b><small>Entrar com o CPF</small></span></button></div>';
+      return '<button type="button" data-acao="escolher" data-chave="' + esc(x.chave) + '" class="' + (E.escolhida === x.chave ? 'ativo' : '') + '"><span class="app-inicial">' + esc(primeiroNome(x.p.nome).charAt(0)) + '</span><span class="app-quem"><b>' + esc(x.p.nome) + '</b><small>' + esc(x.p.funcao || '') + '</small></span>' + (trava ? '<span class="selo andando">aguarde</span>' : '') + '</button>';
+    }).join('') + '<button type="button" data-acao="escolher" data-chave="" class="' + (comNome ? '' : 'ativo') + '"><span class="app-inicial">+</span><span class="app-quem"><b>Outra pessoa</b><small>Entrar com o CPF</small></span></button></div>';
   }
-  var comNome = E.escolhida && E.pessoas[E.escolhida];
-  if (comNome) h += '<label for="senha">Senha de ' + esc(primeiroNome(comNome.nome)) + '</label><input id="senha" type="password" autocomplete="current-password">';
-  else h += campoCpf() + '<label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password">';
-  h += mensagens() + '<button type="button" class="btn" data-acao="' + (comNome ? 'entrarEscolhida' : 'entrarCpf') + '"' + (E.ocupado || !enderecoDoLogin() ? ' disabled' : '') + '>' + (E.ocupado ? 'Entrando…' : 'Entrar') + '</button>';
-  h += '<button type="button" class="btn fantasma medio" data-acao="irPrimeiro">Primeiro acesso: criar a senha</button><button type="button" class="btn fantasma medio" data-acao="irEsqueci">Esqueci a senha</button></div>';
-  return h + rodape();
+  if (comNome) h += '<p class="n-saudacao app-ola">Olá, ' + esc(primeiroNome(comNome.nome)) + '.</p>' + campoSenha('senha', 'Senha de ' + primeiroNome(comNome.nome));
+  else h += campoCpf() + campoSenha('senha', 'Sua senha');
+  h += botao(comNome ? 'entrarEscolhida' : 'entrarCpf', E.ocupado ? 'Entrando…' : 'Entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin());
+  h += botao('irPrimeiro', 'Primeiro acesso: criar a senha', false, true) + botao('irEsqueci', 'Esqueci minha senha', false, true);
+  return telaDeEntrada('entrar', h);
 }
 function telaPrimeiro() {
-  return '<div class="cartao">' + cabecalho('Primeiro acesso', 'primeiro') + semLogin() + campoCpf() +
-    '<label for="email">Seu e-mail</label><input id="email" type="email" inputmode="email" autocomplete="email">' +
-    '<label for="senha">Crie a senha</label><input id="senha" type="password" autocomplete="new-password">' +
-    '<label for="senha2">Repita a senha</label><input id="senha2" type="password" autocomplete="new-password">' + mensagens() +
-    '<button type="button" class="btn" data-acao="criarSenha"' + (E.ocupado || !enderecoDoLogin() ? ' disabled' : '') + '>' + (E.ocupado ? 'Criando…' : 'Criar a senha e entrar') + '</button>' +
-    '<button type="button" class="btn fantasma medio" data-acao="irEntrar">Voltar</button></div>' + rodape();
+  return telaDeEntrada('primeiro', '<p class="etiqueta n-secao app-sem-margem">Primeiro acesso</p>' + campoCpf() +
+    campo('email', 'Seu e-mail', 'type="email" inputmode="email" autocomplete="email" placeholder="nome@dominio.com"', 'É por aqui que a senha temporária chega, se um dia você esquecer a sua.') +
+    campoSenha('senha', 'Crie uma senha', true) + campoSenha('senha2', 'Repita a senha', true) +
+    botao('criarSenha', E.ocupado ? 'Criando…' : 'Criar senha e entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin()) + botao('irEntrar', 'Voltar', false, true));
 }
 function telaTrocar() {
-  return '<div class="cartao">' + cabecalho('Crie a sua senha', 'trocar') + '<p class="media" style="margin:0">Você entrou com uma senha temporária.</p>' +
-    '<label for="senha">Senha nova</label><input id="senha" type="password" autocomplete="new-password">' +
-    '<label for="senha2">Repita a senha nova</label><input id="senha2" type="password" autocomplete="new-password">' + mensagens() +
-    '<button type="button" class="btn" data-acao="trocarSenha"' + (E.ocupado ? ' disabled' : '') + '>' + (E.ocupado ? 'Gravando…' : 'Gravar e entrar') + '</button>' +
-    '<button type="button" class="btn fantasma medio" data-acao="irEntrar">Cancelar</button></div>' + rodape();
+  return telaDeEntrada('trocar', '<p class="etiqueta n-secao app-sem-margem">Troca de senha</p><p>Você entrou com uma senha temporária. Escolha uma senha sua para continuar.</p>' +
+    campoSenha('senha', 'Nova senha', true) + campoSenha('senha2', 'Repita a nova senha', true) +
+    botao('trocarSenha', E.ocupado ? 'Gravando…' : 'Salvar e continuar', E.ocupado, false, E.ocupado) + botao('irEntrar', 'Cancelar', false, true));
 }
 function telaEsqueci() {
-  return '<div class="cartao">' + cabecalho('Esqueci a senha', 'esqueci') + semLogin() + campoCpf() + mensagens() +
-    '<button type="button" class="btn" data-acao="esqueciSenha"' + (E.ocupado || !enderecoDoLogin() ? ' disabled' : '') + '>' + (E.ocupado ? 'Pedindo…' : 'Mandar uma senha nova para o meu e-mail') + '</button>' +
-    '<button type="button" class="btn fantasma medio" data-acao="irEntrar">Voltar</button></div>' + rodape();
+  return telaDeEntrada('esqueci', '<p class="etiqueta n-secao app-sem-margem">Esqueci minha senha</p>' + campoCpf() +
+    botao('esqueciSenha', E.ocupado ? 'Pedindo…' : 'Mandar uma senha nova para o meu e-mail', E.ocupado, false, E.ocupado || !enderecoDoLogin()) + botao('irEntrar', 'Voltar', false, true));
 }
+
 function telaInicio() {
   var p = pessoaAtual(), mods = p.modulos || [];
-  var h = '<div class="cartao">' + cabecalho('Olá, ' + primeiroNome(p.nome), 'inicio') + mensagens();
+  var h = '<p class="n-saudacao">Olá, ' + esc(primeiroNome(p.nome)) + '.</p>' + mensagens();
   var n = quantosNovos();
-  if (n) h += '<div class="aviso" id="avisoNovo">' + (n === 1 ? 'Há 1 aviso novo.' : 'Há ' + n + ' avisos novos.') + ' <a href="#" data-aba="avisos">Ver</a></div>';
-  if (!mods.length) h += '<p class="media" id="semModulos">Nenhum sistema liberado para você ainda. Se isso estiver errado, fale com o seu supervisor.</p>';
-  else h += '<div class="modulos" id="modulos">' + mods.map(function (m, i) {
-    var breve = !m.url, travado = m.liberado === false;
-    var sub = travado ? (m.motivo || 'Ainda não liberado') : breve ? 'Em breve' : !comSinal() ? 'Precisa de sinal' : (m.perfil ? 'Entrar como ' + String(m.perfil).toLowerCase() : 'Abrir');
-    return '<button type="button" class="modulo" data-acao="abrirModulo" data-i="' + i + '"' + (breve || travado || !comSinal() || E.ocupado ? ' disabled' : '') + '><span class="sigla">' + esc(siglaDe(m)) + '</span><span class="meio"><b>' + esc(m.nome || m.modulo) + '</b><small>' + esc(sub) + '</small></span>' + (breve ? '<span class="chip breve">em breve</span>' : travado || !comSinal() ? '' : '<span class="seta">›</span>') + '</button>';
+  if (n) h += '<div class="aviso info" id="avisoNovo">' + (n === 1 ? 'Há 1 aviso novo.' : 'Há ' + n + ' avisos novos.') + ' <a href="#" data-aba="avisos">Ver</a></div>';
+  h += '<p class="etiqueta n-secao">Seus sistemas</p>';
+  if (!mods.length) h += '<div class="vazio" id="semModulos">Nenhum sistema liberado para você ainda.<br>Fale com o seu supervisor.</div>';
+  else h += '<div class="n-grade" id="modulos">' + mods.map(function (m, i) {
+    var breve = !m.url, travado = m.liberado === false, semRede = !comSinal();
+    var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : semRede ? 'Precisa de sinal para abrir.' : '';
+    return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
+      (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
+      (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : '') + '</button>';
   }).join('') + '</div>';
-  return h + '</div>' + rodape();
+  return '<div class="conteudo">' + h + ajuda('inicio') + '</div>';
 }
 function telaAvisos() {
-  var p = pessoaAtual(), h = '<div class="cartao">' + cabecalho('Avisos', 'avisos') + mensagens();
+  var p = pessoaAtual(), h = '<p class="etiqueta n-secao app-sem-margem">Avisos</p>' + mensagens();
   if (!comSinal()) h += '<div class="aviso atencao">Sem sinal: os avisos aparecem quando o celular tiver sinal.</div>';
-  else if (!E.avisos) h += '<p class="media">Buscando os avisos…</p>';
+  else if (!E.avisos) h += '<div class="carregando">Buscando os avisos…</div>';
   else if (E.avisos.erro) h += '<div class="aviso atencao">' + esc(E.avisos.erro) + '</div>';
-  else if (!E.avisos.lista.length) h += '<p class="media" id="semAvisos">Nenhum aviso nos últimos ' + DIAS_DOS_AVISOS + ' dias.</p>';
+  else if (!E.avisos.lista.length) h += '<div class="vazio" id="semAvisos">Nenhum aviso nos últimos ' + DIAS_DOS_AVISOS + ' dias.</div>';
   else h += '<div id="listaAvisos">' + E.avisos.lista.map(function (a) {
     var novo = String(a.data).slice(0, 10) > String(E.avisosNovosAntes !== undefined ? E.avisosNovosAntes : p.vistoAvisos || '');
     var prop = /^\d+:\d+$/.test(String(a.proporcao || '')) ? String(a.proporcao).replace(':', ' / ') : '4 / 5';
-    return '<div class="aviso-item"><div class="linha1"><b>' + esc(a.titulo) + '</b>' + (novo ? '<span class="chip novo">novo</span>' : '') + '</div>' +
-      '<small class="fraco">' + esc(brDe(a.data)) + (a.categoria ? ' · ' + esc(a.categoria) : '') + '</small>' +
+    return '<div class="cartao aviso-item"><div class="app-linha">' + (a.categoria ? '<span class="app-cat">' + esc(a.categoria) + '</span>' : '') + (novo ? '<span class="app-novo">novo</span>' : '') + '</div>' +
+      '<b class="app-titulo">' + esc(a.titulo) + '</b><span class="app-data">' + esc(brDe(a.data)) + '</span>' +
       (a.arte ? '<img src="' + esc(a.arte) + '" alt="' + esc(a.titulo) + '" loading="lazy" style="aspect-ratio:' + prop + '">' : '') +
-      (a.link ? '<a href="' + esc(a.link) + '" target="_blank" rel="noopener">Abrir</a>' : '') + '</div>';
+      (a.link ? '<a class="link-texto" href="' + esc(a.link) + '" target="_blank" rel="noopener">Abrir</a>' : '') + '</div>';
   }).join('') + '</div>';
-  return h + '</div>' + rodape();
+  return '<div class="conteudo">' + h + ajuda('avisos') + '</div>';
 }
 function telaPerfil() {
   var p = pessoaAtual(), par = parametrosDe(p);
   var linhas = [['Nome', p.nomeCompleto || p.nome], ['Matrícula', p.matricula], ['Função', p.funcao], ['Lotação', p.lotacao]].filter(function (l) { return l[1]; });
-  return '<div class="cartao">' + cabecalho('Perfil', 'perfil') + mensagens() + '<dl class="resumo" id="dados">' + linhas.map(function (l) { return '<dt>' + esc(l[0]) + '</dt><dd>' + esc(l[1]) + '</dd>'; }).join('') + '</dl></div>' +
-    '<div class="cartao"><div class="etiqueta">Neste celular</div><dl class="resumo">' +
+  return '<div class="conteudo"><p class="etiqueta n-secao app-sem-margem">Perfil</p>' + mensagens() +
+    '<div class="cartao"><dl class="app-resumo" id="dados">' + linhas.map(function (l) { return '<dt>' + esc(l[0]) + '</dt><dd>' + esc(l[1]) + '</dd>'; }).join('') + '</dl></div>' +
+    '<p class="etiqueta n-secao">Neste celular</p><div class="cartao"><dl class="app-resumo">' +
     '<dt>Entrada</dt><dd>vale até o fim de hoje (' + esc(fusoDe(p).replace('America/', '').replace('_', ' ')) + ')</dd>' +
     '<dt>Sem sinal</dt><dd>' + (p.verif ? 'entra com a senha, até ' + par.diasSemSinal + ' dias sem falar com o login' : 'só entra com sinal') + '</dd>' +
     (p.sessaoAte ? '<dt>Aparelho</dt><dd>registrado até ' + esc(brDe(p.sessaoAte)) + ' (renova a cada entrada com sinal)</dd>' : '') + '</dl>' +
-    '<button type="button" class="btn" data-acao="sair">Trocar de pessoa</button>' +
-    '<button type="button" class="btn fantasma medio" data-acao="esquecer">Tirar meus dados deste celular</button></div>' + rodape();
+    botao('sair', 'Trocar de pessoa') + botao('esquecer', 'Tirar meus dados deste celular', false, true) + '</div>' +
+    ajuda('perfil') + '<p class="app-versao">App Compel · versão ' + esc(VERSAO_APP) + '</p></div>';
 }
 
 function desenhar() {
   var tela = E.tela, logado = ['inicio', 'avisos', 'perfil'].indexOf(tela) >= 0;
   if (logado && !entradaValeHoje()) { tela = E.tela = 'entrar'; logado = false; if (E.atual) { E.escolhida = E.atual.chave; E.atual = null; gravarAtual(); } }
-  var s = $('sinal'); s.className = 'sinal ' + (comSinal() ? 'on' : 'off'); s.textContent = comSinal() ? 'Com sinal' : 'Sem sinal';
+  var s = $('sinal'); s.className = 'app-sinal ' + (comSinal() ? 'on' : 'off'); s.textContent = comSinal() ? 'Com sinal' : 'Sem sinal';
   $('codigo').textContent = CODIGOS[tela] || '';
+  // Na entrada não há barra (como no Portal); dentro, a barra grafite com a marca e as abas de baixo.
+  $('topo').classList.toggle('oculto', !logado);
   $('abas').classList.toggle('oculto', !logado);
   Array.prototype.forEach.call(document.querySelectorAll('#abas button'), function (b) { b.classList.toggle('ativo', b.getAttribute('data-aba') === tela); });
   var n = logado ? quantosNovos() : 0, bol = $('bolinha'); bol.classList.toggle('oculto', !n); bol.textContent = n > 9 ? '9+' : n;
@@ -463,7 +483,7 @@ function desenhar() {
   if (E.telaDesenhada === tela) ['cpf', 'email'].forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
   E.telaDesenhada = tela;
   var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, perfil: telaPerfil }[tela];
-  $('corpo').innerHTML = html ? html() : '<div class="cartao"><p class="media">Abrindo…</p></div>';
+  $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
 }
 function telaLogada() { return ['inicio', 'avisos', 'perfil'].indexOf(E.tela) >= 0; }
@@ -471,7 +491,8 @@ function telaLogada() { return ['inicio', 'avisos', 'perfil'].indexOf(E.tela) >=
    topo muda. Nas telas de dentro, redesenha, porque os módulos e os avisos dependem do sinal. */
 function mudouOSinal() {
   if (telaLogada()) { desenhar(); if (comSinal() && pessoaAtual() && !E.avisos) buscarAvisos(); return; }
-  var s = $('sinal'); s.className = 'sinal ' + (comSinal() ? 'on' : 'off'); s.textContent = comSinal() ? 'Com sinal' : 'Sem sinal';
+  var s = $('sinal'); s.className = 'app-sinal ' + (comSinal() ? 'on' : 'off'); s.textContent = comSinal() ? 'Com sinal' : 'Sem sinal';
+  var aviso = document.querySelector('.app-sem-sinal'); if (aviso) aviso.classList.toggle('oculto', comSinal());
 }
 
 function irPara(tela, ok) {
@@ -541,7 +562,7 @@ function iniciar() {
     E.escolhida = chaves.length === 1 ? chaves[0] : null;
     irPara(E.atual && entradaValeHoje() ? 'inicio' : 'entrar');
   }, function () {
-    $('corpo').innerHTML = '<div class="cartao"><div class="aviso erro">Este navegador não deixou o app guardar dados (modo anônimo?). Abra o app instalado ou o navegador normal.</div></div>';
+    $('corpo').innerHTML = '<div class="conteudo"><div class="aviso erro">Este navegador não deixou o app guardar dados (modo anônimo?). Abra o app instalado ou o navegador normal.</div></div>';
   });
 }
 iniciar();

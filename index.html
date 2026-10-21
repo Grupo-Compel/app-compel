@@ -12,86 +12,90 @@
   A CASCA DO APP COMPEL (21/10/2026). Entrada, Início, Avisos e Perfil; os blocos de cada frente entram depois, cada um
   na pasta dele (blocos/<bloco>/).
 
-  O visual é o do app do campo da Operação (grafite e vermelho, fonte do sistema), porque é o que o pessoal de campo já
-  conhece (protótipo do App, 15/10/2026: "visual igual ao do app de campo"). Fonte do sistema de propósito: em campo não
-  há sinal para baixar fonte, e o app tem de abrir igual com e sem rede. Só tema claro, como o do campo: a tela é lida
-  no sol.
+  O VISUAL É O DO PORTAL (pedido do Dalton, 21/10/2026). A folha é a do Núcleo, copiada em estilo/nucleo.css (o app
+  mora fora do Google e abre sem sinal, então não pode chamar o Nucleo.css()), e as três fontes vêm da pasta
+  estilo/fontes. A marca é o vetor oficial do Núcleo (Marca.html), declarado uma vez aqui embaixo e reaproveitado com
+  <use>, como no Portal. O que só o app tem fica nesta folha, com o prefixo app-.
 -->
+<link rel="stylesheet" href="estilo/fontes.css">
+<link rel="stylesheet" href="estilo/nucleo.css">
 <style>
-  :root {
-    color-scheme: light;
-    --fundo:#F4F5F7; --superficie:#FFFFFF; --tinta:#231F20; --tinta-media:#5A5C63; --tinta-fraca:#80838B; --linha:#E2E4E8;
-    --vermelho:#ED1C24; --vermelho-forte:#B2101F; --vermelho-claro:#FDEBEC;
-    --ambar:#8A5600; --ambar-claro:#FFF3DC; --verde:#0E7A47; --verde-claro:#E4F4EB; --grafite:#231F20;
-    --azul:#1F5E8C; --azul-claro:#E6EFF6; --raio:10px; --toque:48px;
-  }
-  * { box-sizing:border-box; }
-  html, body { height:100%; }
-  body { margin:0; background:var(--fundo); color:var(--tinta); font:15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display:flex; flex-direction:column; }
-  button, input { font:inherit; color:inherit; }
-  .oculto { display:none !important; }
-  .topo { background:var(--grafite); color:#fff; padding:calc(10px + env(safe-area-inset-top,0px)) 14px 9px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; }
-  .topo .t { font-weight:700; letter-spacing:.1em; text-transform:uppercase; font-size:14px; }
-  .topo .cod { font-size:10px; letter-spacing:.14em; color:rgba(255,255,255,.55); margin-left:auto; }
-  .sinal { font-size:12px; font-weight:600; padding:3px 9px; border-radius:12px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
-  .sinal::before { content:''; width:8px; height:8px; border-radius:50%; background:currentColor; }
-  .sinal.off { background:#4A3A12; color:#FFC95C; } .sinal.on { background:#123A26; color:#6FE0A5; }
-  .barra-versao { background:var(--azul); color:#fff; border:0; width:100%; min-height:var(--toque); font-weight:700; cursor:pointer; }
-  main { flex:1; overflow-y:auto; padding:12px 12px 24px; display:grid; gap:10px; align-content:start; max-width:640px; width:100%; margin:0 auto; }
-  main > * { min-width:0; }
-  .cartao { background:var(--superficie); border:1.5px solid #C9CED6; border-radius:var(--raio); padding:13px; box-shadow:0 1px 3px rgba(35,31,32,.08); }
-  .cartao > .etiqueta:first-child { margin:-13px -13px 10px; padding:9px 13px; background:#EEF0F3; border-bottom:1.5px solid #C9CED6; border-radius:var(--raio) var(--raio) 0 0; color:var(--tinta); display:flex; align-items:center; gap:8px; }
-  .etiqueta { font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--tinta-media); }
-  .etiqueta .ajudar { margin-left:auto; flex:none; width:30px; height:30px; border-radius:50%; border:1.5px solid #9BA1AB; background:#fff; color:var(--tinta-media); font-weight:800; cursor:pointer; letter-spacing:0; }
-  .texto-ajuda { background:var(--azul-claro); color:var(--azul); border-radius:8px; padding:10px 12px; font-size:14px; margin-bottom:10px; }
-  .media { color:var(--tinta-media); } .fraco { color:var(--tinta-fraca); }
-  label { display:block; font-size:13px; color:var(--tinta-media); margin:10px 0 4px; }
-  input { width:100%; min-height:var(--toque); padding:10px 11px; border:1.5px solid var(--linha); border-radius:8px; background:#fff; }
-  input:focus { outline:3px solid var(--azul-claro); border-color:var(--azul); }
-  .btn { display:block; width:100%; margin-top:10px; min-height:52px; padding:12px; border:0; border-radius:8px; background:var(--vermelho); color:#fff; font-weight:700; font-size:16px; cursor:pointer; text-align:center; text-decoration:none; }
-  .btn.fantasma { background:transparent; color:var(--tinta-media); border:1.5px solid var(--linha); font-weight:600; }
-  .btn.medio { min-height:var(--toque); font-size:14px; }
-  .btn:disabled { opacity:.45; cursor:default; }
-  .aviso { padding:10px 12px; border-radius:8px; font-size:14px; background:var(--azul-claro); color:var(--azul); margin-top:10px; }
-  .aviso.atencao { background:var(--ambar-claro); color:var(--ambar); } .aviso.erro { background:var(--vermelho-claro); color:var(--vermelho-forte); } .aviso.ok { background:var(--verde-claro); color:var(--verde); }
-  .chip { display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:12px; background:var(--azul-claro); color:var(--azul); white-space:nowrap; }
-  .chip.novo { background:var(--vermelho); color:#fff; } .chip.breve { background:#ECEDF0; color:var(--tinta-media); } .chip.travado { background:var(--ambar-claro); color:var(--ambar); }
-  .pessoas { display:grid; gap:8px; }
-  .pessoas button { display:flex; align-items:center; gap:10px; width:100%; min-height:56px; padding:8px 12px; border:1.5px solid #C9CED6; border-radius:8px; background:#fff; cursor:pointer; text-align:left; }
-  .pessoas button.ativo { border-color:var(--vermelho); background:var(--vermelho-claro); }
-  .pessoas .inicial { flex:none; width:36px; height:36px; border-radius:50%; background:var(--grafite); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
-  .pessoas small { display:block; color:var(--tinta-fraca); }
-  .modulos { display:grid; gap:8px; }
-  .modulo { display:flex; align-items:center; gap:12px; width:100%; min-height:64px; padding:10px 12px; border:1.5px solid #C9CED6; border-radius:var(--raio); background:#fff; cursor:pointer; text-align:left; }
-  .modulo:disabled { cursor:default; background:#F8F9FA; }
-  .modulo .sigla { flex:none; width:42px; height:42px; border-radius:8px; background:var(--grafite); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; letter-spacing:.04em; }
-  .modulo:disabled .sigla { background:#9BA1AB; }
-  .modulo .meio { flex:1; min-width:0; } .modulo b { display:block; font-size:15.5px; } .modulo small { display:block; color:var(--tinta-fraca); font-size:12.5px; }
-  .modulo .seta { flex:none; color:var(--tinta-fraca); font-size:20px; }
-  .aviso-item { display:grid; gap:8px; }
-  .aviso-item + .aviso-item { border-top:1px solid var(--linha); padding-top:12px; margin-top:4px; }
-  .aviso-item .linha1 { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .aviso-item .linha1 b { font-size:15.5px; flex:1; min-width:0; }
-  .aviso-item img { width:100%; height:auto; border-radius:8px; background:#ECEDF0; display:block; }
-  .resumo { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:14px; margin:0; } .resumo dt { color:var(--tinta-media); } .resumo dd { margin:0; min-width:0; overflow-wrap:anywhere; }
-  .abas { display:grid; grid-template-columns:repeat(3,1fr); background:#fff; border-top:1px solid var(--linha); padding-bottom:env(safe-area-inset-bottom,0px); position:sticky; bottom:0; z-index:5; }
-  .abas button { border:0; background:none; min-height:56px; font-size:12.5px; font-weight:600; color:var(--tinta-fraca); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative; }
-  .abas button i { font-style:normal; font-size:17px; line-height:1; }
-  .abas button.ativo { color:var(--vermelho); box-shadow:inset 0 3px 0 var(--vermelho); }
-  .abas .bolinha { position:absolute; top:8px; left:calc(50% + 8px); min-width:18px; height:18px; border-radius:9px; background:var(--vermelho); color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 5px; }
-  footer { text-align:center; font-size:12px; color:var(--tinta-fraca); padding:4px 0 8px; }
+  /* O corpo vira coluna para as abas ficarem no pé da tela, e o conteúdo rolar entre a barra e as abas. */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  main { flex: 1; min-width: 0; }
+  .topo .acoes { gap: 10px; }
+  /* Com sinal / sem sinal: em campo é a primeira pergunta, e a resposta fica no topo de toda tela de dentro. */
+  .app-sinal { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .app-sinal::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .app-sinal.off { background: var(--ambar-claro); color: #8A5A00; } .app-sinal.on { background: var(--verde-claro); color: var(--verde); }
+  .barra-versao { background: var(--grafite-claro); color: #fff; border: 0; width: 100%; min-height: 48px; font: inherit; font-weight: 600; cursor: pointer; }
+  /* A entrada: quem já entrou neste celular, com a inicial no círculo grafite. */
+  .app-rotulo { margin: 0 0 8px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-media); }
+  .app-pessoas { display: grid; gap: 8px; margin-bottom: 14px; }
+  .app-pessoas button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--toque); padding: 8px 12px; border: 1px solid var(--linha); border-radius: var(--raio); background: var(--superficie); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+  .app-pessoas button.ativo { border: 2px solid var(--vermelho); background: var(--vermelho-claro); }
+  .app-inicial { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--grafite); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .app-quem { flex: 1; min-width: 0; } .app-quem b { display: block; } .app-quem small { display: block; color: var(--tinta-fraca); font-size: 13px; }
+  .app-ola { margin: 4px 0 10px; }
+  .app-sem-margem { margin-top: 0; }
+  .app-versao { text-align: center; font-size: 12px; color: var(--tinta-fraca); margin-top: 8px; }
+  .login-tela .cartao .btn + .btn { margin-top: 10px; }
+  /* Os avisos: a categoria e o "novo" na mesma linha, como o painel de comunicações do Portal. */
+  .aviso-item { display: grid; gap: 6px; margin-bottom: 12px; }
+  .app-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .app-cat { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; font-weight: 700; padding: 4px 10px; border-radius: 3px; background: #EEF0F2; color: #3F4449; }
+  .app-novo { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; background: var(--vermelho-forte); color: #fff; }
+  .app-titulo { font-family: 'Josefin Sans', 'Inter', sans-serif; font-size: 20px; line-height: 1.22; }
+  .app-data { font-size: 13.5px; color: var(--tinta-media); }
+  .aviso-item img { width: 100%; height: auto; border-radius: 8px; background: #EEF0F3; display: block; object-fit: contain; }
+  .app-resumo { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 15px; }
+  .app-resumo dt { color: var(--tinta-media); } .app-resumo dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  /* As abas de baixo: só o app tem (o Portal é de computador e celular, o app é só de celular). */
+  .app-abas { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--superficie); border-top: 1px solid var(--linha); padding-bottom: env(safe-area-inset-bottom, 0px); position: sticky; bottom: 0; z-index: 30; }
+  .app-abas button { border: 0; background: none; min-height: 60px; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-fraca); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; position: relative; }
+  .app-abas button i { font-style: normal; font-size: 18px; line-height: 1; }
+  .app-abas button.ativo { color: var(--vermelho-forte); box-shadow: inset 0 3px 0 var(--vermelho); }
+  .app-bolinha { position: absolute; top: 8px; left: calc(50% + 8px); min-width: 18px; height: 18px; border-radius: 9px; background: var(--vermelho); color: #fff; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
 </style>
 </head>
 <body>
-<header class="topo">
-  <span class="t">Compel</span>
-  <span id="sinal" class="sinal off">Sem sinal</span>
-  <span id="codigo" class="cod"></span>
+<svg style="display:none" aria-hidden="true" focusable="false">
+
+  <!-- Empilhada: simbolo em cima, palavra embaixo. Usada na tela de login.
+       Vetor oficial, copiado sem alterar um ponto. -->
+  <symbol id="marca-quadrada" viewBox="0 0 4338 4290"><path fill-rule="evenodd" fill="#ED1C24" fill-opacity="1" d="M 819.699219 565.992188 L 3517.304688 565.992188 C 3721.410156 565.992188 3888.398438 732.980469 3888.398438 937.085938 L 3888.398438 2635.578125 C 3888.398438 2839.683594 3721.410156 3006.675781 3517.304688 3006.675781 L 819.699219 3006.675781 C 615.589844 3006.675781 448.601562 2839.683594 448.601562 2635.578125 L 448.601562 937.085938 C 448.601562 732.980469 615.589844 565.992188 819.699219 565.992188 Z M 2270.746094 1131.414062 L 2270.746094 1643.496094 C 2270.746094 1777.359375 2270.285156 1745.789062 2409.21875 1739.515625 C 2640.621094 1729.070312 2875.847656 1693.339844 3098.441406 1626.898438 C 3554.527344 1465.511719 3527.503906 1268.949219 3041.554688 1109.34375 C 2813.992188 1046.769531 2617.339844 1025.402344 2385.910156 1014.027344 C 2288.726562 1009.253906 2271.457031 1033.53125 2270.746094 1131.414062 Z M 1924.015625 2778.179688 L 2411.082031 2778.179688 C 2441.84375 2778.179688 2439.28125 2782.511719 2423.800781 2755.894531 L 2282.28125 2512.550781 C 2272.738281 2496.144531 2270.746094 2497.355469 2270.746094 2478.449219 L 2270.746094 2035.988281 C 2270.746094 1977.054688 2274.972656 1957.894531 2332.476562 1955.886719 C 2534.996094 1948.800781 2724.605469 1912.789062 2944.042969 1869.875 C 3110.679688 1826.785156 3308.148438 1747.097656 3437.28125 1661.828125 C 3796.566406 1410.453125 3599.535156 1094.691406 3061.601562 917.011719 C 2798.351562 851.554688 2561.4375 794.175781 2205.90625 794.230469 C 2042.796875 799.277344 2065.371094 801.023438 2065.734375 962.367188 L 2065.425781 1629.207031 C 2065.359375 1775.457031 2077.769531 1742.71875 1920.910156 1742.496094 C 1527.179688 1717.792969 1288.636719 1658.382812 1079.761719 1561.671875 C 842.746094 1439.636719 866.675781 1314.289062 1093.535156 1185.113281 C 1257.742188 1105.941406 1341.351562 1095.585938 1520.875 1057.597656 C 1596.804688 1049.101562 1640.136719 1024.839844 1636.566406 1100.429688 L 1636.566406 1172.4375 C 1636.566406 1213.933594 1635.351562 1206.78125 1695.625 1206.78125 L 1772.351562 1205.625 C 1853.75 1204.398438 1841.941406 1218.710938 1841.941406 1138.570312 L 1841.941406 888.789062 C 1841.941406 847.753906 1848.9375 810.09375 1808.589844 812.21875 C 1613.734375 822.484375 1428.441406 876.367188 1269.980469 918.757812 C 774.121094 1080.296875 523.328125 1374.625 871.878906 1640.875 C 1021.601562 1755.242188 1144.21875 1796.425781 1318.769531 1846.921875 C 1531.765625 1908.542969 1758.800781 1945.011719 2009.945312 1956.121094 C 2075.628906 1959.023438 2064.867188 1941.289062 2064.925781 2007.4375 C 2065.058594 2164.433594 2065.214844 2321.445312 2065.359375 2478.449219 C 2065.378906 2499.199219 2060.039062 2501.878906 2049.578125 2519.875 L 1913.289062 2754.230469 C 1897.398438 2781.570312 1893.226562 2778.179688 1924.015625 2778.179688 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 1070.953125 3242.746094 L 1098.203125 3160.152344 C 1118.640625 3098.894531 1127.644531 3107.484375 1054.441406 3105.699219 L 887.574219 3105.699219 C 691.042969 3105.699219 580.332031 3188.261719 538.140625 3233.511719 C 463.984375 3313.050781 425.378906 3441.242188 460.449219 3545.808594 C 489.617188 3632.769531 546.4375 3702.90625 648.792969 3723.011719 L 916.199219 3723.011719 L 964.15625 3584.117188 C 979.039062 3545.839844 973.015625 3546.320312 909.921875 3546.144531 L 724.300781 3545.628906 C 665.882812 3530.085938 680.617188 3432.597656 735.648438 3361.1875 C 769.042969 3317.855469 811.1875 3290.339844 873.023438 3284.113281 L 1010.726562 3283.191406 C 1055.519531 3283.8125 1059.5 3278.523438 1070.953125 3242.746094 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 1670.351562 3723.011719 L 1907.152344 3105.699219 L 2460.355469 3105.699219 C 2604.121094 3105.699219 2609.503906 3232.234375 2544.433594 3401.867188 L 2425.070312 3723.011719 L 2199.039062 3723.011719 L 2318.90625 3401.867188 C 2345.867188 3346.558594 2351.621094 3284.113281 2285.851562 3284.113281 L 2080.070312 3284.113281 L 1911.707031 3723.011719 Z M 1670.351562 3723.011719 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 1964.921875 3723.011719 L 2114.160156 3330.074219 L 2293.46875 3330.074219 L 2145.636719 3723.011719 Z M 1964.921875 3723.011719 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 2466.53125 3723.011719 L 2612.410156 3329.546875 L 2740.644531 3330.074219 C 2816.527344 3330.074219 2817.25 3287.3125 2767.648438 3287.3125 L 2631.691406 3284.113281 L 2698.828125 3105.699219 L 2875.050781 3105.699219 C 3125.34375 3105.699219 3097.417969 3478.238281 2829.128906 3478.238281 L 2730.535156 3479.085938 L 2640.488281 3723.011719 Z M 2466.53125 3723.011719 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 3178.53125 3105.699219 L 3111.394531 3284.113281 L 3500.277344 3284.113281 L 3567.417969 3105.699219 Z M 3178.53125 3105.699219 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 2946.234375 3723.011719 L 3094.097656 3330.074219 L 3483.472656 3325.796875 L 3426.542969 3480.058594 L 3213.875 3480.058594 L 3196.578125 3526.023438 L 3407.449219 3526.023438 L 3335.121094 3723.011719 Z M 2946.234375 3723.011719 "/><path fill-rule="evenodd" fill="#231F20" fill-opacity="1" d="M 3384.945312 3723.011719 L 3617.242188 3105.699219 L 3848.816406 3105.699219 L 3671.332031 3526.023438 L 3889.640625 3526.023438 L 3815.515625 3723.011719 Z M 3384.945312 3723.011719 "/><path fill-rule="nonzero" fill="#231F20" fill-opacity="1" d="M 1310.144531 3719.832031 C 1220.464844 3714.632812 1152.179688 3680.296875 1105.644531 3616.695312 C 1059.078125 3553.246094 1047.6875 3479.21875 1071.527344 3394.488281 C 1095.320312 3309.90625 1147.351562 3239.414062 1227.539062 3183.308594 C 1307.738281 3127.210938 1392.886719 3101.625 1482.566406 3106.824219 C 1572.414062 3112.039062 1640.492188 3146.507812 1687.0625 3209.960938 C 1733.796875 3273.425781 1745.140625 3347.59375 1721.351562 3432.175781 C 1697.515625 3516.90625 1645.527344 3587.257812 1565.160156 3643.347656 C 1484.9375 3699.59375 1399.992188 3725.042969 1310.144531 3719.832031 Z M 1359.644531 3527.566406 C 1396.484375 3529.703125 1431.464844 3520.347656 1464.585938 3499.5 C 1497.855469 3478.65625 1519.558594 3452.515625 1529.6875 3421.0625 C 1539.808594 3389.609375 1535.4375 3361.957031 1516.550781 3338.089844 C 1497.828125 3314.230469 1470.050781 3301.234375 1433.203125 3299.097656 C 1396.515625 3296.972656 1361.535156 3306.324219 1328.257812 3327.167969 C 1294.996094 3348.011719 1273.289062 3374.15625 1263.171875 3405.601562 C 1253.039062 3437.058594 1257.421875 3464.714844 1276.300781 3488.578125 C 1295.171875 3512.445312 1322.953125 3525.4375 1359.644531 3527.566406 "/>  </symbol>
+
+  <!-- Deitada: simbolo, fio e palavra lado a lado. Usada na barra do topo.
+       O enquadramento comeca em x=64 porque o desenho tem folga a esquerda. -->
+  <symbol id="marca-horizontal" viewBox="64 90 1608 344" preserveAspectRatio="xMinYMid meet"><!-- Main badge -->
+  <!-- Official mark block, with original proportions -->
+  <rect x="80" y="106" width="440" height="312" rx="42" fill="#ED1C24"/>
+  <g transform="translate(117.500,137.671) scale(0.266229)">
+    <path d="M 40.00,184.00 L 20.00,210.00 L 4.00,244.00 L 0.00,263.00 L 0.00,287.00 L 4.00,307.00 L 18.00,337.00 L 44.00,370.00 L 75.00,397.00 L 118.00,427.00 L 160.00,450.00 L 200.00,467.00 L 260.00,487.00 L 331.00,507.00 L 405.00,523.00 L 481.00,535.00 L 558.00,543.00 L 637.00,546.00 L 640.00,548.00 L 640.00,800.00 L 638.00,807.00 L 605.00,860.00 L 563.00,934.00 L 811.00,934.00 L 735.00,803.00 L 735.00,565.00 L 737.00,557.00 L 742.00,551.00 L 756.00,546.00 L 818.00,543.00 L 888.00,535.00 L 1021.00,512.00 L 1084.00,497.00 L 1174.00,465.00 L 1217.00,446.00 L 1268.00,419.00 L 1287.00,407.00 L 1291.00,402.00 L 1295.00,401.00 L 1317.00,383.00 L 1334.00,366.00 L 1353.00,341.00 L 1352.00,339.00 L 1358.00,332.00 L 1365.00,316.00 L 1371.00,292.00 L 1371.00,263.00 L 1365.00,239.00 L 1353.00,214.00 L 1336.00,190.00 L 1311.00,164.00 L 1285.00,143.00 L 1257.00,124.00 L 1218.00,102.00 L 1173.00,81.00 L 1124.00,62.00 L 1056.00,44.00 L 1053.00,45.00 L 1048.00,42.00 L 965.00,24.00 L 929.00,19.00 L 926.00,17.00 L 823.00,4.00 L 755.00,0.00 L 683.00,0.00 L 654.00,4.00 L 648.00,7.00 L 642.00,15.00 L 639.00,41.00 L 640.00,434.00 L 638.00,442.00 L 628.00,449.00 L 568.00,448.00 L 512.00,444.00 L 432.00,435.00 L 407.00,430.00 L 404.00,431.00 L 324.00,415.00 L 309.00,410.00 L 307.00,411.00 L 257.00,395.00 L 252.00,395.00 L 251.00,393.00 L 225.00,385.00 L 196.00,372.00 L 194.00,373.00 L 191.00,370.00 L 171.00,362.00 L 139.00,343.00 L 124.00,332.00 L 107.00,315.00 L 95.00,294.00 L 92.00,282.00 L 95.00,260.00 L 106.00,239.00 L 129.00,215.00 L 159.00,193.00 L 187.00,177.00 L 235.00,157.00 L 287.00,141.00 L 326.00,132.00 L 357.00,127.00 L 379.00,121.00 L 415.00,116.00 L 427.00,117.00 L 434.00,122.00 L 437.00,129.00 L 437.00,183.00 L 440.00,191.00 L 530.00,190.00 L 532.00,186.00 L 532.00,23.00 L 530.00,14.00 L 527.00,10.00 L 522.00,8.00 L 498.00,9.00 L 408.00,22.00 L 315.00,44.00 L 237.00,67.00 L 189.00,86.00 L 132.00,114.00 L 81.00,147.00 Z M 736.00,127.00 L 742.00,114.00 L 751.00,105.00 L 765.00,101.00 L 802.00,101.00 L 867.00,105.00 L 950.00,114.00 L 1036.00,129.00 L 1093.00,143.00 L 1154.00,164.00 L 1187.00,179.00 L 1213.00,194.00 L 1217.00,194.00 L 1244.00,213.00 L 1248.00,218.00 L 1249.00,217.00 L 1267.00,235.00 L 1282.00,265.00 L 1282.00,281.00 L 1279.00,294.00 L 1269.00,312.00 L 1252.00,328.00 L 1253.00,329.00 L 1225.00,349.00 L 1186.00,370.00 L 1123.00,395.00 L 1028.00,419.00 L 935.00,435.00 L 851.00,444.00 L 745.00,450.00 L 736.00,441.00 L 735.00,434.00 Z" fill="#ffffff" fill-rule="evenodd"/>
+  </g>
+
+  <!-- Divider -->
+  <rect x="559" y="112" width="5" height="296" rx="2.5" fill="#5c5f63" opacity="0.72"/>
+
+  <!-- Official COMPEL wordmark traced from supplied logo -->
+  <g transform="translate(605.000,170.000) scale(0.636923)">
+    <path d="M 870.00,106.00 L 787.00,106.00 L 718.00,290.00 L 801.00,290.00 L 857.00,144.00 L 860.00,132.00 L 868.00,115.00 Z M 1432.00,104.00 L 1251.00,106.00 L 1242.00,126.00 L 1240.00,135.00 L 1235.00,145.00 L 1181.00,290.00 L 1363.00,290.00 L 1397.00,199.00 L 1300.00,199.00 L 1298.00,195.00 L 1307.00,176.00 L 1406.00,176.00 L 1429.00,116.00 Z M 1605.00,0.00 L 1497.00,0.00 L 1388.00,290.00 L 1591.00,289.00 L 1597.00,270.00 L 1625.00,199.00 L 1524.00,199.00 L 1522.00,197.00 Z M 1259.00,83.00 L 1441.00,83.00 L 1472.00,0.00 L 1290.00,0.00 Z M 1205.00,21.00 L 1184.00,7.00 L 1157.00,0.00 L 1063.00,1.00 L 1032.00,83.00 L 1097.00,84.00 L 1109.00,88.00 L 1112.00,91.00 L 1112.00,96.00 L 1104.00,103.00 L 1089.00,106.00 L 1022.00,106.00 L 1018.00,120.00 L 982.00,214.00 L 980.00,223.00 L 954.00,290.00 L 1035.00,290.00 L 1062.00,219.00 L 1064.00,210.00 L 1072.00,192.00 L 1074.00,183.00 L 1079.00,175.00 L 1134.00,175.00 L 1156.00,171.00 L 1180.00,161.00 L 1194.00,151.00 L 1204.00,141.00 L 1218.00,120.00 L 1224.00,104.00 L 1227.00,90.00 L 1227.00,66.00 L 1225.00,56.00 L 1218.00,38.00 Z M 689.00,0.00 L 678.00,32.00 L 670.00,49.00 L 669.00,55.00 L 652.00,96.00 L 650.00,105.00 L 640.00,127.00 L 638.00,136.00 L 622.00,174.00 L 620.00,183.00 L 578.00,290.00 L 691.00,290.00 L 769.00,86.00 L 772.00,83.00 L 875.00,83.00 L 883.00,86.00 L 890.00,92.00 L 893.00,99.00 L 893.00,116.00 L 891.00,124.00 L 883.00,141.00 L 882.00,147.00 L 874.00,165.00 L 872.00,174.00 L 867.00,184.00 L 828.00,290.00 L 934.00,290.00 L 946.00,254.00 L 956.00,231.00 L 975.00,176.00 L 992.00,134.00 L 1004.00,95.00 L 1008.00,70.00 L 1008.00,46.00 L 1004.00,29.00 L 995.00,15.00 L 980.00,5.00 L 961.00,0.00 Z M 562.00,25.00 L 548.00,16.00 L 533.00,9.00 L 511.00,3.00 L 489.00,0.00 L 457.00,1.00 L 427.00,7.00 L 403.00,16.00 L 382.00,27.00 L 349.00,51.00 L 330.00,70.00 L 310.00,98.00 L 302.00,114.00 L 291.00,150.00 L 290.00,189.00 L 293.00,206.00 L 303.00,229.00 L 321.00,253.00 L 333.00,264.00 L 345.00,272.00 L 367.00,282.00 L 403.00,289.00 L 432.00,289.00 L 466.00,283.00 L 493.00,273.00 L 514.00,262.00 L 549.00,236.00 L 569.00,215.00 L 585.00,192.00 L 596.00,169.00 L 606.00,130.00 L 606.00,99.00 L 596.00,67.00 L 579.00,41.00 Z M 498.00,101.00 L 505.00,108.00 L 513.00,122.00 L 514.00,141.00 L 505.00,163.00 L 488.00,181.00 L 476.00,189.00 L 460.00,196.00 L 441.00,200.00 L 429.00,200.00 L 414.00,197.00 L 403.00,192.00 L 389.00,179.00 L 383.00,168.00 L 382.00,149.00 L 385.00,137.00 L 393.00,123.00 L 415.00,103.00 L 434.00,94.00 L 449.00,90.00 L 477.00,91.00 L 488.00,95.00 Z M 312.00,1.00 L 189.00,0.00 L 145.00,6.00 L 108.00,17.00 L 71.00,36.00 L 53.00,50.00 L 38.00,65.00 L 20.00,91.00 L 7.00,122.00 L 0.00,154.00 L 0.00,181.00 L 4.00,201.00 L 10.00,219.00 L 21.00,240.00 L 30.00,253.00 L 50.00,272.00 L 75.00,285.00 L 91.00,290.00 L 220.00,290.00 L 246.00,218.00 L 246.00,211.00 L 242.00,209.00 L 232.00,208.00 L 129.00,208.00 L 123.00,205.00 L 116.00,198.00 L 112.00,188.00 L 112.00,169.00 L 114.00,160.00 L 121.00,142.00 L 132.00,123.00 L 154.00,100.00 L 173.00,89.00 L 196.00,83.00 L 279.00,82.00 L 285.00,80.00 L 292.00,69.00 L 308.00,18.00 L 313.00,7.00 Z" fill="currentColor" fill-rule="evenodd"/>
+  </g>
+
+    </symbol>
+
+</svg>
+<header id="topo" class="topo oculto">
+  <div class="marca-topo"><svg class="marca-svg" role="img" aria-label="Compel"><use href="#marca-horizontal"/></svg><span class="divisor-marca"></span><span class="sub">App</span></div>
+  <div class="espaco"></div>
+  <div class="acoes n-com-codigo"><span id="sinal" class="app-sinal off">Sem sinal</span><span id="codigo" class="n-codigo-tela"></span></div>
 </header>
 <button id="barraVersao" type="button" class="barra-versao oculto" data-acao="atualizar">Versão nova do app instalada. Toque para usar.</button>
-<main id="corpo" aria-live="polite"><div class="cartao"><p class="media">Abrindo…</p></div></main>
-<nav id="abas" class="abas oculto">
+<main id="corpo" aria-live="polite"><div class="carregando">Abrindo…</div></main>
+<nav id="abas" class="app-abas oculto">
   <button type="button" data-aba="inicio"><i>⌂</i>Início</button>
-  <button type="button" data-aba="avisos"><i>✉</i>Avisos<span id="bolinha" class="bolinha oculto"></span></button>
+  <button type="button" data-aba="avisos"><i>✉</i>Avisos<span id="bolinha" class="app-bolinha oculto"></span></button>
   <button type="button" data-aba="perfil"><i>☺</i>Perfil</button>
 </nav>
 <!-- O endereço do login vem num arquivo só, e nenhum caminho em uso o troca (config/login.js explica por quê). -->

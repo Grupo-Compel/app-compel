@@ -9,8 +9,19 @@
 
    OS BLOCOS: quando um bloco entrar (blocos/<bloco>/), os arquivos dele entram nesta lista pela casca, a pedido da
    frente dona, por carta (FRONTEIRA §5.5). A casca nunca apaga cache de bloco: só os dela, pelo prefixo. */
-var VERSAO_CACHE = 'app-compel-casca-1.0';
-var ARQUIVOS = ['./', './index.html', './app.js', './config/login.js', './manifest.webmanifest', './icone-192.png', './icone-512.png'];
+var VERSAO_CACHE = 'app-compel-casca-1.1';
+var ARQUIVOS = ['./', './index.html', './app.js', './config/login.js', './manifest.webmanifest', './icone-192.png', './icone-512.png',
+  './estilo/fontes.css', './estilo/nucleo.css',
+  './estilo/fontes/barlow-condensed-latin-500-normal.woff2',
+  './estilo/fontes/barlow-condensed-latin-600-normal.woff2',
+  './estilo/fontes/barlow-condensed-latin-700-normal.woff2',
+  './estilo/fontes/inter-latin-400-normal.woff2',
+  './estilo/fontes/inter-latin-500-normal.woff2',
+  './estilo/fontes/inter-latin-600-normal.woff2',
+  './estilo/fontes/inter-latin-700-normal.woff2',
+  './estilo/fontes/josefin-sans-latin-400-normal.woff2',
+  './estilo/fontes/josefin-sans-latin-600-normal.woff2',
+  './estilo/fontes/josefin-sans-latin-700-normal.woff2'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSAO_CACHE).then(function (c) { return c.addAll(ARQUIVOS); }).then(function () { return self.skipWaiting(); }));

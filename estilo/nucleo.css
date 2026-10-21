@@ -1,0 +1,1256 @@
+/*
+  CÓPIA DO ESTILO DO NÚCLEO, para o App Compel (21/10/2026).
+
+  O app mora fora do Google e abre sem sinal, então ele não pode chamar o Nucleo.css() como os módulos fazem. Esta é
+  a folha do Núcleo copiada do backup "Nucleo_e_Portal_para_o_Drive" (Estilo.html de 18/10/2026, 45.959 bytes, md5
+  f8ae7db37d97ca291e9a782923a35e2d), com uma troca só: o @import das fontes saiu (ver o aviso no lugar dele).
+
+  NÃO EDITE AQUI. Mudança de visual da plataforma é do Núcleo, e chega ao app por carta: esta frente troca a cópia
+  inteira e publica. O que é só do app (as abas de baixo, a lista de quem já entrou) mora no index.html, com o
+  prefixo app-, para nunca colidir com classe do Núcleo.
+
+  O risco desta cópia é o da família 39 (o mesmo valor em dois lugares e nada comparando): se o Núcleo mudar o
+  vermelho, o app fica com o antigo até alguém trocar este arquivo. Registrado na fronteira (§2) e na carta nº 13
+  do App ao Núcleo.
+*/
+/*
+  Nucleo.css() -- design system da Plataforma Compel.
+
+  SE VOCE LEU ESTE ARQUIVO DA BASE DE CONHECIMENTO, LEIA ISTO ANTES.
+  ==========================================================================
+  Este arquivo mora em dois lugares: no projeto da biblioteca, onde ele RODA, e
+  na base de conhecimento, onde ele e LIDO. Os dois deveriam ser iguais e nada
+  aqui garante que sejam -- a copia da base so anda quando alguem a substitui.
+
+  ESTA COPIA FOI TIRADA DO INSTALADO EM 18/10/2026.
+  A data entra aqui porque a frente de Gestao a Vista descobriu que a copia
+  da base estava quatro semanas atras comparando BYTES -- 26.132 contra
+  45.602 --, e esse e um jeito caro de responder "de quando e esta copia?".
+  O tamanho e o md5 de cada arquivo ficam no `00_LEIA_PRIMEIRO` do Drive.
+
+  Entao: para LER e entender, a copia da base serve. Para DECIDIR APAGAR uma
+  regra do seu modulo porque "a biblioteca ja tem", nao serve. Peca o
+  `Nucleo.css()` rodado no editor.
+
+  A diferenca nao e teorica. Uma lista de "pode apagar" derivada de uma folha
+  desatualizada nao erra por pouco: ela apaga regras que a biblioteca NAO tem, e
+  o sintoma e a sua tela perdendo estilo em producao, sem nada acusando.
+
+
+  ESTE ARQUIVO E COMPARTILHADO POR TODOS OS MODULOS. So entra aqui o que
+  serve a qualquer um deles: tokens, tipografia, estrutura, botao, campo,
+  aviso, selo, chip e a tela de login.
+
+  O QUE NAO ENTRA, E POR QUE:
+  classe de dominio de um modulo -- .trilha, .questao, .moldura-video,
+  .cert-item, .cartoes-gestor -- fica no Estilo.html daquele modulo. Se
+  subisse para ca, mudar a tela de quiz do Treinamentos passaria a exigir
+  publicar versao nova da biblioteca e trocar o numero em cada modulo.
+
+  E NAO E TEORIA: a classe .modulo do Treinamentos, com display:flex, foi
+  copiada a mao para o Financeiro e quebrou os cards retrateis de la. So
+  foi resolvida renomeando para .modulo-trilha. Classe de dominio em
+  arquivo compartilhado quebra o outro modulo -- ja aconteceu uma vez.
+
+  As classes proprias do nucleo levam prefixo n- (ver o fim do arquivo).
+
+  Decisoes de projeto herdadas do Treinamentos, todas mantidas:
+  1. FUNDO CLARO, nao escuro. O publico usa celular em campo, sob sol forte.
+     Tela escura ao sol vira espelho.
+  2. ALVOS DE TOQUE GRANDES, minimo 52px. Muita gente toca de luva.
+  3. TIPOGRAFIA: Josefin Sans nos titulos, Barlow Condensed nas etiquetas
+     (desenhada para sinalizacao, tem ar de placa de seguranca) e Inter no
+     texto corrido.
+*/
+
+/* [App Compel] o @import das fontes do Google saiu desta cópia: o app tem de abrir sem sinal, e as
+   mesmas três fontes vêm da pasta estilo/fontes (estilo/fontes.css). */
+
+:root {
+  --fundo:        #F4F5F7;
+  --superficie:   #FFFFFF;
+  --tinta:        #231F20;
+  --tinta-media:  #5A5C63;
+  --tinta-fraca:  #8B8E96;
+  --linha:        #E2E4E8;
+
+  --vermelho:      #ED1C24;   /* vetor oficial da logo */
+  --vermelho-forte:#B2101F;   /* apresentacoes internas */
+  --vermelho-claro:#FDEBEC;
+  --ambar:        #B87400;
+  --ambar-claro:  #FFF3DC;
+  /* O VIGESIMO TOKEN, e ele quebra uma simetria de proposito.
+     Os modulos tem 19 no :root deles, identicos aos daqui -- medido pela
+     frente de Interface. Este e o 20o, e quem repetir a contagem vai achar a
+     diferenca: ela e esta linha.
+     Ele existe porque os outros tres estados do aviso tinham token proprio e
+     o `info` era o unico com hex solto (#EEF1F6), que nao saiu de decisao
+     nenhuma. Reaproveitar o --fundo seria pior: e a cor da pagina, e a
+     caixinha ficaria da cor do que esta atras dela. */
+  --info-claro:   #EEF1F6;
+  --verde:        #0E7A47;
+  --verde-claro:  #E4F4EB;
+  --grafite:      #231F20;   /* palavra COMPEL na logo */
+  --grafite-claro:#3A3639;
+
+  --raio:      10px;
+  --raio-p:    6px;
+  --sombra:    0 1px 2px rgba(15,31,46,.06), 0 4px 14px rgba(15,31,46,.06);
+  --toque:     52px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+h1, h2, h3 {
+  font-family: 'Josefin Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0;
+  letter-spacing: .01em;
+}
+h1 { font-size: 28px; }
+h2 { font-size: 22px; }
+h3 { font-size: 18px; }
+
+/* Etiqueta em caixa alta: usada para categoria, status, secao */
+.etiqueta {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  /* A BASE E A DOS MODULOS -- etiqueta EM LINHA, dentro de cabecalho e cartao.
+     ==================================================================
+     Ate 23/08 esta regra era a do rotulo de secao: 16px, .15em e 26px de
+     margem em cima. Os dois modulos declaravam a mesma classe com 12px,
+     .13em e sem margem -- e concordavam entre si, byte a byte. O nucleo
+     e que estava sozinho.
+
+     No dia da adocao do Nucleo.css(), toda etiqueta em linha dos dois
+     ganharia 33% mais fonte e 26px de margem, em dezenas de lugares. Nao
+     quebra: desloca e cresce, sem nada acusando.
+
+     A conta que decidiu, corrigida em 24/08: 3 usos aqui contra 43 nos dois
+     modulos -- 29 no Financeiro e 14 no Treinamentos. A primeira contagem
+     dizia "4 so na tela do lote", e eram 2 na tela e 29 no modulo: erraram o
+     numero e o lugar. A proporcao ficou mais forte, e nao mais fraca.
+
+     E DOS 14 DO TREINAMENTOS, SEIS TEM `margin-bottom` INLINE -- e eles nao
+     sao remendo, sao excecao legitima: as oito sem margem sao legenda DENTRO
+     de cartao, e colam de proposito; as seis com margem sao titulo de secao, e
+     precisam de respiro. O uso estava dizendo que ali a etiqueta tem outro
+     papel, e foi o que este modificador reconheceu.
+
+     A armadilha do inline continua valendo para quem for adotar: ele PARECE
+     protecao contra a mudanca de classe e nao e, porque a forma abreviada
+     define os quatro lados e o inline cobre um. */
+  font-size: 12px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+}
+
+/* O ROTULO DE SECAO VIRA MODIFICADOR, e o prefixo vai NELE.
+   ==========================================================================
+   A `.etiqueta` nao e invencao do nucleo -- ela veio do Treinamentos, como o
+   `.selo` e o `.chip`. MAS A VARIANTE E: o rotulo de secao com margem foi o
+   nucleo que criou. Renomear a classe inteira poria o `n-` no que foi
+   herdado; o modificador poe no que foi inventado, que e o que a regra diz.
+
+   E ele custa tres declaracoes em vez de sete: familia, peso, uppercase e cor
+   sao iguais nos dois usos, e so o que difere fica aqui.
+
+   ELE NAO APARECE SOZINHO. Sempre `class="etiqueta n-secao"` -- sem a base,
+   sobram tres propriedades sem familia, sem peso e sem cor.
+
+   Dois niveis de especificidade contra um: ele vence a `.etiqueta` do bloco
+   do modulo mesmo vindo antes dela. Conferido pela frente de Interface com o
+   bloco do modulo por ultimo, que e o pior caso. */
+.etiqueta.n-secao {
+  font-size: 16px;
+  letter-spacing: .15em;
+  margin: 26px 0 12px;
+}
+
+.numero { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- estrutura */
+
+.topo {
+  background: var(--grafite);
+  color: #fff;
+  padding: 0 18px;
+  height: 66px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* A marca inteira e clicavel: voltar ao inicio pela logo e o gesto que a
+   pessoa tenta por instinto, vindo de qualquer site. */
+.topo .marca-topo {
+  display: flex; align-items: center; gap: 13px;
+  cursor: pointer; padding: 9px 0; border: 0;
+  text-align: left;
+  /* Precisa de .topo na frente: sem isso a regra .topo button vence por
+     especificidade e a marca ganha o fundo cinza dos botoes. */
+  background: none;
+}
+.topo .marca-topo:hover { background: none; }
+
+/* Vetor ate o COMPEL: simbolo, fio e logotipo ja vem posicionados entre si
+   no arquivo oficial. Proporcao do enquadramento: 1608 x 344 = 4,674. */
+.marca-svg { height: 44px; width: 206px; display: block; flex: 0 0 206px; }
+
+/* O subtitulo saiu de dentro do vetor. Como desenho ele encolhia junto com a
+   marca e ficava ilegivel; como texto, tem tamanho proprio. */
+.topo .divisor-marca {
+  width: 1px; height: 26px; flex: 0 0 1px;
+  background: rgba(255,255,255,.28);
+  margin: 0 13px 0 14px;
+}
+.topo .sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 17px; font-weight: 500;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(255,255,255,.72);
+  white-space: nowrap; line-height: 1;
+}
+
+/* Texto so para leitor de tela: a marca e imagem, e quem nao enxerga
+   precisa saber o que ela diz. */
+.sr {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Na tela estreita o subtitulo sai: a barra nao comporta os dois e a marca
+   sozinha ja identifica. */
+@media (max-width: 620px) {
+  .marca-svg { height: 36px; width: 168px; flex: 0 0 168px; }
+  .topo .divisor-marca, .topo .sub { display: none; }
+}
+
+.topo .espaco { flex: 1; }
+.topo .acoes { display: flex; align-items: center; gap: 9px; }
+
+/* CODIGO DE TELA -- opcional, e o opcional e o ponto.
+   ==========================================================================
+   O modulo que quer o codigo pede, acrescentando `n-com-codigo` ao `.acoes`.
+   Mudar o `.topo .acoes` direto viraria coluna em TODO MUNDO, e o Portal, que
+   nao tem codigo de tela, amanheceria com os botoes empilhados.
+
+   E o mesmo acoplamento CSS-HTML que mordeu no `.saudacao`: la o CSS mudou e o
+   HTML nao sabia. Aqui da para evitar, e a forma de evitar e o CSS nao decidir
+   sozinho -- quem quer o comportamento novo pede por ele.
+
+   POR QUE ESTA SOBE ANTES DE EXISTIR O PRIMEIRO CONSUMIDOR: o padrao de modulo
+   novo MANDA que todo modulo tenha o codigo, no mesmo canto. O documento que
+   obriga ja e o segundo consumidor. Sem isto, quatro modulos nascem com o mesmo
+   bloco copiado, e mudar o tamanho do codigo vira quatro edicoes.
+
+   Onde ele fica foi decidido olhando: embaixo do botao Sair, mesmo canto em
+   toda tela, entra em qualquer print sem a pessoa fazer nada, e da para dizer
+   no telefone "me le o codigo embaixo do botao Sair".
+
+   Duas coisas ja tentadas e descartadas, para nao serem redescobertas:
+   posicao absoluta encostava na borda -- sobram 13px numa barra de 66px; e
+   junto do subtitulo ele sumiria abaixo de 620px, que e o celular de quem esta
+   ligando pedindo ajuda. */
+.topo .acoes.n-com-codigo {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+/* As mesmas tres declaracoes do `.topo .acoes`, de proposito: quando a coluna
+   liga, os botoes precisam da propria linha. Se alguem mudar o `gap` la, mude
+   aqui -- sao dois lugares porque sao dois eixos, e nao por descuido. */
+.n-botoes {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.n-codigo-tela {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  color: rgba(255,255,255,.42);
+  line-height: 1;
+  white-space: nowrap;
+  margin-right: 2px;
+  user-select: all;   /* toque longo seleciona o codigo inteiro */
+}
+.topo .logo { height: 32px; width: auto; border-radius: 4px; }
+.topo button {
+  background: rgba(255,255,255,.14);
+  border: 0;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 13px;
+  border-radius: var(--raio-p);
+  cursor: pointer;
+  min-height: 40px;
+}
+.topo button:hover { background: rgba(255,255,255,.24); }
+
+.conteudo { max-width: 720px; margin: 0 auto; padding: 20px 16px 56px; }
+
+/* Em monitor, a coluna de 720px deixava metade da tela vazia. A trilha vira
+   grade a partir de 1000px: quem tem 11 treinamentos ve o conjunto de uma vez,
+   em vez de rolar. No celular nada muda -- lista vertical continua sendo o
+   formato certo para tela estreita. */
+/* No computador o conteudo respira mais. A tela dividida em duas colunas
+   -- .split, .painel-esq, .painel-dir -- NAO entra aqui: ela e do desenho da
+   trilha do Treinamentos, e mora no Estilo.html daquele modulo junto com o
+   resto do dominio dele. */
+/* A MESMA REGRA ESCRITA EM DOIS MODULOS SOBE, e o criterio e o da 0.7: quando o
+   SEGUNDO precisa, deixa de ser palpite sobre o futuro.
+
+   E GRADUACAO NAO E REGRA NOVA: acrescentar um @media a uma regra que ja existe
+   aqui e mais barato e mais seguro que subir a regra inteira -- nada muda abaixo
+   do ponto de quebra.
+
+   HISTORIA -- o Financeiro e o Treinamentos escreviam estas duas, byte a byte
+   iguais, nos dois arquivos, em 23/08. Era a mesma linha em dois lugares.
+
+   NAO E REGRA NOVA. O `h1` e o `.conteudo` ja existiam aqui -- o que faltava
+   era a graduacao. Nada muda abaixo de 640px.
+
+   E ELA VEM ANTES DO BLOCO DE 1000px DE PROPOSITO. Os dois sao `min-width`,
+   entao acima de 1000 os dois valem e o ULTIMO vence. Invertida a ordem, o
+   padding de 28/24/64 apagaria o `padding: 0 24px` do bloco de baixo, e a
+   grade larga voltaria a ter recuo dos dois lados sem ninguem entender por
+   que. */
+@media (min-width: 640px) {
+  .conteudo { padding: 28px 24px 64px; }
+  h1        { font-size: 32px; }
+}
+
+@media (min-width: 1000px) {
+  .conteudo { max-width: 1480px; padding: 0 24px; }
+}
+
+.cartao {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: 18px;
+  box-shadow: var(--sombra);
+}
+
+/* ------------------------------------------------------------------ botoes */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--toque);
+  padding: 14px 20px;
+  border: 0;
+  border-radius: var(--raio-p);
+  background: var(--vermelho);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.btn:hover:not(:disabled) { background: var(--vermelho-forte); }
+.btn:disabled { background: #B7C2CE; cursor: not-allowed; }
+.btn.secundario {
+  background: transparent;
+  color: var(--vermelho);
+  border: 1.5px solid var(--vermelho);
+}
+.btn.secundario:hover:not(:disabled) { background: var(--vermelho-claro); }
+.btn.fantasma {
+  background: transparent;
+  color: var(--tinta-media);
+  border: 1px solid var(--linha);
+}
+.btn.auto { width: auto; }
+
+.link-texto {
+  background: none;
+  border: 0;
+  color: var(--vermelho);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 12px 4px;
+}
+
+/* ------------------------------------------------------------------ campos */
+
+.campo { margin-bottom: 16px; }
+.campo label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tinta-media);
+  margin-bottom: 7px;
+}
+.campo input {
+  width: 100%;
+  min-height: var(--toque);
+  padding: 13px 15px;
+  border: 1.5px solid var(--linha);
+  border-radius: var(--raio-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;   /* 16px ou mais evita o iPhone dar zoom ao focar */
+  color: var(--tinta);
+  background: #fff;
+}
+.campo input:focus {
+  outline: none;
+  border-color: var(--vermelho);
+  box-shadow: 0 0 0 3px var(--vermelho-claro);
+}
+.campo .ajuda { font-size: 13px; color: var(--tinta-fraca); margin-top: 6px; }
+
+/* --------------------------------------------------------------- avisos */
+
+
+/* O `.aviso` E FLEX PARA O ICONE FICAR AO LADO DO TEXTO -- e isso significa que
+   CADA NO FILHO VIRA UMA COLUNA.
+   ==========================================================================
+   Dois nos irmaos aqui dentro nao ficam em sequencia de texto: ficam lado a
+   lado. Com frase curta ninguem nota -- os dois cabem numa linha e parecem
+   texto normal. Com frase longa, o texto quebra em duas colunas desalinhadas.
+
+   Achado pela frente de Interface em 28/08, desenhando a tela de recuperacao,
+   e ele atinge a proposta que eu mesmo tinha feito: um `avisar(destaque,
+   corpo)` que montasse dois nos produziria exatamente isso.
+
+   ENTAO A REGRA PARA QUEM MONTA AVISO: o `.aviso` recebe UM filho. Se o
+   conteudo tiver partes -- negrito mais texto --, elas vao dentro de um
+   container, e o container e o filho unico.
+
+   E O CONSERTO NAO E CSS. Um `<div>` SEM CLASSE NENHUMA em volta ja resolve --
+   medido pela frente de Interface nas quatro montagens. O que conserta e ter UM
+   filho, e nao ter um filho com uma classe.
+
+   Por isso nao ha aqui uma classe de container. Houve uma, `.n-aviso-corpo`,
+   por dois dias: ela entrou porque o diagnostico dizia "precisa de container",
+   e "container" foi lido como "classe". **Uma regra que nao faz nada e a que
+   ninguem percebe estar errada** -- pior que uma errada que pinta, porque some
+   do raciocinio de quem for consertar o defeito de verdade: ele vai procurar
+   CSS e nao vai achar estrutura.
+
+   O CONSERTO MORA NO `avisar` DE QUEM MONTA, que entrega um filho sempre. A
+   regra esperaria alguem cair na armadilha e saber que ela existe; o `avisar`
+   impede a armadilha.
+
+   Se um dia um aviso precisar de icone e texto com alinhamentos diferentes, a
+   classe nasce junto com a tela que a usa -- e nasce sendo vista. Criterio 0.7
+   aplicado a CSS: sobe quando alguem precisa, e nao antes. */
+/* A BORDA E DA PAGINA, E NAO DO COMPONENTE.
+   ==========================================================================
+   A frente de Interface mediu o `.aviso` de pendencia contra o fundo e achou
+   contraste de 1.01 -- **1.0 e serem identicas.** Em escala de cinza a faixa
+   desaparece na pagina.
+
+   E eles propuseram borda no `.aviso`, e disseram contra a propria proposta:
+
+     "O problema pode nao ser o componente: pode ser a pagina. Nos vimos um
+      caso e estamos propondo mexer em todos."
+
+   ESTAO CERTOS, E OS DOIS CASOS ESTAO NO MESMO ARQUIVO:
+
+     avisoEntrada  dentro do `.cartao`, que e branco e ja tem borda propria
+     avisoGrade    direto sobre o `--fundo`, cinza, sem nada em volta
+
+   **No cartao ele nao precisa de borda: o cartao ja e a moldura.** Por-la la
+   daria duas linhas concentricas a dois pixels uma da outra.
+
+   A PRIMEIRA VERSAO PENDURAVA A BORDA NO CONTEXTO -- `.conteudo > .aviso`.
+   ==========================================================================
+   Funcionava, e caiu por uma razao que a Interface trouxe depois de
+   renderizar: **o aviso com borda dentro do cartao branco tambem esta certo.**
+   A borda nao atrapalha, nao muda o peso, nao compete com o cartao.
+
+   Entao o custo dela onde ela nao e necessaria e ZERO -- e a versao por
+   contexto tinha um custo onde ela e necessaria e nao chega: **um aviso posto
+   fora do `.conteudo` nasce sem borda e ninguem ve nada errado**, porque o
+   aviso continua aparecendo. So sem limite.
+
+   E o `.aviso` vai para os quatro modulos novos, cujo `App.html` nao existe
+   ainda. **Uma regra que depende de o aviso estar no lugar certo da arvore e
+   uma coisa a mais para o padrao ensinar** -- e a licao seria "ponha dentro
+   do conteudo", que e a forma que este projeto ja sabe que nao funciona.
+
+   POR ISSO A BORDA E SEMPRE, e nao por contexto. A decisao nao vem da medida
+   -- a medida diz que so faz falta sobre o fundo cinza --, vem do modo de
+   falha: a versao por contexto **falha em silencio**, e esta nao falha.
+
+   E ela e NEUTRA, e nao por familia. Borda da cor do proprio aviso deixaria
+   toda mensagem de erro contornada de vermelho, que e mais forte do que se
+   quer -- e a faixa nao precisa gritar: precisa ter limite. */
+
+.aviso {
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-p);
+  padding: 13px 15px;
+  font-size: 15px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.aviso.erro   { background: var(--vermelho-claro); color: var(--vermelho); }
+.aviso.ok     { background: var(--verde-claro);    color: var(--verde); }
+.aviso.atencao{ background: var(--ambar-claro);    color: #8A5A00; }
+/* INFO NAO E ERRO. Estava pintado de vermelho, igual ao .aviso.erro -- e a
+   mensagem da recuperacao de senha, que e a mais tranquilizadora do sistema,
+   saia com cara de problema. Achado pelo Financeiro, e o defeito era daqui. */
+.aviso.info   { background: var(--info-claro);        color: var(--tinta-media); }
+/* A linha `border-left-color` saiu daqui: o `.aviso` nao define borda nenhuma,
+   entao ela nunca fez efeito. Sobrou de um desenho anterior -- inofensiva, e
+   enganava quem fosse mexer. */
+.aviso b { font-weight: 700; }
+
+/* ------------------------------------------------------- selo e chip */
+
+/*
+  Selo e chip vieram do Treinamentos, onde nasceram para status de trilha e
+  filtro de categoria. Sobem para o nucleo porque nada neles e de trilha:
+  sao rotulo de estado e botao de filtro, que todo modulo tem.
+*/
+
+.selo {
+  display: inline-block;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+.selo.feito   { background: var(--verde-claro);    color: var(--verde); }
+.selo.andando { background: var(--ambar-claro);    color: #8A5A00; }
+.selo.atraso  { background: var(--vermelho-claro); color: var(--vermelho); }
+
+.chip {
+  background: var(--superficie);
+  border: 1.5px solid var(--linha);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--tinta-media);
+  cursor: pointer; white-space: nowrap;
+  min-height: 40px;
+}
+.chip b { font-weight: 700; opacity: .55; margin-left: 3px; }
+.chip:hover { border-color: #CFD3D9; }
+.chip.ativo {
+  background: var(--vermelho); border-color: var(--vermelho); color: #fff;
+}
+.chip.ativo b { opacity: .8; }
+
+/* -------------------------------------------------------- login (abertura) */
+
+
+.login-tela {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+  max-width: 440px;
+  margin: 0 auto;
+  background: var(--superficie);
+}
+/* Faixa vermelha no topo: assinatura discreta da marca sem invadir a tela. */
+.login-tela::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 6px;
+  background: var(--vermelho);
+  z-index: 5;
+}
+/* O CODIGO DA TELA NO LOGIN -- mesmo canto de todas as outras telas.
+   ==========================================================================
+   A tela de login nao tem barra do topo, e o codigo precisa cair no mesmo
+   ponto assim mesmo: quem esta ao telefone procura sempre no mesmo lugar, e
+   isso vale mais que o codigo estar perto de um botao que aqui nao existe.
+
+   POSITION FIXED, e nao absolute: a `.login-tela` e uma coluna de 440px
+   centrada, entao `absolute` dentro dela colaria o codigo no canto do CARTAO,
+   e nao no canto da PAGINA -- que e onde ele fica nas outras telas. Numa tela
+   larga os dois cantos sao lugares bem diferentes.
+
+   Como item de fluxo tambem nao serve: numa coluna centrada ele empurraria o
+   cartao uma linha para baixo.
+
+   Z-INDEX 6 PORQUE A FAIXA VERMELHA ESTA EM 5. Sem passar dela, o codigo fica
+   por baixo -- e a faixa e `fixed` no mesmo canto.
+
+   TOP 16px FOI MEDIDO: alinhar com os 48px em que ele aparece na barra do topo
+   o joga DENTRO da moldura vermelha, disputando o canto com ela.
+
+   A COR E `--tinta-media`, E NAO `--tinta-fraca`. A frente de Interface propos
+   a fraca, por simetria com o branco a 42% da barra escura. Mas a razao de a
+   tela de login ter moldura clara em vez de fundo escuro esta escrita tres
+   linhas abaixo: MAIS LEGIVEL SOB SOL. O `--tinta-fraca` (#8B8E96) sobre
+   branco fica em torno de 3,5:1, e este texto tem 10px -- e quem le e alguem
+   de campo, no celular, provavelmente do lado de fora. A media (#5A5C63) da
+   uns 6,4:1 e continua discreta.
+
+   `position: fixed` num celular com teclado aberto pode se deslocar no iOS. Ele
+   nao foi testado com teclado, e vale saber -- mas a faixa vermelha ja e
+   `fixed` neste mesmo lugar desde o comeco, entao se houvesse deslocamento ele
+   ja apareceria nela. */
+.login-tela .n-codigo-tela {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 6;
+  color: var(--tinta-media);
+  margin: 0;
+}
+
+/* A moldura substitui o fundo escuro: mais legivel sob sol, e permite usar
+   a logo oficial inteira, sem precisar de versao vazada em branco. */
+.moldura {
+  border: 2px solid var(--vermelho);
+  border-radius: 14px;
+  padding: 26px 20px 22px;
+}
+.login-marca .logo-oficial {
+  width: 150px;
+  height: 148px;
+  display: block;
+  margin: 0 auto;
+  overflow: visible;
+}
+.login-marca { text-align: center; margin-bottom: 28px; }
+.login-marca .logo { max-height: 54px; margin-bottom: 14px; }
+.login-marca .nome {
+  font-family: 'Josefin Sans', sans-serif;
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--vermelho);
+  line-height: 1;
+}
+.login-marca .sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: var(--vermelho-forte);
+  margin-top: 10px;
+  /* O letter-spacing empurra o texto para a esquerda: o padding devolve
+     o equilibrio optico do bloco. */
+  padding-left: .34em;
+}
+.login-rodape {
+  text-align: center;
+  font-size: 13px;
+  color: var(--tinta-fraca);
+  margin-top: 22px;
+  line-height: 1.7;
+}
+
+/* ------------------------------------------------------------- utilidades */
+
+.carregando { text-align: center; padding: 52px 20px; color: var(--tinta-fraca); }
+.vazio { text-align: center; padding: 48px 22px; color: var(--tinta-media); }
+.vazio .grande { font-size: 40px; margin-bottom: 14px; }
+.oculto { display: none !important; }
+
+/* ----------------------------------------------------------- n-saudacao */
+/* CLASSE QUE O NUCLEO INVENTA LEVA PREFIXO `n-`. Sem ele, o mesmo nome
+   significa duas coisas em dois arquivos, e a colisao nao quebra: desloca. E o
+   que desloca fica, porque nao falha.
+
+   E QUANDO HOUVER COLISAO, CEDE QUEM INVENTOU FORA DA REGRA -- nao quem tem
+   menos consumidores. O custo conta depois; a regra conta primeiro.
+
+   HISTORIA -- `.saudacao` era o TEXTO grande "Ola, Fulano" aqui e a CAIXA com
+   nome e cargo nos dois modulos. Renomeada em 22/08.
+
+   O nucleo cede por tres razoes, e a terceira e a que decide: ele tem um
+   consumidor so, o custo dele sao tres palavras no PORTAL_App.html, e
+   `.saudacao` era o nucleo descumprindo a regra que ele mesmo criou -- classe
+   inventada aqui leva prefixo `n-`.
+
+   ESTA MUDANCA E ACOPLADA AO HTML DO PORTAL. O CSS vem da biblioteca e o HTML
+   vem do deploy do Portal: trocar um sem o outro deixa a saudacao sem estilo.
+   As duas sobem juntas, na mesma versao que leva o Nucleo.marca(). */
+
+/*
+  Nao existia: o "Ola, Fulano" herdava o texto corrido e ficava do tamanho de
+  qualquer paragrafo. E a primeira coisa que a pessoa le depois de entrar, e a
+  unica que diz que o sistema sabe quem ela e.
+*/
+.n-saudacao {
+  font-family: 'Josefin Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.2;
+  color: var(--tinta);
+  margin: 30px 0 18px;
+}
+@media (max-width: 620px) {
+  .n-saudacao { font-size: 25px; margin-top: 22px; }
+}
+
+/* ------------------------------------------------------------ espera */
+
+/*
+  Cobre a tela enquanto o servidor prepara a passagem para o modulo.
+  Sao alguns segundos: o Portal emite o token, o modulo o troca por sessao e so
+  entao desenha. Sem isto, a pessoa clica e nada acontece -- e clica de novo,
+  gastando um token que vale uma vez so.
+*/
+.n-espera {
+  position: fixed;
+  inset: 0;
+  background: rgba(244, 245, 247, .93);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 50;
+}
+
+.n-roda {
+  width: 54px;
+  height: 54px;
+  border: 5px solid var(--linha);
+  border-top-color: var(--vermelho);
+  border-radius: 50%;
+  animation: n-girar .9s linear infinite;
+}
+
+@keyframes n-girar { to { transform: rotate(360deg); } }
+
+.n-espera .n-texto {
+  font-family: 'Josefin Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 21px;
+  color: var(--tinta);
+}
+.n-espera .n-sub { font-size: 15px; color: var(--tinta-media); }
+
+/*
+  Quem enxerga com leitor de tela nao ve a bolinha girar, e quem desligou
+  animacao no sistema tambem nao. O texto e que informa; a roda so acompanha.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .n-roda { animation-duration: 3s; }
+}
+
+/* ------------------------------------------------------ grade do Portal */
+
+/*
+  A grade de modulos. Prefixo n- porque e do NUCLEO: o Treinamentos ja tem
+  uma classe .modulo com outro significado, e foi exatamente esse choque de
+  nome que quebrou o Financeiro uma vez.
+
+  A CAIXINHA BLOQUEADA CONTINUA VISIVEL, so que apagada e com o motivo
+  escrito embaixo. Esconder faria parecer que o acesso nao existe, e viraria
+  chamado para o RH. Cinza com explicacao diz "voce chega la, falta um passo".
+*/
+
+.n-grade {
+  display: grid;
+  /* 260 -> 350: a caixinha e o alvo de toque mais importante da plataforma,
+     e quem abre no celular em campo agradece cada pixel. */
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+
+  /* `start`, E NAO O PADRAO `stretch`.
+     ==========================================================================
+     Item de grade estica para a altura da FILEIRA por padrao. O cartao de um
+     modulo bloqueado e mais alto -- ele carrega a linha do motivo --, e os
+     liberados que dividem a fileira com ele **esticavam junto**: 155px de
+     altura com 118px de conteudo.
+
+     O sintoma e sutil e nao parece defeito: um cartao vazio embaixo do
+     conteudo, e a fileira desalinhada com a de cima. **O Dalton viu na tela e
+     nenhum dos dois lados reproduzia** -- itens de FORMULARIO em grade sao o
+     que mais varia entre navegadores, e o `<button>` do cartao e um deles.
+
+     `start` deixa cada cartao com a altura do proprio conteudo, e o
+     `min-height: 118px` do `.n-modulo` continua garantindo o piso. **Conserta
+     nos dois navegadores sem depender de saber qual discordava.**
+
+     NAO PONHA `align-self` NO `.n-modulo` para consertar isto: ele vence o
+     contentor e esconde o que estiver aqui. */
+  align-items: start;
+}
+@media (max-width: 420px) {
+  .n-grade { grid-template-columns: 1fr; }
+}
+
+.n-modulo {
+  display: block;
+  text-align: left;
+  width: 100%;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 26px 24px;
+  min-height: 118px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color .15s, transform .15s;
+}
+.n-modulo:hover { border-color: var(--vermelho); transform: translateY(-2px); }
+
+.n-modulo .n-nome {
+  font-family: 'Josefin Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.15;
+  display: block;
+}
+.n-modulo .n-perfil {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  display: block;
+  margin-top: 4px;
+}
+
+/* Bloqueado: apagado, sem sombra, cursor de "nao da". */
+.n-modulo.n-bloqueado {
+  opacity: .55;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: #FAFAFB;
+}
+.n-modulo.n-bloqueado:hover { border-color: var(--linha); transform: none; }
+
+/* O motivo NUNCA e opcional numa caixinha bloqueada.
+   Card apagado sem explicacao parece defeito, nao regra. */
+.n-modulo .n-motivo {
+  display: block;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--linha);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--ambar);
+}
+
+.n-modulo .n-icone { font-size: 36px; display: block; margin-bottom: 10px; }
+
+/* ---------------------------------------------------------- SAUDACAO */
+/*
+  A DISTANCIA DEPOIS DA SAUDACAO NAO EXISTIA.
+  ==========================================================================
+  `margin: 30px 0 0` -- trinta em cima, ZERO embaixo -- e nem a faixa nem a
+  etiqueta declaram margem em cima. **O que vier depois encosta.**
+
+  A faixa nao criou o problema: ela o tornou visivel. Sem faixa, a saudacao ja
+  encostava no "SEUS SISTEMAS" do mesmo jeito, **e ninguem tinha olhado.**
+
+  Por isso a margem vai AQUI, e nao na faixa: consertar so a faixa deixaria
+  errado o caso sem faixa, que e o da maioria das pessoas.
+
+  A `@media (max-width: 620px)` mexe em `font-size` e `margin-top` -- conferido
+  pela frente de Interface --, entao o `margin-bottom` sobrevive nela e nao
+  precisa ser repetido. Repetir seria a mesma regra em dois lugares.
+
+  ATENCAO: a `.n-saudacao` esta nos TRES sistemas. Isto alcanca os tres.
+*/
+
+/* ---------------------------------------------------------- FAIXA DE AVISOS */
+/*
+  A FAIXA fica entre a saudacao e "Seus sistemas", e nao junto do aviso de
+  pendencia: aquele EXPLICA os cartoes -- "3 sistemas estao aguardando voce" so
+  faz sentido colado neles. Este e um recado PARA a pessoa, e nao SOBRE os
+  sistemas dela.
+
+  Tom neutro, e nao ambar: um informa, o outro cobra.
+
+  Desenho da frente de Interface, medido e renderizado por eles.
+
+  A BARRA LATERAL da o peso sem mudar o fundo.
+  ==========================================================================
+  Trocar o fundo por ambar faria o recado competir com a cobranca logo abaixo.
+  **A barra da presenca na varredura vertical do olho e nao muda a temperatura
+  da caixa** -- ela continua sendo cinza.
+
+  E VERMELHA, E NAO GRAFITE. A frente de Interface levantou o risco contra a
+  propria escolha: vermelho aqui e erro e e a marca ao mesmo tempo.
+
+  O que decide esta na tela de login: **a `.moldura` do cartao ja e uma borda
+  vermelha de 2px em volta de tudo, e ninguem a le como erro.** O vermelho como
+  CONTORNO ja e marca neste sistema; como FUNDO -- `.aviso.erro`, `.selo.atraso`
+  -- e que ele e erro.
+
+  Quatro pixels, e nao dois: mesma espessura da `.parada` do Treinamentos, e
+  abaixo disso vira detalhe que so aparece quando alguem procura.
+*/
+.n-faixa {
+  background: var(--info-claro);
+  border: 1px solid var(--linha);
+  border-left: 4px solid var(--vermelho);
+  border-radius: var(--raio);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* O `.n-faixa` e flex, entao cada filho vira COLUNA -- e o corpo precisa ser
+   um so. Mesma familia do `.aviso`, e a razao esta la em cima. */
+.n-faixa-corpo { flex: 1; min-width: 0; }
+
+/*
+  DEZESSEIS, E NAO QUINZE. A 15 o titulo ficava a meio ponto do corpo (14,5) e
+  nao lia como titulo -- duas linhas do mesmo tamanho, uma em negrito.
+
+  Nada nesta tela esta perto: a etiqueta e 12 em Barlow, o nome do modulo e 26
+  em Josefin, o aviso e 15 em Inter. E o `h4` da tela do aviso, que e 17, esta
+  em OUTRA tela -- **duas coisas so competem se aparecerem juntas**, e a
+  proximidade entre 16 e 17 e boa: e o mesmo titulo, visto em sequencia.
+*/
+.n-faixa-tit {
+  display: block;
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 3px;
+}
+
+/*
+  O texto corta em TRES linhas. Com tres avisos abertos os cartoes ja saem da
+  dobra do celular -- medido em 601px, e a dobra fica por volta de 600.
+
+  **O que empurra nao e a quantidade de avisos: e o comprimento de cada um.**
+  Por isso o corte, e nao um limite de quantos avisos podem estar ligados: uma
+  trava no numero impediria o Dalton de dizer tres coisas as pessoas dele.
+
+  O `-webkit-line-clamp` e a unica forma que corta por LINHA e nao por altura
+  fixa -- altura fixa cortaria letra no meio quando a fonte mudasse de tamanho.
+*/
+.n-faixa-txt {
+  /* O `display: block` SAIU EM 29/08, e a razao e uma medicao.
+     ==========================================================================
+     Ele estava aqui como rede: a ideia era que um navegador sem `-webkit-box`
+     ignorasse aquela linha e ficasse com o `block`, mostrando o texto inteiro.
+     **Sem corte e melhor que sem texto** -- o argumento era bom.
+
+     A frente de Interface mediu o display COMPUTADO, com e sem ele:
+
+         com    block + -webkit-box  ->  flow-root, altura 65px
+         sem    so o -webkit-box     ->  flow-root, altura 65px
+
+     **Identico.** Um elemento que nao entende `-webkit-box` cai no `block` por
+     ser o padrao de um `<span>` em bloco -- a declaracao nao acrescentava a
+     rede que eu achava que ela era.
+
+     E EU TINHA ESCRITO O CONTRARIO, com um comentario dizendo por que ela nao
+     era lixo. **O comentario defendia uma protecao que nao protegia** -- e um
+     comentario assim e pior que nenhum: ele impede a proxima pessoa de tirar. */
+  display: -webkit-box;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--tinta-media);
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.n-faixa-acao {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--vermelho);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------- A TELA DO AVISO */
+
+.n-aviso-corpo-texto p { font-size: 16px; line-height: 1.6; margin: 0 0 14px; }
+.n-aviso-corpo-texto h4 {
+  font-family: 'Josefin Sans', 'Inter', sans-serif;
+  font-size: 17px;
+  margin: 0 0 10px;
+}
+
+/*
+  O link do documento fica no FIM do texto, antes do botao: quem rolou ate aqui
+  ja leu, e e o momento em que "ver o documento" faz sentido.
+*/
+.n-aviso-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 22px;
+  color: var(--vermelho);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: underline;
+}
+
+/* ===================================================================
+   POR-08 — ADMINISTRACAO DE ACESSOS
+   Desenho da frente de Interface, renderizado e exercitado com cliques.
+
+   O `.n-adm-perfil` quase se chamou `.perfil`, e existe `.n-modulo .n-perfil`
+   aqui em cima: nomes parecidos com significados diferentes e a `.etiqueta` de
+   novo, e o prefixo `n-adm-` separa. Achado por eles antes de escrever.
+   =================================================================== */
+
+
+/*
+  ESTA TELA E DE COMPUTADOR, e e a primeira desta plataforma que e.
+
+  Toda a plataforma foi desenhada para o telefone -- --toque: 52px, fundo claro
+  por causa do sol, alvos grandes para quem usa luva. Esta inverte: com seis
+  modulos a tabela ja nao cabe em 390px, e com dez nao cabe em tablet.
+
+  Quem administra acesso esta sentado. E quem abrir no celular recebe o aviso e
+  nao uma tabela quebrada -- sem bloquear, porque os navegadores permitem pedir
+  a versao de computador.
+*/
+#soComputador { display: none; }
+@media (max-width: 900px) {
+  #soComputador { display: flex; }
+}
+
+.n-adm-filtros {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr 1.4fr 1.2fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.n-adm-filtros .campo { margin-bottom: 0; }
+.n-adm-filtros select {
+  width: 100%;
+  min-height: var(--toque);
+  padding: 13px 15px;
+  border: 1.5px solid var(--linha);
+  border-radius: var(--raio-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  color: var(--tinta);
+  background: #fff;
+}
+@media (max-width: 900px) {
+  .n-adm-filtros { grid-template-columns: 1fr 1fr; }
+}
+
+/*
+  "47 encontradas, mostrando 25. Refine a busca para ver as outras."
+
+  A segunda frase nao e enfeite: sem ela o numero informa e nao diz o que fazer,
+  e quem procura conclui que a pessoa que falta nao existe.
+*/
+.n-adm-conta {
+  font-size: 14px;
+  color: var(--tinta-media);
+  margin: 12px 0 14px;
+}
+.n-adm-fraca { color: var(--tinta-fraca); }
+
+/*
+  "mostrar mais" e um BOTAO dentro da frase da contagem, e nao um botao solto
+  embaixo da tabela: e ali que a pessoa esta olhando quando descobre que ha 47 e
+  ve 25. Um botao no fim da tabela obriga a rolar 25 linhas para achar a saida
+  de um problema que ela acabou de ler no topo.
+*/
+.n-adm-mais {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--vermelho);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.n-adm-tab {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+.n-adm-tab th {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--linha);
+  text-align: center;
+  vertical-align: bottom;
+}
+.n-adm-tab th.n-adm-p { text-align: left; width: 34%; }
+
+/*
+  AS COLUNAS DE MODULO TEM A MESMA LARGURA, e ate 03/09 nao tinham.
+  ==========================================================================
+  `table-layout: auto` -- o padrao -- divide o que sobra pelo CONTEUDO de cada
+  coluna. "GESTAO A VISTA" e mais largo que "CADASTRO", e "BENEFICIOS" carrega a
+  nota "nao publicado" embaixo: **tres larguras diferentes para tres colunas que
+  significam a mesma coisa.**
+
+  O olho le a diferenca de largura como diferenca de importancia, e ela nao
+  existe: sao todas a mesma pergunta -- "tem acesso?".
+
+  `width` igual em todas divide o que sobra em partes iguais. **Nao e preciso
+  saber quantas colunas ha**: o navegador reparte o `auto` restante, e `1%`
+  em todas as nao-pessoa e igual a "todas iguais".
+*/
+.n-adm-tab th:not(.n-adm-p),
+.n-adm-tab td:not(.n-adm-p) { width: 1%; }
+
+/*
+  NOTA SOB O NOME DA COLUNA. Nome neutro de proposito: ela serve a duas frases
+  diferentes -- "nao publicado" e "so pela planilha" -- e um nome que descreva
+  uma delas mentiria sobre a outra.
+*/
+.n-adm-nota {
+  display: block;
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ambar);
+  margin-top: 2px;
+}
+.n-adm-tab td {
+  padding: 11px 8px;
+  border-bottom: 1px solid var(--linha);
+  text-align: center;
+  vertical-align: top;
+}
+.n-adm-tab tr:last-child td { border-bottom: 0; }
+.n-adm-tab td.n-adm-p { text-align: left; }
+
+.n-adm-nome { display: block; font-weight: 600; font-size: 15px; }
+.n-adm-meta { display: block; font-size: 12.5px; color: var(--tinta-fraca); }
+
+/*
+  A MARCACAO. Vinte e dois pixels, e nao os 52 do --toque: esta tela e de
+  computador e o alvo e o mouse. Numa tabela de seis colunas, alvos de 52px
+  fariam cada linha ter a altura de um cartao.
+*/
+.n-adm-cx {
+  width: 22px; height: 22px;
+  border: 2px solid var(--linha);
+  border-radius: 5px;
+  display: inline-block;
+  vertical-align: middle;
+  background: #fff;
+  cursor: pointer;
+}
+.n-adm-cx.n-adm-on {
+  background: var(--vermelho);
+  border-color: var(--vermelho);
+  position: relative;
+}
+.n-adm-cx.n-adm-on::after {
+  content: '\2713';
+  color: #fff;
+  font-size: 15px;
+  position: absolute;
+  top: -3px; left: 3px;
+}
+
+/* Marcacao que so mostra: sem cursor de clique, e mais apagada. */
+.n-adm-cx.n-adm-travada { cursor: default; opacity: .45; }
+
+/*
+  A CAIXINHA DE PERFIL TEM LARGURA FIXA.
+  ==========================================================================
+  Sem ela, cada `<select>` fica do tamanho do texto que contem -- "ADMIN" e
+  "USUARIO" produzem caixas diferentes na mesma linha, e a coluna cujo modulo
+  nao tem perfil declarado fica com uma caixa menor que as vizinhas.
+
+  O Dalton viu isso na tela: **cinco caixinhas de cinco larguras**, todas
+  dizendo ADMIN.
+
+  `width: 100%` dentro da celula, que ja tem largura igual pela regra acima --
+  entao todas saem iguais **sem depender do texto**.
+*/
+.n-adm-perfil {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 5px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  letter-spacing: .06em;
+  border: 1px solid var(--linha);
+  border-radius: 5px;
+  padding: 3px 6px;
+  background: #fff;
+  color: var(--tinta-media);
+  max-width: 100%;
+}
+
+/*
+  O QUE MUDOU E AINDA NAO E VERDADE fica visualmente diferente do que ja e.
+  Sem isso, depois de cinco cliques a pessoa nao sabe mais quais foram os dela.
+*/
+.n-adm-mud { background: #FFF9E8; }
+
+/*
+  A BARRA DE SALVAR gruda no rodape enquanto houver alteracao pendente: numa
+  tabela de 25 linhas a pessoa rola, e o botao que confirma o que ela fez nao
+  pode ficar so no fim.
+*/
+.n-adm-salvar {
+  position: sticky;
+  bottom: 0;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 12px 16px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.n-adm-salvar-txt { font-size: 14px; color: var(--tinta-media); flex: 1; }
+.n-adm-salvar-txt ul { margin: 6px 0 0; padding-left: 20px; }
+.n-adm-salvar-txt li { margin-bottom: 2px; }

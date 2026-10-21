@@ -29,6 +29,10 @@ quando o sinal volta.
 | **A frente dona de cada bloco** | só a pasta dela, `blocos/<bloco>/` (ver `blocos/README.md`) |
 | **Núcleo** | nada aqui. O login, a identidade e as comunicações são dele, no Apps Script |
 
+**O visual é o do Portal.** `estilo/nucleo.css` é uma cópia da folha do Núcleo, e `estilo/fontes/` guarda as três
+fontes da plataforma para o app abrir sem sinal. Não se edita a cópia aqui: mudança de visual é do Núcleo, chega por
+carta, e a casca troca o arquivo inteiro.
+
 O que atravessa de uma área para outra é pedido por carta entre as frentes. As regras completas estão no documento
 `FRONTEIRA_APP_COMPEL.md`, na base de conhecimento do projeto.
 

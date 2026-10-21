@@ -1,0 +1,13 @@
+/* As três fontes da plataforma (as do Estilo do Núcleo: Inter no texto, Josefin Sans nos títulos, Barlow
+   Condensed nas etiquetas), guardadas no próprio app para abrirem sem sinal. Só o recorte latino (inclui os
+   acentos do português) e só os pesos que a folha do Núcleo pede. Licença SIL OFL 1.1, nos LICENCA-*.txt. */
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('fontes/inter-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('fontes/inter-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('fontes/inter-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('fontes/inter-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Josefin Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('fontes/josefin-sans-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Josefin Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('fontes/josefin-sans-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Josefin Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('fontes/josefin-sans-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 500; font-display: swap; src: url('fontes/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 600; font-display: swap; src: url('fontes/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url('fontes/barlow-condensed-latin-700-normal.woff2') format('woff2'); }

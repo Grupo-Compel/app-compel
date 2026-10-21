@@ -88,7 +88,7 @@ function novoLogin() {
 
 /* ---------- o site do app, servido da pasta do repositório ---------- */
 function servir() {
-  var tipos = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
+  var tipos = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
   var srv = http.createServer(function (req, res) {
     var rel = decodeURIComponent(req.url.split('?')[0]); if (rel.endsWith('/')) rel += 'index.html';
     var arq = path.join(RAIZ, rel);
@@ -165,11 +165,11 @@ var TESTES = {
     var x = loginComAna(), a = await abrir(x.L);
     await entrarCpf(a.page, formatado(x.cpf), 'senha-da-ana');
     await esperarTexto(a.page, 'Olá, Ana');
-    var nomes = await a.page.$$eval('#modulos .modulo b', function (bs) { return bs.map(function (b) { return b.textContent; }); });
+    var nomes = await a.page.$$eval('#modulos .n-modulo .n-nome', function (bs) { return bs.map(function (b) { return b.textContent; }); });
     afirmar(nomes.join('|') === 'Treinamentos|Operação|Financeiro|Gestão à Vista', 'a ordem dos módulos tem de ser a do login, e veio ' + nomes.join('|'));
-    afirmar(await a.page.isDisabled('#modulos .modulo[data-i="2"]'), 'o módulo não liberado devia estar apagado');
-    afirmar((await texto(a.page, '#modulos .modulo[data-i="2"]')).indexOf('Complete seu cadastro') >= 0, 'o motivo do módulo não liberado não apareceu');
-    afirmar((await texto(a.page, '#modulos .modulo[data-i="3"]')).indexOf('em breve') >= 0, 'o módulo sem endereço devia dizer "em breve"');
+    afirmar(await a.page.isDisabled('#modulos .n-modulo[data-i="2"]'), 'o módulo não liberado devia estar apagado');
+    afirmar((await texto(a.page, '#modulos .n-modulo[data-i="2"]')).indexOf('Complete seu cadastro') >= 0, 'o motivo do módulo não liberado não apareceu');
+    afirmar((await texto(a.page, '#modulos .n-modulo[data-i="3"]')).indexOf('Em breve') >= 0, 'o módulo sem endereço devia dizer "Em breve"');
     afirmar((await texto(a.page, '#codigo')) === 'APP-05', 'o código da tela do Início');
     await a.ctx.close();
   },
@@ -319,13 +319,13 @@ var TESTES = {
     afirmar((await texto(a.page, '#bolinha')) === '2', 'a aba Avisos devia mostrar 2');
     await a.page.click('[data-aba="avisos"]');
     await a.page.waitForSelector('#listaAvisos');
-    var titulos = await a.page.$$eval('#listaAvisos .aviso-item b', function (bs) { return bs.map(function (b) { return b.textContent; }); });
+    var titulos = await a.page.$$eval('#listaAvisos .aviso-item .app-titulo', function (bs) { return bs.map(function (b) { return b.textContent; }); });
     afirmar(titulos.join('|') === 'Aviso de hoje|Aviso de 10 dias', 'os avisos da janela de 30 dias, do mais novo para o mais velho; veio ' + titulos.join('|'));
-    afirmar((await a.page.$$('#listaAvisos .chip.novo')).length === 2, 'na primeira visita, os dois são novos');
+    afirmar((await a.page.$$('#listaAvisos .app-novo')).length === 2, 'na primeira visita, os dois são novos');
     await a.page.click('[data-aba="inicio"]');
     afirmar(await a.page.isHidden('#bolinha'), 'depois de ver, a bolinha some');
     await a.page.click('[data-aba="avisos"]'); await a.page.waitForSelector('#listaAvisos');
-    afirmar((await a.page.$$('#listaAvisos .chip.novo')).length === 0, 'na segunda visita, nenhum é novo');
+    afirmar((await a.page.$$('#listaAvisos .app-novo')).length === 0, 'na segunda visita, nenhum é novo');
     var guardado = await oQueEstaGuardado(a.page);
     afirmar(guardado.indexOf('Aviso de hoje') < 0, 'o conteúdo dos avisos não fica guardado no celular');
     await a.ctx.close();
@@ -335,7 +335,7 @@ var TESTES = {
     await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
     afirmar(!x.L.pedidos.some(function (p) { return p.acao === 'token'; }), 'nenhum token antes do toque');
     var aguardar = a.ctx.waitForEvent('page');
-    await a.page.click('#modulos .modulo[data-i="0"]');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
     var janela = await aguardar;
     await janela.waitForURL(/modulo\.teste\.invalid\/treino\?t=tok-/);
     var pedido = x.L.pedidos.filter(function (p) { return p.acao === 'token'; }).pop();
@@ -394,7 +394,46 @@ var TESTES = {
     await page.reload();
     await esperarTexto(page, 'Entrar');
     afirmar((await texto(page, '#sinal')) === 'Sem sinal', 'sem rede, o topo devia dizer "Sem sinal"');
+    // O visual do Portal sem sinal: as fontes e a marca vêm do próprio app, e não da internet.
+    var visual = await page.evaluate(async function () {
+      await document.fonts.ready;
+      // check() sozinho devolve "sim" quando a fonte nem foi declarada. O que prova é pedir a face e vê-la chegar:
+      // sem rede, ela só chega se o app a guardou.
+      var carregar = function (f) { return document.fonts.load(f).then(function (l) { return l.length > 0 && l.every(function (x) { return x.status === 'loaded'; }); }, function () { return false; }); };
+      var r = await Promise.all([carregar('16px Inter'), carregar('700 20px "Josefin Sans"'), carregar('600 16px "Barlow Condensed"')]);
+      return { inter: r[0], josefin: r[1], barlow: r[2],
+               marca: !!document.querySelector('symbol#marca-quadrada') && document.querySelector('.login-marca svg use') !== null };
+    });
+    afirmar(visual.inter && visual.josefin && visual.barlow, 'sem sinal, as fontes do Portal não carregaram: ' + JSON.stringify(visual));
+    afirmar(visual.marca, 'sem sinal, a marca da Compel não apareceu');
     await ctx.close();
+  },
+  T18_o_visual_e_o_do_portal: async function () {
+    // As peças que fazem a tela ser a do Portal: a folha do Núcleo, a marca oficial e as três fontes.
+    var x = loginComAna(), a = await abrir(x.L);
+    var entrada = await a.page.evaluate(async function () {
+      await document.fonts.ready;
+      var m = document.querySelector('.moldura'), cs = m && getComputedStyle(m);
+      // A marca tem de DESENHAR, e não só estar pedida: um <use> que aponta para um símbolo que não existe fica vazio,
+      // sem erro nenhum. A largura do que foi desenhado é a prova.
+      var uso = document.querySelector('.login-marca svg.logo-oficial use[href="#marca-quadrada"]');
+      return { moldura: cs ? cs.borderTopColor : '', marca: !!uso && uso.getBBox().width > 0,
+               fonte: getComputedStyle(document.body).fontFamily,
+               inter: await document.fonts.load('16px Inter').then(function (l) { return l.length > 0 && l[0].status === 'loaded'; }) };
+    });
+    afirmar(entrada.moldura === 'rgb(237, 28, 36)', 'a moldura da entrada devia ser o vermelho da marca (#ED1C24), e veio ' + entrada.moldura);
+    afirmar(entrada.marca, 'a entrada devia ter a marca quadrada oficial');
+    afirmar(/Inter/.test(entrada.fonte) && entrada.inter, 'o texto devia estar na Inter, carregada do próprio app');
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    var dentro = await a.page.evaluate(function () {
+      var t = document.getElementById('topo');
+      var uso = t.querySelector('use[href="#marca-horizontal"]');
+      return { barra: getComputedStyle(t).backgroundColor, marca: !!uso && uso.getBBox().width > 0, cartoes: document.querySelectorAll('.n-grade .n-modulo').length };
+    });
+    afirmar(dentro.barra === 'rgb(35, 31, 32)', 'a barra de cima devia ser a grafite do Portal, e veio ' + dentro.barra);
+    afirmar(dentro.marca, 'a barra devia ter a marca horizontal oficial');
+    afirmar(dentro.cartoes === 4, 'os sistemas deviam ser os cartões .n-modulo do Portal');
+    await a.ctx.close();
   },
   T17_tirar_meus_dados_deste_celular: async function () {
     var x = loginComAna(), a = await abrir(x.L);
