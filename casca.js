@@ -69,14 +69,17 @@ function cascaAbrirComToken(pessoaGuardada, modulo, url, janela) {
 /* O TERMO PENDENTE (carta nº 14 do Núcleo, 22/10/2026). O token não sai enquanto a pessoa não aceitar o termo ativo,
    e para quem é de campo e não abre o Portal a ação `aceitarTermo` do app é o único caminho. A forma é a mesma do
    `api_abrir` do Portal (CODIGO_GS_DO_PORTAL_21-10): { ok:false, precisaAceitarTermo:true, id, versao, titulo,
-   texto, link }. A casca aceita também o termo dentro de um objeto, para não depender de qual das duas formas o
+   texto, link, quantos }. A casca aceita também o termo dentro de um objeto, para não depender de qual das duas formas o
    login escolheu; `id` e `versao` são o que volta no aceite, e sem eles nada é mostrado. */
 function cascaTermoPendente(r) {
   if (!r || !r.precisaAceitarTermo) return null;
   var t = typeof r.precisaAceitarTermo === 'object' ? r.precisaAceitarTermo : r.termo && typeof r.termo === 'object' ? r.termo : r;
   if (!t.id || t.versao === undefined || t.versao === null || t.versao === '') return null;
+  /* O `quantos` (carta nº 15 do Núcleo, 22/10/2026): o token traz um termo por vez, e a pessoa precisa saber que
+     outro vem depois, senão o segundo parece o primeiro voltando. Número estranho vira 1. */
+  var quantos = Math.floor(Number(r.quantos || t.quantos || 1)); if (!(quantos >= 1)) quantos = 1;
   return { id: String(t.id), versao: t.versao, titulo: String(t.titulo || 'Termo para aceitar'), texto: String(t.texto || t.detalhe || ''),
-           link: /^https:\/\/\S+$/.test(String(t.link || '')) ? String(t.link) : '' };
+           link: /^https:\/\/\S+$/.test(String(t.link || '')) ? String(t.link) : '', quantos: quantos };
 }
 
 /* Pedir ao Android que acorde o app para enviar quando o sinal voltar. No iPhone isso não existe (não medido; a

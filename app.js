@@ -293,10 +293,16 @@ function aceitarTermo() {
   if (!comSinal()) return mostrarErro('Sem sinal: aceitar o termo precisa de sinal.');
   E.ocupado = true; E.erro = ''; desenhar();
   return postarAoLogin({ acao: 'aceitarTermo', sessao: p.sessao, id: t.id, versao: t.versao }).then(function (r) {
+    /* O aceite recebe as mesmas duas marcas do token e dos avisos (carta nº 15 do Núcleo, 22/10/2026): sem a
+       segunda, quem teve a senha trocada em outro celular ficava preso na tela do termo, tocando num botão que
+       nunca grava. */
     if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
+    if (r && r.entrarDeNovo) return exigirEntrada(false, r.erro || 'Sua senha mudou. Entre de novo com a senha nova.');
     if (!r || r.ok !== true) return mostrarErro((r && r.erro) || 'O login não gravou o aceite. Tente de novo.');
+    var faltam = (t.quantos || 1) - 1;
     E.termo = null;
-    irPara('inicio', 'Termo aceito. Toque de novo no sistema que você queria abrir.');
+    irPara('inicio', faltam > 0 ? 'Termo aceito. ' + (faltam === 1 ? 'Falta mais 1 termo' : 'Faltam mais ' + faltam + ' termos') + ': toque de novo no sistema para ver o próximo.'
+                                : 'Termo aceito. Toque de novo no sistema que você queria abrir.');
   }, function () { mostrarErro('Não consegui falar com o login. Tente com sinal melhor.'); });
 }
 
@@ -480,7 +486,10 @@ function telaAvisos() {
   else if (!E.avisos.lista.length) h += '<div class="vazio" id="semAvisos">Nenhum aviso nos últimos ' + DIAS_DOS_AVISOS + ' dias.</div>';
   else h += '<div id="listaAvisos">' + E.avisos.lista.map(function (a) {
     var novo = String(a.data).slice(0, 10) > String(E.avisosNovosAntes !== undefined ? E.avisosNovosAntes : p.vistoAvisos || '');
-    var prop = /^\d+:\d+$/.test(String(a.proporcao || '')) ? String(a.proporcao).replace(':', ' / ') : '4 / 5';
+    /* A `proporcao` sai das medidas da imagem desde 22/10/2026 (carta nº 15 do Núcleo), e pode vir com decimal
+       ("1.91:1"). Ela só reserva o espaço antes de a arte chegar; o `object-fit: contain` não deixa deformar. O
+       `arte: ''` (a linha vem sem imagem em vez de sumir) desenha o cartão sem a imagem. */
+    var prop = /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(String(a.proporcao || '')) ? String(a.proporcao).replace(':', ' / ') : '4 / 5';
     return '<div class="cartao aviso-item"><div class="app-linha">' + (a.categoria ? '<span class="app-cat">' + esc(a.categoria) + '</span>' : '') + (novo ? '<span class="app-novo">novo</span>' : '') + '</div>' +
       '<b class="app-titulo">' + esc(a.titulo) + '</b><span class="app-data">' + esc(brDe(a.data)) + '</span>' +
       (a.arte ? '<img src="' + esc(a.arte) + '" alt="' + esc(a.titulo) + '" loading="lazy" style="aspect-ratio:' + prop + '">' : '') +
@@ -520,6 +529,7 @@ function telaTermo() {
   var t = E.termo;
   if (!t) return '<div class="conteudo"><div class="vazio">Nenhum termo para aceitar.</div>' + ajuda('termo') + '</div>';
   return '<div class="conteudo"><p class="etiqueta n-secao app-sem-margem">Termo</p>' + mensagens() +
+    (t.quantos > 1 ? '<div class="aviso atencao" id="quantosTermos">Há ' + t.quantos + ' termos para aceitar. Este é o primeiro.</div>' : '') +
     '<div class="cartao" id="termo"><b class="app-titulo">' + esc(t.titulo) + '</b>' +
     (t.texto ? '<p class="app-termo-texto">' + esc(t.texto) + '</p>' : '') +
     (t.link ? '<a class="link-texto" href="' + esc(t.link) + '" target="_blank" rel="noopener">Ler o documento completo</a>' : '') +

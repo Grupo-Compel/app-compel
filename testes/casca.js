@@ -105,20 +105,23 @@ function novoLogin() {
       case 'esqueciSenha':
         if (!p) return { ok: false, erro: 'CPF não encontrado.' };
         return { ok: true, mensagem: 'Mandamos uma senha temporária para o e-mail cadastrado.' };
-      // As respostas da carta nº 14 do Núcleo: sessão cortada → pedirCpf; senha mudada em outro celular → recusa sem
-      // pedirCpf (aqui com o entrarDeNovo que a casca pediu); termo pendente → a forma do api_abrir do Portal.
+      // As respostas das cartas nº 14 e nº 15 do Núcleo (22/10/2026), com as duas marcas sempre escritas, uma o
+      // contrário da outra, como o login de verdade manda: sessão cortada → pedirCpf; senha mudada em outro celular
+      // → entrarDeNovo, também no aceite; termo pendente → a forma do api_abrir do Portal, um por vez, com `quantos`.
       case 'token':
-        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, erro: 'Este celular foi desligado. Entre com o CPF.' };
-        if (L.senhaMudou[corpo.sessao]) return { ok: false, entrarDeNovo: true, erro: 'Sua senha mudou. Entre de novo com a senha nova.' };
-        if (L.termo && !L.aceitos[p.cpf]) return { ok: false, precisaAceitarTermo: true, id: L.termo.id, versao: L.termo.versao, titulo: L.termo.titulo, texto: L.termo.texto, link: L.termo.link, quantos: 1 };
-        return { ok: true, token: 'tok-' + Math.random().toString(36).slice(2) };
       case 'avisos':
-        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, erro: 'Este celular foi desligado. Entre com o CPF.' };
-        return { ok: true, comunicacoes: L.comunicacoes || [] };
       case 'aceitarTermo':
-        if (!p) return { ok: false, pedirCpf: true, erro: 'Entre com o CPF.' };
-        if (!L.termo || corpo.id !== L.termo.id || corpo.versao !== L.termo.versao) return { ok: false, erro: 'Termo desconhecido.' };
-        L.aceitos[p.cpf] = true; return { ok: true };
+        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, entrarDeNovo: false, erro: 'Este celular foi desligado. Entre com o CPF.' };
+        if (L.senhaMudou[corpo.sessao]) return { ok: false, entrarDeNovo: true, pedirCpf: false, erro: 'Sua senha mudou. Entre de novo com a senha nova.' };
+        var termos = (L.termos || (L.termo ? [L.termo] : [])).filter(function (t) { return !L.aceitos[p.cpf + '|' + t.id]; });
+        if (corpo.acao === 'avisos') return { ok: true, comunicacoes: L.comunicacoes || [] };
+        if (corpo.acao === 'aceitarTermo') {
+          var t = termos.filter(function (u) { return u.id === corpo.id && u.versao === corpo.versao; })[0];
+          if (!t) return { ok: false, erro: 'Termo desconhecido.' };
+          L.aceitos[p.cpf + '|' + t.id] = true; return { ok: true };
+        }
+        if (termos.length) { var u = termos[0]; return { ok: false, precisaAceitarTermo: true, id: u.id, versao: u.versao, titulo: u.titulo, texto: u.texto, link: u.link, quantos: termos.length, erro: 'Há termo para aceitar.' }; }
+        return { ok: true, token: 'tok-' + Math.random().toString(36).slice(2) };
     }
     return { ok: false, erro: 'ação desconhecida' };
   };
@@ -718,6 +721,7 @@ var TESTES = {
     await esperarTexto(a.page, 'Código de Ética');
     afirmar((await texto(a.page, '#codigo')) === 'APP-09', 'o termo pendente devia abrir a tela do termo');
     afirmar(a.ctx.pages().length === 1, 'com o termo pendente, nenhuma janela de sistema podia ficar aberta');
+    afirmar(!(await a.page.$('#quantosTermos')), 'com um termo só, não há aviso de quantos');
     await a.page.click('[data-acao="ajuda"]');
     afirmar(((await a.page.textContent('#textoAjuda').catch(function () { return ''; })) || '').length > 40, 'a tela do termo não tem ajuda');
     for (var largura of [360, 412]) {
@@ -743,6 +747,54 @@ var TESTES = {
     await esperarTexto(a.page, 'Sua senha mudou');
     afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'com a senha mudada, a entrada devia ser pelo nome');
     afirmar((await texto(a.page)).indexOf('Senha de Ana') >= 0, 'a pessoa escolhida devia ser a Ana');
+    await a.ctx.close();
+  },
+  T30_dois_termos_um_de_cada_vez: async function () {
+    var x = loginComAna();
+    x.L.termos = [{ id: 'TERMO-1', versao: '3', titulo: 'Código de Ética', texto: 'Um.' }, { id: 'TERMO-2', versao: '1', titulo: 'Uso do celular', texto: 'Dois.' }];
+    var a = await abrir(x.L);
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'Código de Ética');
+    var aviso = await a.page.$('#quantosTermos');
+    afirmar(aviso && (await aviso.textContent()).indexOf('Há 2 termos') >= 0, 'com dois termos, a tela devia dizer que há 2');
+    await a.page.click('[data-acao="aceitarTermo"]');
+    await esperarTexto(a.page, 'Falta mais 1 termo');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'Uso do celular');
+    afirmar(!(await a.page.$('#quantosTermos')), 'no último termo, não há aviso de quantos');
+    await a.page.click('[data-acao="aceitarTermo"]');
+    await esperarTexto(a.page, 'Toque de novo no sistema que você queria abrir');
+    afirmar(x.L.pedidos.filter(function (q) { return q.acao === 'aceitarTermo'; }).map(function (q) { return q.id + '/' + q.versao; }).join(' ') === 'TERMO-1/3 TERMO-2/1', 'os dois aceites, cada um com a sua versão');
+    await a.ctx.close();
+  },
+  T31_senha_mudada_no_aceite_do_termo: async function () {
+    var x = loginComAna();
+    x.L.termo = { id: 'TERMO-1', versao: '3', titulo: 'Código de Ética', texto: 'Um.' };
+    var a = await abrir(x.L);
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'Código de Ética');
+    Object.keys(x.L.sessoes).forEach(function (s) { x.L.senhaMudou[s] = true; });
+    await a.page.click('[data-acao="aceitarTermo"]');
+    await esperarTexto(a.page, 'Sua senha mudou');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-01', 'com a senha mudada no aceite, o app devia voltar à entrada');
+    afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'e a entrada devia ser pelo nome, com a senha nova');
+    await a.ctx.close();
+  },
+  T32_aviso_sem_arte_e_proporcao_com_decimal: async function () {
+    var x = loginComAna({ fuso: 'America/Sao_Paulo' });
+    x.L.comunicacoes = [
+      { id: 'a', titulo: 'Aviso sem arte', data: '2026-10-21', categoria: 'Segurança', arte: '', proporcao: '' },
+      { id: 'b', titulo: 'Aviso largo', data: '2026-10-20', arte: 'https://modulo.teste.invalid/arte.png', proporcao: '1.91:1' }
+    ];
+    var a = await abrir(x.L, { relogio: '2026-10-21T10:00:00-03:00' });
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    await a.page.click('[data-aba="avisos"]'); await a.page.waitForSelector('#listaAvisos');
+    var itens = await a.page.$$eval('#listaAvisos .aviso-item', function (cs) { return cs.map(function (c) { var i = c.querySelector('img'); return { titulo: c.querySelector('.app-titulo').textContent, img: !!i, prop: i ? i.style.aspectRatio : '' }; }); });
+    afirmar(itens.length === 2 && itens[0].titulo === 'Aviso sem arte', 'o aviso com arte vazia devia aparecer, com o título: ' + JSON.stringify(itens));
+    afirmar(!itens[0].img, 'o aviso com arte vazia não pode desenhar uma imagem quebrada');
+    afirmar(itens[1].img && itens[1].prop.replace(/\s/g, '') === '1.91/1', 'a proporção com decimal devia valer; veio ' + itens[1].prop);
     await a.ctx.close();
   },
   T17_tirar_meus_dados_deste_celular: async function () {
