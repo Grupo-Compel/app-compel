@@ -59,9 +59,9 @@ function cascaAbrirComToken(pessoaGuardada, modulo, url, janela) {
     if (termo) return fechar({ termo: termo });
     if (r && r.pedirCpf) return fechar({ pedirCpf: true, erro: r.erro || 'Entre de novo com o seu CPF.' });
     if (r && r.entrarDeNovo) return fechar({ entrarDeNovo: true, erro: r.erro || 'Sua senha mudou. Entre de novo com a senha nova.' });
-    /* O `precisaTrocar` (carta nº 30 do Núcleo à Interface, 22/10/2026): o token confere a senha temporária de novo,
-       e ele sai quando a senha da pessoa foi resetada com a entrada do dia já aberta neste celular. Sem tratar, a
-       pessoa lia o aviso e ficava no Início, sem caminho para a troca: a troca só começa numa entrada. */
+    /* O `precisaTrocar` (cartas nº 30 à Interface e nº 16 ao App, do Núcleo, 22/10/2026): no app ele só chega quando
+       a administração marca TROCAR_SENHA = SIM na CENTRAL sem trocar a senha (o reset vem como `entrarDeNovo`). Sem
+       tratar, a pessoa lia o aviso e ficava no Início, sem caminho para a troca: a troca só começa numa entrada. */
     if (r && r.precisaTrocar) return fechar({ precisaTrocar: true, erro: r.erro || '' });
     if (!r || r.ok !== true || !r.token) return fechar({ erro: (r && r.erro) || 'O login não liberou a abertura.' });
     var destino = url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(r.token);

@@ -747,6 +747,7 @@ var TESTES = {
     await a.page.click('#modulos .n-modulo[data-i="0"]');
     await esperarTexto(a.page, 'Sua senha mudou');
     afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'com a senha mudada, a entrada devia ser pelo nome');
+    afirmar((await texto(a.page)).indexOf('senha temporária') >= 0, 'quem não trocou a senha (o reset) precisa saber da temporária no e-mail');
     afirmar((await texto(a.page)).indexOf('Senha de Ana') >= 0, 'a pessoa escolhida devia ser a Ana');
     await a.ctx.close();
   },
@@ -798,19 +799,20 @@ var TESTES = {
     afirmar(itens[1].img && itens[1].prop.replace(/\s/g, '') === '1.91/1', 'a proporção com decimal devia valer; veio ' + itens[1].prop);
     await a.ctx.close();
   },
-  T33_senha_resetada_com_o_dia_aberto_leva_a_troca: async function () {
+  T33_troca_pedida_pela_administracao_com_o_dia_aberto: async function () {
     var x = loginComAna(), a = await abrir(x.L);
     await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
-    // A administração reseta a senha com a entrada do dia já aberta: o login passa a pedir a troca no token.
-    var p = x.L.pessoas[x.cpf]; p.senha = 'temp-456'; p.temporaria = true;
+    // A administração marca TROCAR_SENHA = SIM na CENTRAL, sem trocar a senha, com a entrada do dia já aberta: é o
+    // único caminho do precisaTrocar até o app (carta nº 16 do Núcleo, 22/10/2026).
+    var p = x.L.pessoas[x.cpf]; p.temporaria = true;
     await a.page.click('#modulos .n-modulo[data-i="0"]');
-    await esperarTexto(a.page, 'senha temporária');
-    afirmar((await texto(a.page, '#codigo')) === 'APP-01', 'com a senha resetada, o app devia voltar à entrada');
-    afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'a entrada devia ser pelo nome, com a temporária');
+    await esperarTexto(a.page, 'A administração pediu');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-01', 'com a troca pedida pela administração, o app devia voltar à entrada');
+    afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'a entrada devia ser pelo nome, com a senha de sempre');
     afirmar(a.ctx.pages().length === 1, 'a janela aberta no toque devia ser fechada');
-    await a.page.fill('#senha', 'temp-456'); await a.page.click('[data-acao="entrarEscolhida"]');
+    await a.page.fill('#senha', 'senha-da-ana'); await a.page.click('[data-acao="entrarEscolhida"]');
     await esperarTexto(a.page, 'Escolha uma senha sua');
-    afirmar((await texto(a.page, '#codigo')) === 'APP-03', 'a temporária devia levar à troca');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-03', 'a entrada devia levar à troca');
     await a.page.fill('#senha', 'nova-da-ana'); await a.page.fill('#senha2', 'nova-da-ana');
     await a.page.click('[data-acao="trocarSenha"]');
     await esperarTexto(a.page, 'Olá, Ana');

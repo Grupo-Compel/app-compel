@@ -217,7 +217,7 @@ function trocarSenha() {
   if (!m) { E.tela = 'entrar'; return desenhar(); }
   if (!s1) return mostrarErro('Crie a senha nova.');
   if (s1 !== s2) return mostrarErro('As duas senhas não são iguais.');
-  if (s1 === m.senha) return mostrarErro('A senha nova tem de ser diferente da temporária.');
+  if (s1 === m.senha) return mostrarErro('A senha nova tem de ser diferente da que você usou para entrar.');
   E.ocupado = true; E.erro = ''; desenhar();
   var corpo = { acao: 'trocarSenha', senhaAtual: m.senha, senhaNova: s1, aparelho: dadosDoAparelho() };
   if (m.credencial.cpf) corpo.cpf = m.credencial.cpf; else corpo.sessao = m.credencial.sessao;
@@ -271,13 +271,21 @@ function abrirModulo(i) {
     E.ocupado = false;
     if (r.termo) { E.termo = r.termo; return irPara('termo'); }
     if (r.pedirCpf) return exigirEntrada(true, r.erro);
-    if (r.entrarDeNovo) return exigirEntrada(false, r.erro);
+    if (r.entrarDeNovo) return exigirEntrada(false, senhaMudou(r.erro));
     // A frase é da casca, e não do login: a do login foi escrita para o Portal, e aqui a pessoa precisa saber onde
     // está a senha temporária e que a troca começa entrando com ela.
-    if (r.precisaTrocar) return exigirEntrada(false, 'Sua senha foi trocada por uma senha temporária (ela foi para o seu e-mail). Entre com ela aqui e crie a sua.');
+    if (r.precisaTrocar) return exigirEntrada(false, 'A administração pediu que você troque a sua senha. Entre com a senha de sempre e crie uma nova.');
     if (r.erro) return mostrarErro(r.erro);
     desenhar();
   });
+}
+
+/* O reset da senha (o "esqueci a senha" ou o da administração) chega ao app como `entrarDeNovo`, e não como
+   `precisaTrocar` (carta nº 16 do Núcleo, 22/10/2026): a senha temporária muda a impressão da credencial e a sessão
+   do aparelho cai. A frase do login só diz que a senha mudou, e quem não trocou nada não sabe qual senha digitar;
+   a dica vale para os dois casos, e para o cadastro inativo (que também vem como `entrarDeNovo`) não engana. */
+function senhaMudou(erro) {
+  return (erro || 'Sua senha mudou. Entre de novo com a senha nova.') + ' Se não foi você quem trocou, veja no seu e-mail se chegou uma senha temporária.';
 }
 
 /* A sessão do aparelho deixou de valer no login (carta nº 14 do Núcleo): a entrada de hoje acaba aqui, e a pessoa
@@ -300,7 +308,7 @@ function aceitarTermo() {
        segunda, quem teve a senha trocada em outro celular ficava preso na tela do termo, tocando num botão que
        nunca grava. */
     if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
-    if (r && r.entrarDeNovo) return exigirEntrada(false, r.erro || 'Sua senha mudou. Entre de novo com a senha nova.');
+    if (r && r.entrarDeNovo) return exigirEntrada(false, senhaMudou(r.erro));
     if (!r || r.ok !== true) return mostrarErro((r && r.erro) || 'O login não gravou o aceite. Tente de novo.');
     var faltam = (t.quantos || 1) - 1;
     E.termo = null;
@@ -371,7 +379,7 @@ function buscarAvisos() {
   if (!p || !p.sessao || !comSinal() || !enderecoDoLogin()) return Promise.resolve();
   return postarAoLogin({ acao: 'avisos', sessao: p.sessao }).then(function (r) {
     if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
-    if (r && r.entrarDeNovo) return exigirEntrada(false, r.erro || 'Sua senha mudou. Entre de novo com a senha nova.');
+    if (r && r.entrarDeNovo) return exigirEntrada(false, senhaMudou(r.erro));
     if (!r || r.ok !== true) { E.avisos = { erro: (r && r.erro) || 'O login não mandou os avisos.' }; return desenhar(); }
     E.avisos = { lista: avisosDaJanela(r.comunicacoes, p) };
     if (E.tela === 'avisos') marcarAvisosVistos();
@@ -453,7 +461,7 @@ function telaPrimeiro() {
     botao('criarSenha', E.ocupado ? 'Criando…' : 'Criar senha e entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin()) + botao('irEntrar', 'Voltar', false, true));
 }
 function telaTrocar() {
-  return telaDeEntrada('trocar', '<p class="etiqueta n-secao app-sem-margem">Troca de senha</p><p>Você entrou com uma senha temporária. Escolha uma senha sua para continuar.</p>' +
+  return telaDeEntrada('trocar', '<p class="etiqueta n-secao app-sem-margem">Troca de senha</p><p>Escolha uma senha sua para continuar. A que você usou agora (a senha temporária, ou a que a administração pediu para trocar) deixa de valer.</p>' +
     campoSenha('senha', 'Nova senha', true) + campoSenha('senha2', 'Repita a nova senha', true) +
     botao('trocarSenha', E.ocupado ? 'Gravando…' : 'Salvar e continuar', E.ocupado, false, E.ocupado) + botao('irEntrar', 'Cancelar', false, true));
 }
