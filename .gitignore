@@ -1,1 +1,3 @@
 node_modules/
+# Montado na publicação a partir dos bloco.json (conferencia/indice.js): nunca se escreve à mão.
+blocos/indice.js

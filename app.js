@@ -1,15 +1,17 @@
 /* app.js — a casca do App Compel (21/10/2026).
  *
  * O que a casca faz (FRONTEIRA_APP_COMPEL §2): a entrada (CPF e a senha do Portal, pelo login do Núcleo), o Início com
- * os módulos que a pessoa tem, os Avisos (as comunicações do Núcleo) e o Perfil, com o "trocar de pessoa" do celular
- * da equipe. As telas de cada bloco não são daqui.
+ * os módulos que a pessoa tem, os Avisos (as comunicações do Núcleo), o Envio (a fila dos blocos) e o Perfil, com o
+ * "trocar de pessoa" do celular da equipe. As telas de cada bloco não são daqui; o que a casca dá a elas está em
+ * servicos.js e casca.js.
  *
  * TRÊS REGRAS QUE ESTE ARQUIVO NÃO QUEBRA
  *  1. O CPF nunca fica guardado no celular nem aparece em tela. Ele é digitado, vai ao login e sai da memória. Quem já
  *     entrou neste celular é achado por um resumo do CPF (PBKDF2 com uma chave sorteada no próprio aparelho), que não
  *     volta a ser CPF sem uma conta de força bruta cara.
- *  2. O único servidor com que a casca fala é o do login, em config/login.js. Nenhuma resposta, link ou configuração
- *     troca esse endereço (carta nº 8 do Núcleo, 19/10/2026).
+ *  2. O único endereço escrito no app é o do login, em config/login.js. Nenhuma resposta, link ou configuração troca
+ *     esse endereço (carta nº 8 do Núcleo, 19/10/2026). O servidor de um bloco chega pelo login, com a senha conferida,
+ *     e só recebe a fila depois de conferido pelo resumo que o bloco publicou (servicos.js).
  *  3. O token do Núcleo é pedido no toque e nunca guardado (FRONTEIRA §2.1, regra 2). O que fica guardado é a sessão
  *     do aparelho (30 dias), que só vale para pedir o token, os avisos e a entrada do dia.
  *
@@ -21,12 +23,10 @@
  */
 'use strict';
 
-var VERSAO_APP = '1.1 (21/10/2026)';
-var CHAVE_DO_DB = 'app-compel-casca';            // banco só da casca: os blocos têm o deles, e a casca nunca os apaga
+// A versão, o banco da casca, o fuso e a conversa com o login moram em servicos.js e casca.js, que as telas dos blocos
+// também carregam: a resposta para "a entrada de hoje vale?" tem de ser a mesma na casca e no bloco.
 var DIAS_DOS_AVISOS = 30;                         // FRONTEIRA §2.1: os Avisos mostram 30 dias, pela data de cada um
-var FUSO_PADRAO = 'America/Sao_Paulo';            // pessoa sem base cai aqui (carta nº 9 do Núcleo): é o fuso que termina o dia primeiro
 var VOLTAS_DA_CHAVE_DO_CPF = 20000;               // o resumo do CPF: lento o bastante para não se adivinhar os 10^9 CPFs possíveis
-var ESPERA_DO_LOGIN_MS = 30000;
 // Só para o caso de a resposta do login vir sem os parâmetros: o valor que vale é o do Núcleo, que vem na resposta.
 var PARAMETROS_DE_RESERVA = { errosAteTravar: 5, minutosDeTrava: 30, diasSemSinal: 7 };
 
@@ -40,14 +40,14 @@ var E = {
   memoria: null,       // { cpf?, chave?, senha }: só durante a troca de senha obrigatória; nunca vai ao disco
   avisos: null,        // { lista, quando } | { erro }
   ajuda: false,
-  ocupado: false
+  ocupado: false,
+  envio: {}            // id do bloco -> { pendentes, estado, acordadas, enviando }: o que a tela de Envio mostra
 };
 
 /* ---------- utilidades ---------- */
 function $(id) { return document.getElementById(id); }
 function esc(t) { return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-function hexDe(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
-function sorteio(n) { return hexDe(crypto.getRandomValues(new Uint8Array(n))); }
+function sorteio(n) { return cascaHex(crypto.getRandomValues(new Uint8Array(n))); }
 function soDigitos(t) { return String(t || '').replace(/\D/g, ''); }
 function brDe(iso) { return iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : ''; }
 function primeiroNome(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
@@ -69,39 +69,10 @@ function mascaraDoCpf(t) {
   return d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
-/* O dia de hoje no fuso da base da pessoa, e não no do celular: em Dourados (UTC−4) o dia acaba uma hora depois de
-   Brasília, e um celular com o fuso errado não pode encurtar nem esticar a entrada (carta nº 9 do App, 19/10/2026). */
-function fusoQueVale(fuso) {
-  try { new Intl.DateTimeFormat('en-CA', { timeZone: fuso }); return fuso; } catch (e) { return FUSO_PADRAO; }
-}
-function diaNoFuso(data, fuso) {
-  var p = new Intl.DateTimeFormat('en-CA', { timeZone: fusoQueVale(fuso || FUSO_PADRAO), year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(data);
-  var v = {}; p.forEach(function (x) { v[x.type] = x.value; });
-  return v.year + '-' + v.month + '-' + v.day;
-}
 function diasEntre(isoA, isoB) { return Math.round((Date.parse(isoB + 'T12:00:00Z') - Date.parse(isoA + 'T12:00:00Z')) / 86400000); }
 
-/* ---------- o que fica guardado no celular (IndexedDB, banco só da casca) ---------- */
-var db = null;
-function abrirDb() {
-  if (db) return Promise.resolve(db);
-  return new Promise(function (ok, falha) {
-    var r = indexedDB.open(CHAVE_DO_DB, 1);
-    r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
-    r.onsuccess = function () { db = r.result; ok(db); };
-    r.onerror = function () { falha(r.error); };
-  });
-}
-function lerKv(chave) {
-  return abrirDb().then(function (d) { return new Promise(function (ok, falha) {
-    var q = d.transaction('kv').objectStore('kv').get(chave); q.onsuccess = function () { ok(q.result); }; q.onerror = function () { falha(q.error); };
-  }); });
-}
-function gravarKv(chave, valor) {
-  return abrirDb().then(function (d) { return new Promise(function (ok, falha) {
-    var t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(valor, chave); t.oncomplete = function () { ok(); }; t.onerror = function () { falha(t.error); };
-  }); });
-}
+/* ---------- o que fica guardado no celular (o banco da casca, em servicos.js) ---------- */
+var lerKv = cascaLer, gravarKv = cascaGravar;
 function gravarPessoas() { return gravarKv('pessoas', E.pessoas); }
 function gravarAtual() { return gravarKv('atual', E.atual); }
 
@@ -110,7 +81,7 @@ function pbkdf2(segredo, sal, voltas) {
   var t = new TextEncoder();
   return crypto.subtle.importKey('raw', t.encode(segredo), 'PBKDF2', false, ['deriveBits'])
     .then(function (k) { return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: t.encode(sal), iterations: voltas }, k, 256); })
-    .then(hexDe);
+    .then(cascaHex);
 }
 function chaveDoCpf(cpf) { return pbkdf2(cpf, E.aparelho.chave, VOLTAS_DA_CHAVE_DO_CPF); }
 /* O verificador: o algoritmo e as voltas vêm do login (carta nº 9 do Núcleo: só "algo" e "rodadas"); o sal é sorteado
@@ -118,37 +89,14 @@ function chaveDoCpf(cpf) { return pbkdf2(cpf, E.aparelho.chave, VOLTAS_DA_CHAVE_
    algoritmo, ela não guarda nada, e a pessoa só entra com sinal até a casca aprender. */
 function verificadorSuportado(v) { return !!(v && /pbkdf2/i.test(String(v.algo || '')) && /sha-?256/i.test(String(v.algo || '')) && +v.rodadas >= 1000); }
 
-/* ---------- a conversa com o login do Núcleo ---------- */
-function enderecoDoLogin() { return typeof ENDERECO_DO_LOGIN === 'string' ? ENDERECO_DO_LOGIN : ''; }
-/* Texto puro, e não "application/json": é o que deixa o navegador do celular falar com o Apps Script sem a pergunta
-   prévia (CORS) que ele não responde (o mesmo do app do campo, 07/10/2026). Resposta que não é JSON é a tela de login
-   do Google, quando a implantação não está como "Qualquer pessoa". */
-function postarAoLogin(corpo) {
-  var url = enderecoDoLogin();
-  if (!url) return Promise.reject({ semEndereco: true });
-  corpo.app = 'casca'; corpo.versao = VERSAO_APP;
-  var controle = new AbortController(), relogio = setTimeout(function () { controle.abort(); }, ESPERA_DO_LOGIN_MS);
-  return fetch(url, { method: 'POST', body: JSON.stringify(corpo), redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, signal: controle.signal })
-    .then(function (r) { return r.text(); })
-    .then(function (texto) {
-      clearTimeout(relogio);
-      var r;
-      try { r = JSON.parse(texto); } catch (e) { throw { semResposta: true, msg: 'O login respondeu fora do combinado.' }; }
-      // A CENTRAL fora do ar com o projeto do login no ar: a resposta chega inteira e diz que não respondeu (carta nº 9).
-      if (r && r.respondeu === false) throw { semResposta: true, msg: r.erro || 'O cadastro está fora do ar agora.' };
-      return r;
-    }, function () { clearTimeout(relogio); throw { semResposta: true, rede: true }; });
-}
+/* ---------- a conversa com o login do Núcleo (casca.js) ---------- */
+var enderecoDoLogin = cascaEnderecoDoLogin, postarAoLogin = cascaPostarAoLogin;
 function dadosDoAparelho() { return { id: E.aparelho.id, descricao: String(navigator.userAgent || '').slice(0, 160) }; }
 
 /* ---------- quem já entrou neste celular ---------- */
 function parametrosDe(p) { var r = {}; Object.keys(PARAMETROS_DE_RESERVA).forEach(function (k) { r[k] = p && p.parametros && +p.parametros[k] > 0 ? +p.parametros[k] : PARAMETROS_DE_RESERVA[k]; }); return r; }
-function fusoDe(p) { return fusoQueVale(p && p.entrada && p.entrada.fuso || FUSO_PADRAO); }
 function pessoaAtual() { return E.atual && E.pessoas[E.atual.chave] || null; }
-function entradaValeHoje() {
-  var p = pessoaAtual();
-  return !!(p && E.atual.dia && E.atual.dia === diaNoFuso(new Date(), fusoDe(p)));
-}
+function entradaValeHoje() { return cascaEntradaVale(E.atual, E.pessoas); }
 
 /* A resposta boa do login vira o que fica guardado. Recebe a chave já calculada (pelo CPF ou pela pessoa escolhida). */
 function guardarEntrada(chave, r, senha) {
@@ -175,7 +123,9 @@ function guardarEntrada(chave, r, senha) {
   return feito.then(function () {
     E.pessoas[chave] = p;
     E.atual = { chave: chave, dia: diaNoFuso(new Date(), fusoDe(p)) };
-    return Promise.all([gravarPessoas(), gravarAtual()]);
+    // O endereço de cada módulo fica guardado para a fila dos blocos, que envia sem a pessoa na tela e sem sinal na
+    // hora de guardar. Ele chegou com a senha conferida, e é conferido de novo pelo resumo antes de cada envio.
+    return Promise.all([gravarPessoas(), gravarAtual(), cascaGuardarEnderecos(p.modulos)]);
   });
 }
 
@@ -296,29 +246,79 @@ function sair() { E.atual = null; E.escolhida = null; E.erro = ''; E.ok = ''; E.
    30 dias sem contato, ou é cortada pelo administrador). */
 function esquecerNesteCelular() {
   if (!E.atual) return;
+  var p = E.pessoas[E.atual.chave];
   delete E.pessoas[E.atual.chave]; E.atual = null; E.escolhida = null;
-  return Promise.all([gravarPessoas(), gravarAtual()]).then(function () { irPara('entrar', 'Seus dados saíram deste celular.'); });
+  // Sai também a sessão da pessoa em cada bloco. O que ela fez e ainda não subiu continua no banco do bloco: ficaria
+  // esperando que ela entre de novo, e não é da casca apagar (FRONTEIRA §5.5, cuidado 2).
+  return Promise.all([gravarPessoas(), gravarAtual(), cascaEsquecerSessoes(p && p.matricula)]).then(function () { irPara('entrar', 'Seus dados saíram deste celular.'); });
 }
 
 /* ---------- Início: os módulos ---------- */
 function siglaDe(m) { return String(m.modulo || m.nome || '?').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase(); }
-/* A ordem é a que veio do login (a coluna ORDEM da MODULOS): a casca não ordena nada (carta nº 9 do Núcleo). */
+/* A ordem é a que veio do login (a coluna ORDEM da MODULOS): a casca não ordena nada (carta nº 9 do Núcleo).
+   O módulo que tem tela do celular neste app (um bloco de espécie celular ou ambas) abre a tela guardada no próprio
+   celular, com ou sem sinal. O outro abre a tela do sistema, numa janela nova, com o token pedido no toque. */
+function telaDoCelular(m) { var b = cascaBlocoDoModulo(m.modulo); return b && b.entrada ? b : null; }
 function abrirModulo(i) {
   var p = pessoaAtual(), m = p && p.modulos[i];
   if (!m || !m.url || m.liberado === false || !/^https:\/\/\S+$/.test(m.url)) return;
+  var b = telaDoCelular(m);
+  if (b) { location.href = b.entrada; return; }
   if (!comSinal()) return mostrarErro('Sem sinal: as telas do sistema só abrem com sinal.');
-  // A janela abre no toque (senão o navegador a bloqueia), e o endereço entra quando o token chegar.
-  var janela = window.open('', '_blank');
-  if (janela) { try { janela.opener = null; janela.document.title = 'Abrindo…'; } catch (e) { } }
+  var janela = cascaAbrirJanela();
   E.ocupado = true; E.erro = ''; desenhar();
-  return postarAoLogin({ acao: 'token', sessao: p.sessao, modulo: m.modulo }).then(function (r) {
+  return cascaAbrirComToken(p, m.modulo, m.url, janela).then(function (r) {
     E.ocupado = false;
-    if (!r || r.ok !== true || !r.token) { if (janela) janela.close(); return mostrarErro((r && r.erro) || 'O login não liberou a abertura.'); }
-    var destino = m.url + (m.url.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(r.token);
-    if (janela) janela.location.href = destino; else location.href = destino;
+    if (r.erro) return mostrarErro(r.erro);
     desenhar();
-  }, function () { if (janela) janela.close(); mostrarErro('Não consegui falar com o login. Tente com sinal melhor.'); });
+  });
 }
+
+/* ---------- Envio: a fila dos blocos ----------
+   A fila é da casca, e o que vai nela é de cada bloco (FRONTEIRA §5.5). A tela mostra, por bloco que envia, quantos
+   registros esperam, o último envio e as últimas vezes que o Android acordou o app; o "Enviar agora" faz o mesmo que
+   o segundo plano, porque é a mesma função (servicos.js). */
+function blocosQueEnviam() { return cascaBlocos().filter(function (b) { return b.envia; }); }
+function carregarEnvioDosBlocos() {
+  // A tela da casca carrega o envio de cada bloco, para contar o que espera e para o "Enviar agora". É o mesmo arquivo
+  // que o service worker importa.
+  return Promise.all(blocosQueEnviam().map(function (b) {
+    return new Promise(function (ok) {
+      var s = document.createElement('script');
+      s.src = b.envia.script; s.onload = function () { ok(); }; s.onerror = function () { E.envio[b.id] = { quebrado: true }; ok(); };
+      document.head.appendChild(s);
+    });
+  }));
+}
+function lerEnvio() {
+  return Promise.all(blocosQueEnviam().map(function (b) {
+    return Promise.all([cascaPendentes(b.id), cascaLer('envio:' + b.id), cascaLer('acordadas:' + b.id)]).then(function (v) {
+      var antes = E.envio[b.id] || {};
+      E.envio[b.id] = { pendentes: v[0], estado: v[1] || null, acordadas: v[2] || [], enviando: antes.enviando, quebrado: antes.quebrado && v[0] === null };
+    });
+  })).then(function () { return cascaLer('instalacao'); }).then(function (i) { E.instalacao = i || null; desenharSeLogado(); });
+}
+function totalPendente() { return Object.keys(E.envio).reduce(function (t, k) { return t + (+E.envio[k].pendentes || 0); }, 0); }
+function enviarBloco(id, motivo) {
+  var x = E.envio[id] = E.envio[id] || {};
+  if (x.enviando) return Promise.resolve();
+  x.enviando = true; desenharSeLogado();
+  return cascaEnviar(id, motivo).then(function (r) {
+    x.enviando = false;
+    if (r && r.pendentes) { var b = cascaBloco(id); if (b) cascaPedirSegundoPlano(b.envia.etiqueta); }
+  }, function () { x.enviando = false; }).then(lerEnvio);
+}
+/* Com sinal e com alguém entrado hoje, o app tenta mandar o que espera ao abrir e quando o sinal volta (o "envia
+   quando o sinal volta" do app do campo). Com o endereço mudado não insiste: tentar de novo não conserta. */
+function enviarOQueEspera(motivo) {
+  if (!comSinal() || !entradaValeHoje()) return Promise.resolve();
+  return Promise.all(blocosQueEnviam().map(function (b) {
+    var x = E.envio[b.id] || {};
+    if (!x.pendentes || (x.estado && x.estado.enderecoMudou)) return null;
+    return enviarBloco(b.id, motivo);
+  }));
+}
+function desenharSeLogado() { if (telaLogada()) desenhar(); }
 
 /* ---------- Avisos ---------- */
 function avisosDaJanela(lista, p) {
@@ -354,13 +354,15 @@ function marcarAvisosVistos() {
    As telas usam as classes da folha do Núcleo (estilo/nucleo.css), as mesmas do App.html do Portal: a tela de
    entrada com a moldura vermelha e a marca quadrada, a barra grafite com a marca horizontal, a saudação, o rótulo
    "Seus sistemas" e os cartões .n-modulo. O que só o app tem leva o prefixo app- e mora no index.html. */
-var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07' };
+var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08' };
+var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil'];
 var AJUDAS = {
   entrar: 'Entre com o seu CPF e a mesma senha do Portal. Quem já entrou neste celular aparece na lista: toque no seu nome e digite só a senha. Sem sinal, só entra quem já entrou neste celular com sinal antes. A entrada vale até o fim do dia; amanhã o app pede a senha de novo.',
   primeiro: 'Primeira vez no app ou no Portal: digite o CPF, o seu e-mail e crie a senha. O e-mail é para onde vai uma senha nova se um dia você esquecer a sua. Precisa de sinal.',
   trocar: 'Você entrou com uma senha temporária. Crie agora a sua senha, que vale também para o Portal.',
   esqueci: 'Digite o CPF. O sistema manda uma senha temporária para o e-mail cadastrado. Entre com ela, e o app pede para você criar a sua.',
-  inicio: 'Aqui estão os sistemas que você pode abrir. Toque num deles para abrir, já com você entrado. Os que estão apagados dizem o motivo. As telas do sistema precisam de sinal.',
+  inicio: 'Aqui estão os sistemas que você pode abrir. Toque num deles para abrir, já com você entrado. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
+  envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
   avisos: 'As comunicações da Compel dos últimos 30 dias. As marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
   perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal.'
 };
@@ -433,11 +435,11 @@ function telaInicio() {
     // O endereço vem da célula URL da MODULOS como está, só sem os espaços das pontas (carta nº 11 do Núcleo, 21/10/2026).
     // Uma quebra de linha ou um espaço no meio não sai com o trim, e o endereço não abre em lugar nenhum: o cartão diz
     // que a célula está com defeito, em vez de abrir uma página de erro do Google.
-    var breve = !m.url, defeito = !breve && !/^https:\/\/\S+$/.test(m.url), travado = m.liberado === false, semRede = !comSinal();
+    var breve = !m.url, defeito = !breve && !/^https:\/\/\S+$/.test(m.url), travado = m.liberado === false, local = !!telaDoCelular(m), semRede = !comSinal() && !local;
     var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : defeito ? 'O endereço deste sistema está com defeito na planilha. Avise a administração.' : semRede ? 'Precisa de sinal para abrir.' : '';
     return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
       (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
-      (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : '') + '</button>';
+      (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : local ? '<span class="n-perfil app-local">funciona sem sinal</span>' : '') + '</button>';
   }).join('') + '</div>';
   return '<div class="conteudo">' + h + ajuda('inicio') + '</div>';
 }
@@ -457,6 +459,34 @@ function telaAvisos() {
   }).join('') + '</div>';
   return '<div class="conteudo">' + h + ajuda('avisos') + '</div>';
 }
+function quandoDe(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+function telaEnvio() {
+  var h = '<p class="etiqueta n-secao app-sem-margem">Envio</p>' + mensagens();
+  if (!comSinal()) h += '<div class="aviso atencao">Sem sinal: o que está guardado sobe quando o sinal voltar.</div>';
+  if (cascaEhIphone()) h += '<div class="aviso info" id="notaIphone">No iPhone, o envio pode só acontecer com o app aberto. Quando tiver sinal, abra o app e confira esta tela.</div>';
+  if (E.instalacao && E.instalacao.problemas && E.instalacao.problemas.length) h += '<div class="aviso atencao" id="problemaInstalacao">Uma parte do app não ficou guardada neste celular. Abra o app com sinal de novo. Se repetir, avise a administração.</div>';
+  h += blocosQueEnviam().map(function (b) {
+    var x = E.envio[b.id] || {}, e = x.estado || {}, n = x.pendentes;
+    var c = '<div class="cartao app-envio" data-bloco="' + esc(b.id) + '"><div class="app-linha"><b class="app-titulo">' + esc(b.nome) + '</b>' +
+      '<span class="selo' + (n ? ' andando' : '') + '" data-pendentes="' + esc(n === null || n === undefined ? '' : n) + '">' +
+      (x.quebrado ? 'não carregou' : n === null || n === undefined ? '…' : n ? n + ' esperando' : 'nada esperando') + '</span></div>';
+    // O endereço recusado aparece uma vez, no bloco, e não como erro em cada registro (carta nº 6 da Operação).
+    if (e.enderecoMudou) c += '<div class="aviso erro app-endereco" role="alert">' + esc(e.erro) + '</div>';
+    else if (x.quebrado) c += '<div class="aviso erro">O envio deste sistema não carregou neste celular. Abra o app com sinal de novo.</div>';
+    else if (e.erro) c += '<div class="aviso atencao">' + esc(e.erro) + '</div>';
+    if (e.quando) c += '<p class="ajuda app-ultimo">Última tentativa: ' + esc(quandoDe(e.quando)) + ' (' + esc(e.enviadoPor || '') + ') · ' + esc(e.enviados || 0) + ' enviado(s)</p>';
+    // Com o endereço recusado, o botão fica apagado: tentar de novo não conserta, e o conserto é da administração.
+    c += botao('enviarBloco', x.enviando ? 'Enviando…' : 'Enviar agora', x.enviando, false, x.enviando || !comSinal() || x.quebrado || !n || e.enderecoMudou);
+    if (x.acordadas && x.acordadas.length) c += '<details class="app-acordadas"><summary>As últimas vezes que o celular acordou o app para enviar</summary><ul>' +
+      x.acordadas.slice().reverse().map(function (a) { return '<li>' + esc(quandoDe(a.quando)) + ': ' + esc(a.resultado) + '</li>'; }).join('') + '</ul></details>';
+    return c.replace('data-acao="enviarBloco"', 'data-acao="enviarBloco" data-bloco="' + esc(b.id) + '"') + '</div>';
+  }).join('');
+  return '<div class="conteudo">' + h + ajuda('envio') + '</div>';
+}
 function telaPerfil() {
   var p = pessoaAtual(), par = parametrosDe(p);
   var linhas = [['Nome', p.nomeCompleto || p.nome], ['Matrícula', p.matricula], ['Função', p.funcao], ['Lotação', p.lotacao]].filter(function (l) { return l[1]; });
@@ -471,7 +501,7 @@ function telaPerfil() {
 }
 
 function desenhar() {
-  var tela = E.tela, logado = ['inicio', 'avisos', 'perfil'].indexOf(tela) >= 0;
+  var tela = E.tela, logado = TELAS_DE_DENTRO.indexOf(tela) >= 0;
   if (logado && !entradaValeHoje()) { tela = E.tela = 'entrar'; logado = false; if (E.atual) { E.escolhida = E.atual.chave; E.atual = null; gravarAtual(); } }
   var s = $('sinal'); s.className = 'app-sinal ' + (comSinal() ? 'on' : 'off'); s.textContent = comSinal() ? 'Com sinal' : 'Sem sinal';
   $('codigo').textContent = CODIGOS[tela] || '';
@@ -480,19 +510,23 @@ function desenhar() {
   $('abas').classList.toggle('oculto', !logado);
   Array.prototype.forEach.call(document.querySelectorAll('#abas button'), function (b) { b.classList.toggle('ativo', b.getAttribute('data-aba') === tela); });
   var n = logado ? quantosNovos() : 0, bol = $('bolinha'); bol.classList.toggle('oculto', !n); bol.textContent = n > 9 ? '9+' : n;
+  // A aba de Envio só existe quando algum bloco deste app envia; a bolinha dela é o que espera para subir.
+  $('abaEnvio').classList.toggle('oculto', !blocosQueEnviam().length);
+  var pe = logado ? totalPendente() : 0, bolE = $('bolinhaEnvio'); bolE.classList.toggle('oculto', !pe); bolE.textContent = pe > 9 ? '9+' : pe;
   // O que a pessoa já digitou no CPF e no e-mail sobrevive ao redesenho (um erro não a obriga a digitar de novo).
   // A senha não: depois de um erro, ela é digitada outra vez.
   var guardados = {};
   if (E.telaDesenhada === tela) ['cpf', 'email'].forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
   E.telaDesenhada = tela;
-  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, perfil: telaPerfil }[tela];
+  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, perfil: telaPerfil }[tela];
   $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
 }
-function telaLogada() { return ['inicio', 'avisos', 'perfil'].indexOf(E.tela) >= 0; }
+function telaLogada() { return TELAS_DE_DENTRO.indexOf(E.tela) >= 0; }
 /* O sinal que vai e volta não redesenha a tela de entrada (apagaria o que a pessoa está digitando): só o aviso do
    topo muda. Nas telas de dentro, redesenha, porque os módulos e os avisos dependem do sinal. */
 function mudouOSinal() {
+  if (comSinal()) enviarOQueEspera('o sinal voltou');
   if (telaLogada()) { desenhar(); if (comSinal() && pessoaAtual() && !E.avisos) buscarAvisos(); return; }
   var s = $('sinal'); s.className = 'app-sinal ' + (comSinal() ? 'on' : 'off'); s.textContent = comSinal() ? 'Com sinal' : 'Sem sinal';
   var aviso = document.querySelector('.app-sem-sinal'); if (aviso) aviso.classList.toggle('oculto', comSinal());
@@ -503,6 +537,7 @@ function irPara(tela, ok) {
   if (tela === 'avisos') { if (E.avisos && E.avisos.lista) marcarAvisosVistos(); else buscarAvisos(); }
   if (tela === 'inicio' && !E.avisos) buscarAvisos();
   if (tela !== 'avisos') delete E.avisosNovosAntes;
+  if (tela === 'envio') lerEnvio();
   desenhar();
   window.scrollTo(0, 0);
 }
@@ -526,6 +561,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'irEsqueci') return irPara('esqueci');
   if (a === 'irEntrar') { E.memoria = null; return irPara('entrar'); }
   if (a === 'abrirModulo') return abrirModulo(+b.getAttribute('data-i'));
+  if (a === 'enviarBloco') return enviarBloco(b.getAttribute('data-bloco'), 'Enviar agora');
   if (a === 'sair') return sair();
   if (a === 'esquecer') return esquecerNesteCelular();
 });
@@ -542,6 +578,8 @@ document.addEventListener('visibilitychange', function () { if (!document.hidden
 /* ---------- a versão nova ---------- */
 function registrarServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
+  // O segundo plano mexeu na fila: a tela relê.
+  navigator.serviceWorker.addEventListener('message', function (ev) { if (ev.data && ev.data.fila) lerEnvio(); });
   navigator.serviceWorker.register('sw.js').then(function (reg) {
     reg.addEventListener('updatefound', function () {
       var novo = reg.installing;
@@ -564,6 +602,7 @@ function iniciar() {
     var chaves = Object.keys(E.pessoas);
     E.escolhida = chaves.length === 1 ? chaves[0] : null;
     irPara(E.atual && entradaValeHoje() ? 'inicio' : 'entrar');
+    return carregarEnvioDosBlocos().then(lerEnvio).then(function () { return enviarOQueEspera('ao abrir'); });
   }, function () {
     $('corpo').innerHTML = '<div class="conteudo"><div class="aviso erro">Este navegador não deixou o app guardar dados (modo anônimo?). Abra o app instalado ou o navegador normal.</div></div>';
   });

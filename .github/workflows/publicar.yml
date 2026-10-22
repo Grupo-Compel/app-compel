@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: A bateria da casca (entrada, Início, Avisos, Perfil, sem sinal)
+      - name: A bateria da casca (entrada, Início, Avisos, Envio, Perfil, sem sinal, os blocos e o segundo plano)
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.56.0
           npx playwright install --with-deps chromium
@@ -67,8 +67,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # 21/10/2026: o que vai ao celular é o app, e não o repositório inteiro. A bateria e a conferência ficam de fora
+      # (a bateria tem um bloco de exemplo que não pode aparecer no app publicado), e o índice dos blocos é montado
+      # aqui, a partir dos bloco.json, com a mesma leitura da conferência (conferencia/indice.js explica por quê).
+      - name: Montar o site e o índice dos blocos
+        run: |
+          mkdir _site
+          tar --exclude=./.git --exclude=./.github --exclude=./testes --exclude=./conferencia --exclude=./node_modules --exclude=./_site -cf - . | tar -xf - -C _site
+          node conferencia/indice.js --raiz _site
+          test -f _site/blocos/indice.js
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: publicacao
         uses: actions/deploy-pages@v4

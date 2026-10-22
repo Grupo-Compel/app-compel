@@ -10,18 +10,46 @@
  * Nenhum dado da Compel: os CPFs são sorteados na hora (dígitos certos, ninguém real por escolha), os nomes são
  * inventados, e nada disso fica escrito neste arquivo.
  *
+ * O SITE DA BATERIA É UMA CÓPIA (21/10/2026): o repositório é copiado para uma pasta temporária, e nela entram o
+ * bloco de exemplo (testes/bloco-exemplo, em blocos/exemplo/), o resumo do endereço inventado do servidor dele e o
+ * índice dos blocos, montado pela mesma função da publicação (conferencia/indice.js). O repositório não muda: o bloco
+ * de exemplo nunca é publicado, e o resumo do servidor inventado nunca vai para um arquivo publicado (carta nº 8 do
+ * App à Operação: o arquivo publicado aceita um resumo só, o do servidor de verdade).
+ *
  * Uso: node testes/casca.js            (precisa do Playwright; neste ambiente, NODE_PATH=/opt/npm-tools/node_modules)
  *      node testes/casca.js --so T08    (um teste só)
  */
 'use strict';
 var http = require('http');
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
+var crypto = require('crypto');
+// O envio em segundo plano sai do service worker: sem isto, o Chromium não deixa a bateria imitar o servidor do bloco
+// para os pedidos que saem de lá.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
 var pw;
 try { pw = require('playwright'); } catch (e) { pw = require('/opt/npm-tools/node_modules/playwright'); }
 
-var RAIZ = path.resolve(__dirname, '..');
+var REPOSITORIO = path.resolve(__dirname, '..');
 var LOGIN = 'https://login.teste.invalid/exec';
+var SERVIDOR_EXEMPLO = 'https://exemplo.teste.invalid/exec';
+var SERVIDOR_OUTRO = 'https://outro.teste.invalid/exec';
+
+/* ---------- a cópia do site, com o bloco de exemplo ---------- */
+function prepararSite() {
+  var raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'casca-site-'));
+  fs.cpSync(REPOSITORIO, raiz, { recursive: true, filter: function (o) { var b = path.basename(o); return b !== '.git' && b !== 'node_modules'; } });
+  fs.rmSync(path.join(raiz, 'blocos', 'indice.js'), { force: true });
+  fs.cpSync(path.join(REPOSITORIO, 'testes', 'bloco-exemplo'), path.join(raiz, 'blocos', 'exemplo'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'blocos', 'exemplo', 'servidor.sha256'), crypto.createHash('sha256').update(SERVIDOR_EXEMPLO).digest('hex') + '\n');
+  // Uma página vazia do mesmo site, para a bateria preparar o celular antes de o app abrir (T26).
+  fs.writeFileSync(path.join(raiz, 'vazio.html'), '<!doctype html><title>vazio</title>');
+  var r = require(path.join(REPOSITORIO, 'conferencia', 'indice.js')).montar(raiz);
+  if (r.erro) throw new Error('o índice da bateria não montou: ' + JSON.stringify(r.erro));
+  return raiz;
+}
+var RAIZ = prepararSite();
 
 /* ---------- um CPF sorteado, com os dígitos certos ---------- */
 function cpfSorteado() {
@@ -86,7 +114,10 @@ function novoLogin() {
   return L;
 }
 
-/* ---------- o site do app, servido da pasta do repositório ---------- */
+/* ---------- o site do app, servido da cópia ----------
+   Todo servidor aberto fica na lista e é fechado no fim, mesmo o de um teste que falhou no meio: um servidor esquecido
+   aberto segura o processo, e a publicação ficaria esperando em vez de dizer que falhou (visto em 21/10/2026). */
+var SERVIDORES = [];
 function servir() {
   var tipos = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
   var srv = http.createServer(function (req, res) {
@@ -96,6 +127,7 @@ function servir() {
     res.writeHead(200, { 'Content-Type': tipos[path.extname(arq)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     fs.createReadStream(arq).pipe(res);
   });
+  SERVIDORES.push(srv);
   return new Promise(function (ok) { srv.listen(0, '127.0.0.1', function () { ok(srv); }); });
 }
 
@@ -113,11 +145,23 @@ async function abrir(L, op) {
     });
     await ctx.route('https://modulo.teste.invalid/**', function (r) { r.fulfill({ contentType: 'text/html', body: '<p>módulo</p>' }); });
   }
+  if (op.servidor) await rotearServidores(ctx, op.servidor);
   var page = await ctx.newPage();
   if (op.relogio) await page.clock.install({ time: new Date(op.relogio) });
   await page.goto(base + '/index.html');
   await page.waitForSelector('#corpo .cartao');
   return { ctx: ctx, page: page };
+}
+/* O servidor imitado do bloco de exemplo: anota cada pedido, e pode demorar para responder. O outro endereço é o de
+   uma "Nova implantação" feita por engano: se algum pedido chegar lá, a trava do resumo falhou. */
+function novoServidor() { return { pedidos: [], noOutro: [], demora: 0 }; }
+async function rotearServidores(ctx, S) {
+  await ctx.route(SERVIDOR_EXEMPLO + '*', function (r) {
+    var corpo = JSON.parse(r.request().postData() || '{}');
+    S.pedidos.push(corpo);
+    setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }).catch(function () { }); }, S.demora);
+  });
+  await ctx.route(SERVIDOR_OUTRO + '*', function (r) { S.noOutro.push(r.request().postData()); r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
 }
 async function texto(page, sel) { return (await page.textContent(sel || '#corpo')) || ''; }
 async function esperarTexto(page, trecho, sel) {
@@ -149,6 +193,22 @@ var MODULOS_DA_ANA = [
   // A célula com uma quebra de linha no meio (carta nº 11 do Núcleo): o trim do Núcleo não a tira.
   { modulo: 'BENEFICIOS', nome: 'Benefícios', url: 'https://modulo.teste.invalid/bene\nficios', perfil: 'CONSULTA', liberado: true }
 ];
+var MODULO_EXEMPLO = { modulo: 'EXEMPLO', nome: 'Exemplo', url: SERVIDOR_EXEMPLO, perfil: 'ELETRICISTA', liberado: true };
+function anaComExemplo(url) {
+  return loginComAna({ modulos: MODULOS_DA_ANA.concat([Object.assign({}, MODULO_EXEMPLO, { url: url || SERVIDOR_EXEMPLO })]) });
+}
+/* Entra, abre o bloco pelo cartão do Início e espera a tela dele. */
+async function entrarNoExemplo(a, x) {
+  await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+  await a.page.click('#modulos .n-modulo[data-i="5"]');
+  await a.page.waitForURL(/\/blocos\/exemplo\/index\.html$/);
+  await a.page.waitForSelector('#anotar');
+}
+async function anotar(a, txt) {
+  await a.page.fill('#texto', txt); await a.page.click('#anotar');
+  await a.page.waitForFunction(function () { return document.getElementById('resultado').textContent; });
+  return a.page.textContent('#resultado');
+}
 function loginComAna(dados) {
   var L = novoLogin();
   var cpf = L.criar('Ana Teste Exemplo', Object.assign({ senha: 'senha-da-ana', fuso: 'America/Campo_Grande', matricula: '99901', modulos: MODULOS_DA_ANA }, dados || {}));
@@ -362,6 +422,7 @@ var TESTES = {
       await a.page.click('[data-acao="irEntrar"]');
       await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana'); await conferir('Início');
       await a.page.click('[data-aba="avisos"]'); await a.page.waitForSelector('#listaAvisos'); await conferir('Avisos');
+      await a.page.click('[data-aba="envio"]'); await a.page.waitForSelector('.app-envio'); await conferir('Envio');
       await a.page.click('[data-aba="perfil"]'); await conferir('Perfil');
       await a.page.click('[data-acao="sair"]'); await conferir('Entrar com a lista de quem já entrou');
       await a.ctx.close();
@@ -380,6 +441,7 @@ var TESTES = {
     await a.page.click('[data-acao="irEntrar"]');
     await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana'); await conferir('Início');
     await a.page.click('[data-aba="avisos"]'); await conferir('Avisos');
+    await a.page.click('[data-aba="envio"]'); await conferir('Envio');
     await a.page.click('[data-aba="perfil"]'); await conferir('Perfil');
     await a.ctx.close();
   },
@@ -439,6 +501,190 @@ var TESTES = {
     afirmar(dentro.cartoes === 5, 'os sistemas deviam ser os cartões .n-modulo do Portal');
     await a.ctx.close();
   },
+  T19_nenhum_texto_no_vermelho_da_marca: async function () {
+    // O #ED1C24 é o vermelho da marca e reprova como cor de texto (4,38:1 sobre branco; carta nº 12 do Núcleo,
+    // 21/10/2026). Texto vermelho é o --vermelho-forte, #B2101F. Este teste olha a cor de todo texto visível.
+    var x = loginComAna(); x.L.comunicacoes = [{ id: 'a', titulo: 'Um aviso', data: '2026-10-21', categoria: 'Segurança', link: 'https://modulo.teste.invalid/aviso' }];
+    var a = await abrir(x.L, { relogio: '2026-10-21T10:00:00-03:00' }), achados = [];
+    var conferir = async function (nome) {
+      var r = await a.page.evaluate(function () {
+        var ruins = [], w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (w.nextNode()) {
+          var n = w.currentNode, el = n.parentElement;
+          if (!n.textContent.trim() || !el || !el.getClientRects().length) continue;
+          if (getComputedStyle(el).color === 'rgb(237, 28, 36)') ruins.push(n.textContent.trim().slice(0, 40));
+        }
+        return ruins;
+      });
+      r.forEach(function (t) { achados.push(nome + ': "' + t + '"'); });
+    };
+    await a.page.fill('#cpf', '123'); await a.page.click('[data-acao="entrarCpf"]'); await a.page.waitForSelector('#erro');
+    await a.page.click('[data-acao="ajuda"]'); await conferir('Entrar (com erro e ajuda)');
+    await a.page.click('[data-acao="irPrimeiro"]'); await conferir('Primeiro acesso');
+    await a.page.click('[data-acao="irEntrar"]');
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    await a.page.click('[data-acao="ajuda"]'); await conferir('Início');
+    await a.page.click('[data-aba="avisos"]'); await a.page.waitForSelector('#listaAvisos'); await conferir('Avisos');
+    await a.page.click('[data-aba="envio"]'); await a.page.waitForSelector('.app-envio'); await conferir('Envio');
+    await a.page.click('[data-aba="perfil"]'); await conferir('Perfil');
+    afirmar(!achados.length, 'texto no vermelho da marca (#ED1C24): ' + achados.join('; '));
+    await a.ctx.close();
+  },
+  /* ---------- os blocos (21/10/2026): o bloco de exemplo, só na cópia do site da bateria ---------- */
+  T20_o_bloco_abre_pelo_inicio_e_recebe_a_pessoa_sem_cpf: async function () {
+    var x = anaComExemplo(), a = await abrir(x.L, { servidor: novoServidor() });
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    afirmar((await texto(a.page, '#modulos .n-modulo[data-i="5"]')).indexOf('funciona sem sinal') >= 0, 'o cartão do bloco do celular devia dizer que funciona sem sinal');
+    await a.page.click('#modulos .n-modulo[data-i="5"]');
+    await a.page.waitForURL(/\/blocos\/exemplo\/index\.html$/); await esperarTexto(a.page, 'Olá, Ana');
+    var p = await a.page.evaluate(function () { return window.PESSOA_DO_BLOCO; }), j = JSON.stringify(p);
+    afirmar(Object.keys(p).sort().join(',') === 'bases,funcao,lotacao,matricula,nome,nomeCompleto', 'o bloco recebeu campos a mais ou a menos: ' + Object.keys(p).join(','));
+    afirmar(p.matricula === '99901' && p.nome === 'Ana Teste', 'o bloco devia receber o nome e a matrícula');
+    afirmar(j.indexOf(x.cpf) < 0 && j.indexOf('sess-') < 0 && !/"base"/.test(j), 'o bloco recebeu o CPF, a sessão ou um campo "base"');
+    afirmar(!x.L.pedidos.some(function (q) { return q.acao === 'token'; }), 'a tela do celular abre sem pedir token');
+    await a.page.click('#voltar'); await esperarTexto(a.page, 'Seus sistemas');
+    await a.ctx.close();
+  },
+  T21_o_bloco_sem_a_entrada_de_hoje_volta_para_entrar: async function () {
+    var a = await abrir(anaComExemplo().L);
+    await a.page.goto(base + '/blocos/exemplo/index.html');
+    await a.page.waitForURL(function (u) { return !/\/blocos\//.test(u.pathname); });
+    await esperarTexto(a.page, 'Entrar');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-01', 'sem entrada, a tela do bloco devia levar à entrada da casca');
+    await a.ctx.close();
+  },
+  T22_guarda_sem_sinal_e_envia_quando_o_sinal_volta: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S });
+    await entrarNoExemplo(a, x);
+    await a.ctx.setOffline(true);
+    var r = await anotar(a, 'poste 12 conferido');
+    afirmar(/quando houver sinal/.test(r), 'sem sinal, o bloco devia dizer que guardou: ' + r);
+    afirmar(S.pedidos.length === 0, 'sem sinal, nada podia ter ido ao servidor');
+    await a.ctx.setOffline(false);
+    await a.page.waitForFunction(function () { return true; });
+    for (var i = 0; i < 50 && !S.pedidos.length; i++) await a.page.waitForTimeout(100);
+    afirmar(S.pedidos.length === 1, 'o sinal voltou com a tela do bloco aberta e o registro devia ter subido uma vez; subiram ' + S.pedidos.length);
+    var q = S.pedidos[0];
+    afirmar(q.app === 'exemplo' && q.versao === '1', 'o envio devia levar o app e a versão do bloco, e levou ' + q.app + ' ' + q.versao);
+    afirmar(q.relogio && typeof q.fuso === 'number', 'o envio devia levar o relógio e o fuso do celular');
+    afirmar(q.registro.carimbo.feitoPor.matricula === '99901' && q.registro.carimbo.emNomeDe.matricula === '99901' && q.registro.carimbo.noCelularDeOutro === false, 'o registro devia levar quem fez e em nome de quem');
+    afirmar(JSON.stringify(q).indexOf(x.cpf) < 0, 'o CPF foi no envio do bloco');
+    await a.page.click('#voltar'); await esperarTexto(a.page, 'Seus sistemas');
+    await a.page.click('[data-aba="envio"]'); await esperarTexto(a.page, 'nada esperando');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-08', 'o código da tela de Envio');
+    await a.ctx.close();
+  },
+  T23_o_endereco_que_nao_bate_e_recusado_e_avisado_uma_vez: async function () {
+    // O login devolve outro endereço para o módulo: uma "Nova implantação" por engano (carta nº 6 da Operação).
+    var S = novoServidor(), x = anaComExemplo(SERVIDOR_OUTRO), a = await abrir(x.L, { servidor: S });
+    await entrarNoExemplo(a, x);
+    await anotar(a, 'primeiro'); await anotar(a, 'segundo');
+    await a.page.click('#voltar'); await esperarTexto(a.page, 'Seus sistemas');
+    await a.page.waitForTimeout(500);
+    afirmar(S.pedidos.length === 0 && S.noOutro.length === 0, 'com o endereço que não bate, nada podia sair (exemplo: ' + S.pedidos.length + ', outro: ' + S.noOutro.length + ')');
+    await a.page.click('[data-aba="envio"]'); await esperarTexto(a.page, '2 esperando');
+    var avisos = await a.page.$$eval('.app-endereco', function (l) { return l.map(function (e) { return e.textContent; }); });
+    afirmar(avisos.length === 1 && avisos[0] === 'O endereço do servidor de Exemplo mudou. Avise a administração.', 'o aviso do endereço devia aparecer uma vez, com a frase combinada; veio ' + JSON.stringify(avisos));
+    afirmar((await texto(a.page, '#bolinhaEnvio')) === '2', 'a aba Envio devia mostrar 2 esperando');
+    afirmar(await a.page.isDisabled('[data-acao="enviarBloco"][data-bloco="exemplo"]'), 'com o endereço recusado, o "Enviar agora" devia ficar apagado');
+    await a.ctx.close();
+  },
+  T24_a_trava_unica_nao_manda_o_mesmo_registro_duas_vezes: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S });
+    await entrarNoExemplo(a, x);
+    await a.ctx.setOffline(true); await anotar(a, 'um'); await anotar(a, 'dois');
+    await a.page.click('#voltar').catch(function () { });
+    await a.ctx.setOffline(false);
+    await a.page.goto(base + '/index.html'); await esperarTexto(a.page, 'Seus sistemas');
+    // O app, ao abrir com sinal, já tenta mandar. Duas tentativas a mais ao mesmo tempo, com o servidor lento: só uma
+    // pode ter a trava, e cada registro chega uma vez.
+    S.demora = 600;
+    var r = await a.page.evaluate(function () { return Promise.all([cascaEnviar('exemplo', 'teste A'), cascaEnviar('exemplo', 'teste B')]); });
+    for (var i = 0; i < 50 && S.pedidos.length < 2; i++) await a.page.waitForTimeout(100);
+    await a.page.waitForTimeout(800);
+    var ids = S.pedidos.map(function (q) { return q.registro.id; });
+    afirmar(ids.length === 2 && ids[0] !== ids[1], 'cada registro devia chegar uma vez só; chegaram ' + JSON.stringify(ids));
+    afirmar(r.some(function (y) { return y && y.ocupado; }), 'uma das tentativas devia ter achado a trava ocupada: ' + JSON.stringify(r));
+    await a.ctx.close();
+  },
+  T25_o_segundo_plano_envia_com_o_service_worker: async function () {
+    var proprio = await servir(), endereco = 'http://127.0.0.1:' + proprio.address().port;
+    var S = novoServidor(), x = anaComExemplo();
+    var ctx = await navegador.newContext({ viewport: { width: 390, height: 800 }, serviceWorkers: 'allow', locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
+    await ctx.route('**/config/login.js', function (r) { r.fulfill({ contentType: 'text/javascript', body: "var ENDERECO_DO_LOGIN = '" + LOGIN + "';" }); });
+    await ctx.route(LOGIN + '*', function (r) { r.fulfill({ contentType: 'application/json', body: JSON.stringify(x.L.atender(JSON.parse(r.request().postData() || '{}'))) }); });
+    await rotearServidores(ctx, S);
+    var page = await ctx.newPage(), a = { ctx: ctx, page: page };
+    await page.goto(endereco + '/index.html');
+    await page.evaluate(function () { return navigator.serviceWorker.ready; });
+    await page.reload(); await page.waitForSelector('#corpo .cartao');
+    await entrarNoExemplo(a, x);
+    // A tela do bloco ficou guardada no cache dele, com a versão do bloco no nome.
+    var guardados = await page.evaluate(function () {
+      return caches.has('exemplo-bloco-1').then(function (tem) {
+        return tem ? caches.open('exemplo-bloco-1').then(function (c) { return c.keys(); }).then(function (k) { return k.map(function (r) { return new URL(r.url).pathname; }); }) : [];
+      });
+    });
+    afirmar(['/blocos/exemplo/index.html', '/blocos/exemplo/tela.js', '/blocos/exemplo/envio.js'].every(function (f) { return guardados.indexOf(f) >= 0; }),
+      'os três arquivos do bloco deviam estar guardados em exemplo-bloco-1; estão: ' + guardados.join(', '));
+    // Sem sinal na tela: o registro fica, e a casca pede ao Android que acorde o app.
+    await ctx.setOffline(true);
+    await anotar(a, 'pelo segundo plano');
+    afirmar(S.pedidos.length === 0, 'sem sinal na tela, nada podia ter saído');
+    // O sinal volta com o app FECHADO: nenhuma tela aberta pode mandar, e só o segundo plano pode. O Chromium acorda o
+    // service worker na etiqueta do bloco, como o Android faria (a sessão do DevTools vai numa página em branco, que
+    // não é do app).
+    await page.close();
+    var vazia = await ctx.newPage();
+    await ctx.setOffline(false);
+    var cdp = await ctx.newCDPSession(vazia), reg = null;
+    cdp.on('ServiceWorker.workerRegistrationUpdated', function (ev) { (ev.registrations || []).forEach(function (r) { if (!r.isDeleted) reg = r.registrationId; }); });
+    await cdp.send('ServiceWorker.enable');
+    for (var i = 0; i < 30 && !reg; i++) await vazia.waitForTimeout(100);
+    afirmar(reg, 'o Chromium não mostrou o registro do service worker');
+    await cdp.send('ServiceWorker.dispatchSyncEvent', { origin: endereco, registrationId: reg, tag: 'enviar-exemplo', lastChance: false });
+    for (i = 0; i < 80 && !S.pedidos.length; i++) await vazia.waitForTimeout(100);
+    afirmar(S.pedidos.length === 1 && S.pedidos[0].enviadoPor === 'segundo plano', 'o segundo plano devia ter mandado o registro; pedidos: ' + JSON.stringify(S.pedidos.map(function (q) { return q.enviadoPor; })));
+    await vazia.waitForTimeout(300);
+    page = await ctx.newPage(); a.page = page;
+    await page.goto(endereco + '/index.html'); await esperarTexto(page, 'Seus sistemas');
+    var acordadas = await page.evaluate(function () { return cascaLer('acordadas:exemplo'); });
+    afirmar(acordadas && acordadas.length === 1 && /1 enviado/.test(acordadas[0].resultado), 'a vez em que o app acordou devia ficar anotada: ' + JSON.stringify(acordadas));
+    // E a tela do bloco abre sem rede nenhuma: o site fora do ar de verdade (ver T16).
+    proprio.closeAllConnections(); await new Promise(function (ok) { proprio.close(ok); });
+    await page.goto(endereco + '/blocos/exemplo/index.html'); await page.waitForSelector('#anotar');
+    await ctx.close();
+  },
+  T26_a_casca_nao_apaga_o_que_nao_e_dela: async function () {
+    var proprio = await servir(), endereco = 'http://127.0.0.1:' + proprio.address().port;
+    var ctx = await navegador.newContext({ viewport: { width: 390, height: 800 }, serviceWorkers: 'allow' });
+    var page = await ctx.newPage();
+    // Antes de o app abrir: o cache de um app que não é bloco deste, uma versão velha do bloco de exemplo, e um banco
+    // de outro bloco com um registro esperando.
+    await page.goto(endereco + '/vazio.html');
+    await page.evaluate(function () {
+      return Promise.all([caches.open('outro-app-1'), caches.open('exemplo-bloco-0'), new Promise(function (ok) {
+        var r = indexedDB.open('operacao-campo', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('diarios', { keyPath: 'id' }); };
+        r.onsuccess = function () { var t = r.result.transaction('diarios', 'readwrite'); t.objectStore('diarios').put({ id: 'd1', estado: 'encerrado' }); t.oncomplete = function () { r.result.close(); ok(); }; };
+      })]);
+    });
+    await page.goto(endereco + '/index.html');
+    await page.evaluate(function () { return navigator.serviceWorker.ready; });
+    await page.waitForTimeout(500);
+    var r = await page.evaluate(function () {
+      return Promise.all([caches.keys(), new Promise(function (ok) {
+        var q = indexedDB.open('operacao-campo');
+        q.onsuccess = function () { var g = q.result.transaction('diarios').objectStore('diarios').get('d1'); g.onsuccess = function () { ok(g.result); q.result.close(); }; };
+      })]);
+    });
+    var nomes = r[0];
+    afirmar(nomes.indexOf('outro-app-1') >= 0, 'a casca apagou um cache que não é dela nem de bloco nenhum: ' + nomes.join(', '));
+    afirmar(nomes.indexOf('exemplo-bloco-0') < 0 && nomes.indexOf('exemplo-bloco-1') >= 0, 'a versão velha do bloco devia sair só depois da nova guardada: ' + nomes.join(', '));
+    afirmar(r[1] && r[1].estado === 'encerrado', 'o banco de outro bloco perdeu o registro que esperava');
+    proprio.closeAllConnections(); await new Promise(function (ok) { proprio.close(ok); });
+    await ctx.close();
+  },
   T17_tirar_meus_dados_deste_celular: async function () {
     var x = loginComAna(), a = await abrir(x.L);
     await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
@@ -452,6 +698,12 @@ var TESTES = {
   }
 };
 
+/* OS TESTES QUE ESPERAM UM CONSERTO DE OUTRA FRENTE. Rodam sempre, e a falha deles não para a publicação; mas se um
+   deles PASSAR, a bateria falha, para ele sair desta lista e passar a valer. Assim a espera não vira esquecimento.
+   - T19 espera o Estilo.html de 81.150 bytes do Núcleo, com o texto vermelho em --vermelho-forte (cartas nº 12 e
+     nº 13 do Núcleo, 21/10/2026). Falha hoje em sete lugares da cópia de 18/10. */
+var ESPERANDO = { T19_nenhum_texto_no_vermelho_da_marca: 'o Estilo.html novo do Núcleo (81.150 bytes)' };
+
 (async function () {
   var so = process.argv.indexOf('--so') >= 0 ? process.argv[process.argv.indexOf('--so') + 1] : null;
   site = await servir(); base = 'http://127.0.0.1:' + site.address().port;
@@ -459,10 +711,20 @@ var TESTES = {
   var falhas = 0, nomes = Object.keys(TESTES).filter(function (n) { return !so || n.indexOf(so) === 0; });
   for (var n of nomes) {
     var t0 = Date.now();
-    try { await TESTES[n](); console.log('  ok    ' + n + ' (' + (Date.now() - t0) + ' ms)'); }
-    catch (e) { falhas++; console.log('  FALHA ' + n + ': ' + (e && e.message || e).split('\n')[0]); }
+    try {
+      // Um teste que trava falha em 2 minutos, em vez de segurar a bateria.
+      await Promise.race([TESTES[n](), new Promise(function (_, falha) { setTimeout(function () { falha(new Error('passou de 2 minutos')); }, 120000).unref(); })]);
+      if (ESPERANDO[n]) { falhas++; console.log('  FALHA ' + n + ': passou, e está na lista de espera (' + ESPERANDO[n] + '). Tire da lista ESPERANDO.'); }
+      else console.log('  ok    ' + n + ' (' + (Date.now() - t0) + ' ms)');
+    } catch (e) {
+      var msg = (e && e.message || String(e)).split('\n')[0];
+      if (ESPERANDO[n]) console.log('  espera ' + n + ' (' + ESPERANDO[n] + '): ' + msg.slice(0, 160));
+      else { falhas++; console.log('  FALHA ' + n + ': ' + msg); }
+    }
   }
-  await navegador.close(); site.close();
+  await navegador.close();
+  SERVIDORES.forEach(function (x) { try { x.closeAllConnections(); x.close(); } catch (e) { } });
+  fs.rmSync(RAIZ, { recursive: true, force: true });
   console.log(falhas ? '\n' + falhas + ' de ' + nomes.length + ' falharam.' : '\nTodos os ' + nomes.length + ' passaram.');
   process.exitCode = falhas ? 1 : 0;
 })();

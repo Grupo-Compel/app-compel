@@ -13,7 +13,9 @@
  *      endereço do login do Núcleo, num lugar só (`config/login.js`), por decisão do Dalton em 20/10/2026: o endereço
  *      do login não é segredo, porque vai estar em todo celular, e nenhum caminho em uso pode trocá-lo;
  *   3. CPF: onze algarismos com os dígitos verificadores certos, com ou sem pontuação;
- *   4. bloco sem a declaração (`blocos/<bloco>/bloco.json`, FRONTEIRA §5.1), ou com o servidor escrito como endereço;
+ *   4. bloco sem a declaração (`blocos/<bloco>/bloco.json`, FRONTEIRA §5.1), ou com ela incompleta: o servidor escrito
+ *      como endereço, a tela do celular sem os arquivos que guarda, o cache que se confunde com outro, o bloco que envia
+ *      sem o resumo do endereço do servidor (ver lerBlocos);
  *   5. um envio que mexe em mais de uma área (a raiz, que é da casca, ou um bloco). Cada frente edita só a pasta dela.
  *
  * O que ainda não confere, e entra quando houver tela: tela sem ajuda, e tela que passa da largura do celular (360 e
@@ -107,24 +109,102 @@ function conferirArvore(raiz) {
     }
   });
 
-  // Regra 4: cada pasta de bloco declara quem é. Sem a declaração, a casca não sabe mostrar o bloco nem a quem.
-  var pastaBlocos = path.join(raiz, 'blocos');
-  if (fs.existsSync(pastaBlocos)) {
-    fs.readdirSync(pastaBlocos, { withFileTypes: true }).filter(function (e) { return e.isDirectory(); }).forEach(function (e) {
-      var rel = 'blocos/' + e.name + '/bloco.json';
-      var arq = path.join(raiz, rel);
-      if (!fs.existsSync(arq)) return anotar(rel, 4, 'o bloco "' + e.name + '" não tem a declaração (FRONTEIRA §5.1)');
-      var d;
-      try { d = JSON.parse(fs.readFileSync(arq, 'utf8')); } catch (err) { return anotar(rel, 4, 'a declaração não é JSON válido: ' + err.message); }
-      ['nome', 'dono', 'especie', 'quemVe', 'servidor'].forEach(function (c) {
-        if (d[c] === undefined || d[c] === '' || (Array.isArray(d[c]) && !d[c].length)) anotar(rel, 4, 'falta o campo "' + c + '"');
-      });
-      if (d.especie && ESPECIES_DE_BLOCO.indexOf(d.especie) < 0) anotar(rel, 4, 'a espécie tem de ser ' + ESPECIES_DE_BLOCO.join(', ') + ' (veio "' + d.especie + '")');
-      if (d.quemVe !== undefined && !Array.isArray(d.quemVe)) anotar(rel, 4, '"quemVe" é uma lista de perfis ou funções');
-      if (typeof d.servidor === 'string' && /[:\/]/.test(d.servidor)) anotar(rel, 4, 'o servidor vai pelo nome do módulo na MODULOS, nunca pelo endereço');
-    });
-  }
+  // Regra 4: cada pasta de bloco declara quem é (lerBlocos, abaixo, que a montagem do índice também usa).
+  lerBlocos(raiz).achados.forEach(function (a) { achados.push(a); });
   return achados;
+}
+
+/*
+ * A DECLARAÇÃO DE CADA BLOCO (FRONTEIRA §5.1; ampliada em 21/10/2026, com a fila e o service worker da casca, §5.5).
+ *
+ * Uma função só lê e confere os `bloco.json`, e duas a usam: a conferência (regra 4) e a montagem do índice que a
+ * publicação faz (conferencia/indice.js). Se fossem duas leituras, a conferência poderia aceitar o que o índice lê
+ * diferente (família 2 do 02_LICOES: a mesma regra escrita em dois lugares).
+ *
+ * O que se confere, além dos campos de sempre:
+ *   - a tela do celular (espécie celular ou ambas) diz a entrada, os arquivos que o celular guarda e o prefixo do cache
+ *     dela. Todo arquivo da lista existe e está dentro da pasta do bloco: um arquivo que falta faria o service worker da
+ *     casca não guardar o bloco, e o bloco não abriria sem sinal;
+ *   - o prefixo do cache é só do bloco. É por ele que a casca sabe quais caches são versões velhas DESTE bloco, e nunca
+ *     toca nos outros (§5.5, cuidado 2). Dois blocos com o mesmo prefixo apagariam um ao outro;
+ *   - o bloco que envia diz a etiqueta do envio em segundo plano (única no app), o `app` que o servidor dele espera e o
+ *     arquivo com as funções de envio; e publica `servidor.sha256`, com o resumo do endereço do servidor dele, numa
+ *     linha só (cartas nº 10 e nº 11 do Núcleo; nº 8 do App à Operação: um resumo só, o do servidor de verdade).
+ */
+var NOME_DO_RESUMO = 'servidor.sha256';
+var FORMA_DO_ID = /^[a-z0-9][a-z0-9-]*$/;
+var FORMA_DO_PREFIXO = /^[a-z0-9][a-z0-9-]*-$/;
+var PREFIXO_DA_CASCA = 'app-compel-casca-';
+
+function caminhoDentroDaPasta(rel) {
+  return typeof rel === 'string' && rel !== '' && rel.indexOf('\\') < 0 && rel.charAt(0) !== '/' &&
+    rel.split('/').every(function (p) { return p !== '' && p !== '.' && p !== '..'; });
+}
+
+function lerBlocos(raiz) {
+  var achados = [], blocos = [];
+  var anotar = function (arquivo, msg) { achados.push({ arquivo: arquivo, regra: 4, msg: msg }); };
+  var pastaBlocos = path.join(raiz, 'blocos');
+  if (!fs.existsSync(pastaBlocos)) return { blocos: blocos, achados: achados };
+  var prefixos = {}, etiquetas = {};
+  fs.readdirSync(pastaBlocos, { withFileTypes: true }).filter(function (e) { return e.isDirectory(); }).sort(function (a, b) { return a.name < b.name ? -1 : 1; }).forEach(function (e) {
+    var id = e.name, base = 'blocos/' + id + '/', rel = base + 'bloco.json';
+    var arq = path.join(raiz, rel), erros = achados.length;
+    if (!FORMA_DO_ID.test(id)) anotar(base, 'o nome da pasta vira o nome do bloco no app: só letras minúsculas, algarismos e hífen');
+    if (!fs.existsSync(arq)) return anotar(rel, 'o bloco "' + id + '" não tem a declaração (FRONTEIRA §5.1)');
+    var d;
+    try { d = JSON.parse(fs.readFileSync(arq, 'utf8')); } catch (err) { return anotar(rel, 'a declaração não é JSON válido: ' + err.message); }
+    ['nome', 'dono', 'especie', 'quemVe', 'servidor', 'versao'].forEach(function (c) {
+      if (d[c] === undefined || d[c] === '' || (Array.isArray(d[c]) && !d[c].length)) anotar(rel, 'falta o campo "' + c + '"');
+    });
+    if (d.especie && ESPECIES_DE_BLOCO.indexOf(d.especie) < 0) anotar(rel, 'a espécie tem de ser ' + ESPECIES_DE_BLOCO.join(', ') + ' (veio "' + d.especie + '")');
+    if (d.quemVe !== undefined && !Array.isArray(d.quemVe)) anotar(rel, '"quemVe" é uma lista de perfis ou funções');
+    if (typeof d.servidor === 'string' && /[:\/]/.test(d.servidor)) anotar(rel, 'o servidor vai pelo nome do módulo na MODULOS, nunca pelo endereço');
+    if (d.versao !== undefined && !/^[A-Za-z0-9._-]{1,40}$/.test(String(d.versao))) anotar(rel, '"versao" entra no nome do cache: só letras, algarismos, ponto, hífen e sublinhado');
+
+    var celular = d.especie === 'celular' || d.especie === 'ambas';
+    var arquivos = Array.isArray(d.arquivos) ? d.arquivos : [];
+    if (celular) {
+      if (!Array.isArray(d.arquivos) || !d.arquivos.length) anotar(rel, 'a tela do celular diz os arquivos que o celular guarda ("arquivos")');
+      arquivos.forEach(function (a) {
+        if (!caminhoDentroDaPasta(a)) return anotar(rel, '"' + a + '" não é um arquivo dentro da pasta do bloco');
+        if (!fs.existsSync(path.join(raiz, base + a))) anotar(rel, 'o arquivo "' + a + '" está na lista e não existe na pasta: o celular não guardaria o bloco');
+      });
+      if (!d.entrada) anotar(rel, 'a tela do celular diz o arquivo que abre ("entrada")');
+      else if (arquivos.indexOf(d.entrada) < 0) anotar(rel, 'a entrada "' + d.entrada + '" tem de estar na lista dos arquivos, para abrir sem sinal');
+      if (!d.cache) anotar(rel, 'a tela do celular diz o prefixo do cache dela ("cache"), por exemplo "' + id + '-"');
+      else if (!FORMA_DO_PREFIXO.test(d.cache)) anotar(rel, 'o prefixo do cache é de letras minúsculas, algarismos e hífen, e termina em hífen (veio "' + d.cache + '")');
+      else if (d.cache.indexOf(PREFIXO_DA_CASCA) === 0 || PREFIXO_DA_CASCA.indexOf(d.cache) === 0) anotar(rel, 'o prefixo "' + d.cache + '" se confunde com o da casca (' + PREFIXO_DA_CASCA + ')');
+      else {
+        Object.keys(prefixos).forEach(function (outro) {
+          if (outro.indexOf(d.cache) === 0 || d.cache.indexOf(outro) === 0) anotar(rel, 'o prefixo "' + d.cache + '" se confunde com o do bloco ' + prefixos[outro] + ' ("' + outro + '"): um apagaria as versões do outro');
+        });
+        prefixos[d.cache] = id;
+      }
+    }
+
+    var envia = null;
+    if (d.envia !== undefined) {
+      var v = d.envia || {};
+      if (!celular) anotar(rel, 'só a tela do celular envia pela fila da casca (espécie celular ou ambas)');
+      if (!v.etiqueta || !/^[a-z0-9-]+$/.test(v.etiqueta)) anotar(rel, '"envia.etiqueta" é o nome do envio em segundo plano: letras minúsculas, algarismos e hífen');
+      else if (etiquetas[v.etiqueta]) anotar(rel, 'a etiqueta "' + v.etiqueta + '" já é do bloco ' + etiquetas[v.etiqueta]);
+      else etiquetas[v.etiqueta] = id;
+      if (!v.app) anotar(rel, '"envia.app" é o que o servidor do bloco espera no campo app (na Operação, "campo")');
+      if (!v.script) anotar(rel, '"envia.script" é o arquivo com as funções de envio do bloco');
+      else if (arquivos.indexOf(v.script) < 0) anotar(rel, 'o arquivo de envio "' + v.script + '" tem de estar na lista dos arquivos');
+      var rr = base + NOME_DO_RESUMO, linhas = fs.existsSync(path.join(raiz, rr)) ? fs.readFileSync(path.join(raiz, rr), 'utf8').split(/\r?\n/).filter(function (l) { return l.trim(); }) : null;
+      if (!linhas) anotar(rr, 'o bloco que envia publica o resumo do endereço do servidor dele (FRONTEIRA §5.1)');
+      else if (linhas.length !== 1 || !/^[0-9a-f]{64}$/.test(linhas[0].trim())) anotar(rr, 'o resumo é uma linha só, com os 64 caracteres do SHA-256 em minúsculas: um segundo resumo seria uma segunda porta');
+      envia = { etiqueta: v.etiqueta, app: v.app, script: base + v.script, resumo: linhas && linhas[0] ? linhas[0].trim() : '' };
+    }
+    if (achados.length > erros) return;
+    blocos.push({ id: id, nome: d.nome, icone: d.icone || '', servidor: d.servidor, especie: d.especie, quemVe: d.quemVe, versao: String(d.versao),
+                  entrada: celular ? base + d.entrada : '', arquivos: celular ? arquivos.map(function (a) { return base + a; }) : [],
+                  cache: celular ? d.cache : '', envia: envia ? { etiqueta: envia.etiqueta, app: envia.app, script: envia.script } : null,
+                  resumo: envia ? envia.resumo : '' });
+  });
+  return { blocos: blocos, achados: achados };
 }
 
 // A área de um arquivo: um bloco ("blocos/operacao") ou a casca (todo o resto).
@@ -164,5 +244,5 @@ function principal(argv) {
   return 1;
 }
 
-module.exports = { conferirArvore: conferirArvore, conferirAreas: conferirAreas, cpfValido: cpfValido, areaDe: areaDe };
+module.exports = { lerBlocos: lerBlocos, conferirArvore: conferirArvore, conferirAreas: conferirAreas, cpfValido: cpfValido, areaDe: areaDe };
 if (require.main === module) process.exitCode = principal(process.argv.slice(2));

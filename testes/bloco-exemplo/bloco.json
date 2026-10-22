@@ -1,0 +1,12 @@
+{
+  "nome": "Exemplo",
+  "dono": "App Compel (só na bateria)",
+  "especie": "ambas",
+  "quemVe": ["ELETRICISTA"],
+  "servidor": "EXEMPLO",
+  "versao": "1",
+  "entrada": "index.html",
+  "arquivos": ["index.html", "tela.js", "envio.js"],
+  "cache": "exemplo-bloco-",
+  "envia": { "etiqueta": "enviar-exemplo", "app": "exemplo", "script": "envio.js" }
+}

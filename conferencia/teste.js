@@ -32,7 +32,14 @@ function pontuado(c) { return c.slice(0, 3) + '.' + c.slice(3, 6) + '.' + c.slic
 var ID = 'AKfycb' + 'x'.repeat(40);
 var ENDERECO_SCRIPT = 'https://script.' + 'google.com/macros/s/' + ID + '/exec';
 var ENDERECO_PLANILHA = 'https://docs.' + 'google.com/spreadsheets/d/' + '1'.repeat(30) + '/edit';
-var BLOCO_BOM = JSON.stringify({ nome: 'Operação', dono: 'Operação', especie: 'ambas', quemVe: ['ENCARREGADO', 'CAMPO'], servidor: 'OPERACAO' });
+// O bloco bom tem a tela do celular e envia (21/10/2026): a declaração inteira, com os arquivos, o cache e o envio.
+var DECLARACAO_BOA = { nome: 'Operação', dono: 'Operação', especie: 'ambas', quemVe: ['ENCARREGADO', 'CAMPO'], servidor: 'OPERACAO', versao: '5g-1',
+  entrada: 'index.html', arquivos: ['index.html', 'fila.js'], cache: 'operacao-campo-',
+  envia: { etiqueta: 'enviar-diarios', app: 'campo', script: 'fila.js' } };
+var BLOCO_BOM = JSON.stringify(DECLARACAO_BOA);
+// A declaração boa com uma mudança: { campo: valor } troca, { campo: undefined } tira.
+function declaracao(mudar) { var d = JSON.parse(BLOCO_BOM); Object.keys(mudar).forEach(function (k) { if (mudar[k] === undefined) delete d[k]; else d[k] = mudar[k]; }); return JSON.stringify(d); }
+var RESUMO = 'a'.repeat(64) + '\n';
 
 function pasta(arquivos) {
   var raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'conferencia-'));
@@ -48,6 +55,11 @@ var LIMPA = {
   'index.html': '<!doctype html><title>App Compel</title><p>Versão 1.0 de 20/10/2026, 12345 registros, R$ 207,28</p>',
   'config/login.js': "var ENDERECO_DO_LOGIN = '" + ENDERECO_SCRIPT + "';",
   'blocos/operacao/bloco.json': BLOCO_BOM,
+  'blocos/operacao/index.html': '<p>Hoje</p>',
+  'blocos/operacao/fila.js': 'cascaBlocoEnvia("operacao", {});',
+  'blocos/operacao/servidor.sha256': RESUMO,
+  // Um bloco só de sistema não tem pasta de telas: a declaração basta.
+  'blocos/dp/bloco.json': JSON.stringify({ nome: 'DP', dono: 'DP', especie: 'sistema', quemVe: ['TODOS'], servidor: 'DP', versao: '1' }),
   'icone.png': 'binário qualquer ' + ENDERECO_PLANILHA
 };
 function com(extra) { var o = {}; Object.keys(LIMPA).forEach(function (k) { o[k] = LIMPA[k]; }); Object.keys(extra).forEach(function (k) { o[k] = extra[k]; }); return o; }
@@ -64,9 +76,29 @@ var casos = [
   { nome: 'CPF pontuado', arquivos: com({ 'blocos/operacao/teste.json': '{"cpf":"' + pontuado(cpf) + '"}' }), regras: [3] },
   { nome: 'CPF só com algarismos', arquivos: com({ 'casca/massa.js': 'var pessoa = { cpf: "' + cpf + '" };' }), regras: [3] },
   { nome: 'bloco sem declaração', arquivos: com({ 'blocos/seguranca/index.html': '<p>checklist</p>' }), regras: [4] },
-  { nome: 'declaração sem o dono', arquivos: com({ 'blocos/operacao/bloco.json': JSON.stringify({ nome: 'Operação', especie: 'ambas', quemVe: ['CAMPO'], servidor: 'OPERACAO' }) }), regras: [4] },
-  { nome: 'servidor do bloco como endereço', arquivos: com({ 'blocos/operacao/bloco.json': JSON.stringify({ nome: 'Operação', dono: 'Operação', especie: 'ambas', quemVe: ['CAMPO'], servidor: 'https://exemplo/exec' }) }), regras: [4] },
-  { nome: 'espécie inventada', arquivos: com({ 'blocos/operacao/bloco.json': JSON.stringify({ nome: 'Operação', dono: 'Operação', especie: 'web', quemVe: ['CAMPO'], servidor: 'OPERACAO' }) }), regras: [4] }
+  { nome: 'declaração sem o dono', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ dono: undefined }) }), regras: [4] },
+  { nome: 'servidor do bloco como endereço', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ servidor: 'https://exemplo/exec' }) }), regras: [4] },
+  { nome: 'espécie inventada', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ especie: 'web' }) }), regras: [4] },
+  // 21/10/2026: a tela do celular, o cache e o envio (FRONTEIRA §5.1 e §5.5).
+  { nome: 'declaração sem a versão', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ versao: undefined }) }), regras: [4] },
+  { nome: 'tela do celular sem a lista dos arquivos', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ arquivos: undefined }) }), regras: [4] },
+  { nome: 'arquivo da lista que não existe', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ arquivos: ['index.html', 'fila.js', 'pdfjs/pdf.min.js'] }) }), regras: [4] },
+  { nome: 'arquivo da lista fora da pasta do bloco', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ arquivos: ['index.html', 'fila.js', '../../app.js'] }) }), regras: [4] },
+  { nome: 'entrada fora da lista dos arquivos', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ entrada: 'hoje.html' }), 'blocos/operacao/hoje.html': '<p>x</p>' }), regras: [4] },
+  { nome: 'tela do celular sem o prefixo do cache', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ cache: undefined }) }), regras: [4] },
+  { nome: 'prefixo do cache que se confunde com o da casca', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ cache: 'app-compel-casca-op-' }) }), regras: [4] },
+  { nome: 'dois blocos com o mesmo prefixo', arquivos: com({
+      'blocos/seguranca/bloco.json': declaracao({ nome: 'Segurança', servidor: 'SEGURANCA', envia: undefined }),
+      'blocos/seguranca/index.html': '<p>x</p>', 'blocos/seguranca/fila.js': '//' }), regras: [4] },
+  { nome: 'dois blocos com a mesma etiqueta de envio', arquivos: com({
+      'blocos/seguranca/bloco.json': declaracao({ nome: 'Segurança', servidor: 'SEGURANCA', cache: 'seguranca-' }),
+      'blocos/seguranca/index.html': '<p>x</p>', 'blocos/seguranca/fila.js': '//', 'blocos/seguranca/servidor.sha256': RESUMO }), regras: [4] },
+  { nome: 'bloco que envia sem o resumo do servidor', arquivos: sem('blocos/operacao/servidor.sha256'), regras: [4] },
+  { nome: 'resumo com dois valores (a segunda porta)', arquivos: com({ 'blocos/operacao/servidor.sha256': RESUMO + 'b'.repeat(64) + '\n' }), regras: [4] },
+  { nome: 'resumo que não é SHA-256', arquivos: com({ 'blocos/operacao/servidor.sha256': 'abc\n' }), regras: [4] },
+  { nome: 'envio sem o app que o servidor espera', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ envia: { etiqueta: 'enviar-diarios', script: 'fila.js' } }) }), regras: [4] },
+  { nome: 'arquivo de envio fora da lista', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ envia: { etiqueta: 'enviar-diarios', app: 'campo', script: 'envio.js' } }), 'blocos/operacao/envio.js': '//' }), regras: [4] },
+  { nome: 'bloco de sistema que envia', arquivos: com({ 'blocos/dp/bloco.json': JSON.stringify({ nome: 'DP', dono: 'DP', especie: 'sistema', quemVe: ['TODOS'], servidor: 'DP', versao: '1', envia: { etiqueta: 'enviar-dp', app: 'dp', script: 'x.js' } }) }), regras: [4] }
 ];
 
 var falhas = 0;
@@ -99,6 +131,24 @@ casos.forEach(function (c) {
   if (!ok) falhas++;
   console.log((ok ? 'ok    ' : 'FALHOU') + '  áreas: ' + p[0] + (ok ? '' : ' — esperava ' + p[2] + ' achado(s), veio ' + n));
 });
+
+// O índice que a publicação monta: lê a mesma declaração, e não sai com bloco errado.
+(function () {
+  var I = require('./indice.js');
+  var raiz = pasta(LIMPA), r = I.montar(raiz);
+  var texto = fs.existsSync(path.join(raiz, 'blocos/indice.js')) ? fs.readFileSync(path.join(raiz, 'blocos/indice.js'), 'utf8') : '';
+  var op = r.blocos && r.blocos.filter(function (b) { return b.id === 'operacao'; })[0];
+  var ok = !r.erro && op && op.envia.script === 'blocos/operacao/fila.js' && op.resumo === 'a'.repeat(64) && op.arquivos[0] === 'blocos/operacao/index.html' &&
+    /var BLOCOS_DO_APP = /.test(texto) && !/\d{4}-\d{2}-\d{2}/.test(texto);
+  if (!ok) falhas++;
+  console.log((ok ? 'ok    ' : 'FALHOU') + '  índice: monta os blocos com os caminhos da raiz, o resumo, e sem data' + (ok ? '' : ' — ' + JSON.stringify(r)));
+  fs.rmSync(raiz, { recursive: true, force: true });
+  raiz = pasta(sem('blocos/operacao/servidor.sha256')); r = I.montar(raiz);
+  ok = !!r.erro && !fs.existsSync(path.join(raiz, 'blocos/indice.js'));
+  if (!ok) falhas++;
+  console.log((ok ? 'ok    ' : 'FALHOU') + '  índice: com um bloco errado, não monta nada');
+  fs.rmSync(raiz, { recursive: true, force: true });
+})();
 
 console.log(falhas ? '\n' + falhas + ' caso(s) falharam.' : '\nTodos os casos passaram.');
 process.exitCode = falhas ? 1 : 0;

@@ -52,11 +52,18 @@
   .app-resumo { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 15px; }
   .app-resumo dt { color: var(--tinta-media); } .app-resumo dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   /* As abas de baixo: só o app tem (o Portal é de computador e celular, o app é só de celular). */
-  .app-abas { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--superficie); border-top: 1px solid var(--linha); padding-bottom: env(safe-area-inset-bottom, 0px); position: sticky; bottom: 0; z-index: 30; }
+  /* As colunas se ajustam ao número de abas: a de Envio só aparece quando algum bloco envia. */
+  .app-abas { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--superficie); border-top: 1px solid var(--linha); padding-bottom: env(safe-area-inset-bottom, 0px); position: sticky; bottom: 0; z-index: 30; }
   .app-abas button { border: 0; background: none; min-height: 60px; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-fraca); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; position: relative; }
   .app-abas button i { font-style: normal; font-size: 18px; line-height: 1; }
   .app-abas button.ativo { color: var(--vermelho-forte); box-shadow: inset 0 3px 0 var(--vermelho); }
   .app-bolinha { position: absolute; top: 8px; left: calc(50% + 8px); min-width: 18px; height: 18px; border-radius: 9px; background: var(--vermelho); color: #fff; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+  /* A tela de Envio (APP-08): um cartão por bloco que envia. */
+  .app-envio .app-linha { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .app-ultimo { margin: 8px 0; }
+  .app-acordadas { margin-top: 10px; font-size: 13px; color: var(--tinta-fraca); }
+  .app-acordadas summary { cursor: pointer; }
+  .app-acordadas ul { margin: 6px 0 0; padding-left: 18px; }
 </style>
 </head>
 <body>
@@ -96,10 +103,16 @@
 <nav id="abas" class="app-abas oculto">
   <button type="button" data-aba="inicio"><i>⌂</i>Início</button>
   <button type="button" data-aba="avisos"><i>✉</i>Avisos<span id="bolinha" class="app-bolinha oculto"></span></button>
+  <button type="button" data-aba="envio" id="abaEnvio" class="oculto"><i>⇅</i>Envio<span id="bolinhaEnvio" class="app-bolinha oculto"></span></button>
   <button type="button" data-aba="perfil"><i>☺</i>Perfil</button>
 </nav>
 <!-- O endereço do login vem num arquivo só, e nenhum caminho em uso o troca (config/login.js explica por quê). -->
 <script src="config/login.js"></script>
+<!-- Os serviços que a casca dá a ela e aos blocos (servicos.js roda também no service worker), e o índice dos blocos,
+     montado na publicação a partir dos bloco.json (conferencia/indice.js). -->
+<script src="servicos.js"></script>
+<script src="blocos/indice.js"></script>
+<script src="casca.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

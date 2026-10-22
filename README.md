@@ -7,8 +7,10 @@ Segurança, Departamento Pessoal, RH). Quem não vai a campo usa o Portal, no co
 quando o sinal volta.
 
 > **Estado em 21/10/2026:** a casca tem as telas de entrada (CPF e senha, primeiro acesso, senha temporária, esqueci
-> a senha, entrada sem sinal), o Início, os Avisos e o Perfil. **Ninguém entra ainda:** o endereço do login do Núcleo,
-> em `config/login.js`, está vazio até o projeto do login nascer (carta nº 12 do App ao Núcleo). Nenhum bloco entrou.
+> a senha, entrada sem sinal), o Início, os Avisos, o Envio e o Perfil, e tudo o que um bloco usa: a tela do celular
+> guardada para abrir sem sinal, a fila de envio com o segundo plano e a trava única, a conferência do endereço do
+> servidor pelo resumo (ver `blocos/README.md`). **Ninguém entra ainda:** o endereço do login do Núcleo, em
+> `config/login.js`, está vazio até o projeto do login nascer (carta nº 12 do App ao Núcleo). Nenhum bloco entrou.
 
 ## As regras deste repositório
 
@@ -44,12 +46,19 @@ publicado. Ela recusa:
 1. código do Apps Script;
 2. endereço de servidor, planilha, documento ou pasta, fora de `config/login.js`;
 3. CPF (onze algarismos com os dígitos verificadores certos);
-4. bloco sem o `bloco.json`, ou com o servidor escrito como endereço;
+4. bloco sem o `bloco.json`, ou com ele incompleto (o servidor escrito como endereço, um arquivo da lista que não
+   existe, o cache que se confunde com outro, o bloco que envia sem o resumo do endereço do servidor);
 5. um envio que mexe em mais de uma área (a casca ou um bloco).
 
 Antes dela, roda a **bateria da casca** (`testes/casca.js`), que abre o app no Chromium e recusa a publicação se uma
-regra da entrada quebrar, se uma tela não tiver ajuda ou se uma tela passar da largura do celular (360 e 412 px). O
-login do Núcleo, nessa bateria, é imitado dentro do próprio teste; o app publicado não tem login imitado.
+regra da entrada quebrar, se uma tela não tiver ajuda, se uma tela passar da largura do celular (360 e 412 px), ou se
+a fila dos blocos falhar (o bloco que não abre sem sinal, o envio que não volta com o sinal, o endereço que não bate e
+sai assim mesmo, o mesmo registro mandado duas vezes, o segundo plano que não envia, a casca que apaga o que não é
+dela). O login do Núcleo e o servidor do bloco, nessa bateria, são imitados dentro do próprio teste, numa cópia do
+site com um bloco de exemplo; o app publicado não tem nada imitado.
+
+**Teste que espera conserto de outra frente:** fica na lista `ESPERANDO` da bateria. Ele roda sempre; a falha dele não
+para a publicação, mas se ele passar, a bateria falha até ele sair da lista.
 
 Para rodar à mão:
 
@@ -62,5 +71,6 @@ node testes/casca.js           # a bateria da casca (precisa do Playwright)
 ## Publicar
 
 A publicação é automática: um envio para a `main` roda a conferência e, se ela passar, publica
-(`.github/workflows/publicar.yml`). O GitHub Pages do repositório precisa estar em *Settings › Pages › Source:
+(`.github/workflows/publicar.yml`). O que vai ao celular é o app sem a bateria e a conferência, com o índice dos
+blocos (`blocos/indice.js`) montado na hora a partir dos `bloco.json`; ele nunca é escrito à mão. O GitHub Pages do repositório precisa estar em *Settings › Pages › Source:
 GitHub Actions*.
