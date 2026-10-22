@@ -1,17 +1,19 @@
 /*
-  CÓPIA DO ESTILO DO NÚCLEO, para o App Compel (21/10/2026).
+  CÓPIA DO ESTILO DO NÚCLEO, para o App Compel (trocada em 22/10/2026).
 
   O app mora fora do Google e abre sem sinal, então ele não pode chamar o Nucleo.css() como os módulos fazem. Esta é
-  a folha do Núcleo copiada do backup "Nucleo_e_Portal_para_o_Drive" (Estilo.html de 18/10/2026, 45.959 bytes, md5
-  f8ae7db37d97ca291e9a782923a35e2d), com uma troca só: o @import das fontes saiu (ver o aviso no lugar dele).
+  a folha do Núcleo como ele a mandou pelo Dalton em 22/10/2026 (Estilo.html de 81.150 bytes, md5 com CRLF
+  9f9ba41409e161d279738eb95d2fc005, sem CR 2eb8d6c036bf0cc3c49581bf7cd1a20f, conferidos contra a carta nº 13 do
+  Núcleo), com duas trocas só: o @import das fontes saiu (ver o aviso no lugar dele) e as quebras de linha são LF.
+  A cópia anterior era a de 18/10 (45.959 bytes, md5 f8ae7db3…).
 
   NÃO EDITE AQUI. Mudança de visual da plataforma é do Núcleo, e chega ao app por carta: esta frente troca a cópia
-  inteira e publica. O que é só do app (as abas de baixo, a lista de quem já entrou) mora no index.html, com o
-  prefixo app-, para nunca colidir com classe do Núcleo.
+  inteira e publica. O que é só do app (as abas de baixo, a lista de quem já entrou, a tela de Envio) mora no
+  index.html, com o prefixo app-, para nunca colidir com classe do Núcleo.
 
-  O risco desta cópia é o da família 39 (o mesmo valor em dois lugares e nada comparando): se o Núcleo mudar o
-  vermelho, o app fica com o antigo até alguém trocar este arquivo. Registrado na fronteira (§2) e na carta nº 13
-  do App ao Núcleo.
+  O risco desta cópia é o da família 39 (o mesmo valor em dois lugares e nada comparando): se o Núcleo mudar a folha,
+  o app fica com a antiga até alguém trocar este arquivo. Por isso a bateria confere as cores da moldura e da barra e
+  que nenhum texto use o vermelho da marca (T19).
 */
 /*
   Nucleo.css() -- design system da Plataforma Compel.
@@ -74,8 +76,43 @@
   --tinta-fraca:  #8B8E96;
   --linha:        #E2E4E8;
 
-  --vermelho:      #ED1C24;   /* vetor oficial da logo */
-  --vermelho-forte:#B2101F;   /* apresentacoes internas */
+  /* OS DOIS VERMELHOS. A Interface pediu na carta 14 que o conserto fosse no
+     comentario e nao no nome, e esta certa: o --vermelho-forte tem DOIS
+     consumidores e os dois estao corretos (texto na etiqueta da linha 651 e
+     background no .btn:hover da 360), entao chama-lo de --vermelho-texto
+     mentiria para o consumidor de fundo. */
+  --vermelho:      #ED1C24;   /* a cor da MARCA -- o vetor oficial da logo, e
+                                 nunca cor de texto. REPROVA os 4,5:1 sobre
+                                 TODO fundo claro da folha:
+                                   4,38:1 sobre --superficie (branco)
+                                   4,02:1 sobre --fundo
+                                   3,87:1 sobre --info-claro
+                                   3,81:1 sobre --vermelho-claro
+                                 UM NUMERO SO SERIA MENTIRA: a cor do texto e
+                                 fixa, o fundo depende de onde a classe esta.
+                                 Dizer "4,38" para os seis usos seria a mesma
+                                 classe de erro que medir uma cor e escrever o
+                                 numero ao lado do nome de outra.
+
+                                 E a folha o usa como TEXTO em 6 lugares hoje
+                                 -- tres do Nucleo e tres da Interface, o que
+                                 quer dizer que o defeito nao e de um lado so:
+                                   .login-marca .nome  4,38  (.login-tela pinta)
+                                   .n-aviso-doc        4,38  (.cartao pinta)
+                                   .n-adm-mais         4,02  (solto no .conteudo)
+                                   .n-faixa-acao       3,87  (.n-faixa pinta) <- pior
+                                   .btn.secundario     4,38 OU 4,02: transparente,
+                                   .link-texto         4,38 OU 4,02: herda o lugar
+                                 (medido pelo Nucleo em 21/10/2026; os tres da
+                                 Interface conferidos por eles no mesmo dia,
+                                 lendo o App.html que nao esta aqui) */
+  --vermelho-forte:#B2101F;   /* o vermelho que serve de texto E de fundo:
+                                 7,03:1 sobre branco (medido pelo Nucleo em
+                                 21/10/2026). ATENCAO: nao e o #AE1017. A
+                                 Interface escreveu #AE1017 a mao no CSS dela
+                                 achando que era este token, e mediu 7,28:1 em
+                                 cima dele -- sao duas cores diferentes, e o
+                                 7,28 anda por ai como se fosse deste token */
   --vermelho-claro:#FDEBEC;
   --ambar:        #B87400;
   --ambar-claro:  #FFF3DC;
@@ -1024,7 +1061,7 @@ h3 { font-size: 18px; }
 }
 
 /* ===================================================================
-   POR-08 — ADMINISTRACAO DE ACESSOS
+   POR-08 -- ADMINISTRACAO DE ACESSOS
    Desenho da frente de Interface, renderizado e exercitado com cliques.
 
    O `.n-adm-perfil` quase se chamou `.perfil`, e existe `.n-modulo .n-perfil`
@@ -1101,8 +1138,37 @@ h3 { font-size: 18px; }
   cursor: pointer;
 }
 
+/*
+  A TABELA ROLA DE LADO EM VEZ DE EMPURRAR A PAGINA.  (21/10/2026)
+  ==========================================================================
+  Achado pela frente Interface na carta 19 dela, e e um defeito que nao morde
+  hoje: o menu lateral come 248px, e a largura MINIMA da tabela cresce com o
+  numero de modulos. Medido aqui, renderizando esta folha no Chromium:
+
+    sete modulos  -> minimo  841px   (o corte de empilhar e 900: empilha antes)
+    dez modulos   -> minimo 1086px   (entre 900 e 1086 o menu fica lateral e
+                                      a tabela nao cabe)
+
+  Sem esta regra, a PAGINA passava a rolar de lado -- 319px fora da tela em
+  1024px com dez modulos. Nada era cortado, mas a tela inteira andava.
+
+  POR QUE `display: block` E NAO UM `<div>` EM VOLTA: o `<div>` seria o jeito
+  classico e exige mexer no App.html da Interface. O `display: block` faz a
+  propria tabela virar caixa de bloco e rolar sozinha. **`overflow-x` sem o
+  `display: block` NAO funciona** -- tabela nao e caixa de bloco; medido nas
+  duas formas em 21/10/2026, e so a segunda rolou.
+
+  E O QUE ISSO CUSTA, medido e nao suposto: nada que se veja. Cabecalho e
+  corpo continuam alinhados (0px de diferenca nas onze colunas), a altura da
+  celula muda 1px, e as larguras das colunas ficam iguais as de antes.
+
+  O NUMERO DE MODULOS DEIXA DE IMPORTAR, que era o ponto da Interface: um
+  corte fixo envelhece a cada modulo novo, e este conserto nao.
+*/
 .n-adm-tab {
   width: 100%;
+  display: block;
+  overflow-x: auto;
   border-collapse: collapse;
   background: var(--superficie);
   border: 1px solid var(--linha);
@@ -1124,22 +1190,172 @@ h3 { font-size: 18px; }
 .n-adm-tab th.n-adm-p { text-align: left; width: 34%; }
 
 /*
-  AS COLUNAS DE MODULO TEM A MESMA LARGURA, e ate 03/09 nao tinham.
+  A COLUNA DA PESSOA FICA PARADA AO ROLAR, E TEM PISO DE 288px.
   ==========================================================================
-  `table-layout: auto` -- o padrao -- divide o que sobra pelo CONTEUDO de cada
-  coluna. "GESTAO A VISTA" e mais largo que "CADASTRO", e "BENEFICIOS" carrega a
-  nota "nao publicado" embaixo: **tres larguras diferentes para tres colunas que
-  significam a mesma coisa.**
+  O PISO, primeiro. A Interface escolheu 168px e o numero estava calibrado num
+  nome de 32 caracteres, que era o exemplo da carta dela. O diagnostico do
+  Dalton rodou depois e achou o nome real mais longo entre os 612 ativos:
+  49 caracteres. Medido no Chromium em 21/10/2026, com a Inter de verdade:
 
-  O olho le a diferenca de largura como diferenca de importancia, e ela nao
-  existe: sao todas a mesma pergunta -- "tem acesso?".
+    168px -> o nome ocupa 4 linhas, a celula fica com 154px de altura
+    250px -> o nome cabe em 2 linhas
 
-  `width` igual em todas divide o que sobra em partes iguais. **Nao e preciso
-  saber quantas colunas ha**: o navegador reparte o `auto` restante, e `1%`
-  em todas as nao-pessoa e igual a "todas iguais".
+  O NOME SOZINHO PARA EM 250px. Os pixels seguintes nao sao do nome -- sao da
+  segunda linha da celula, "CPF . setor", que tem o seu proprio piso.
+
+  O NUMERO MUDOU UMA VEZ, e pelo MESMO MOTIVO que a Interface descreveu sobre
+  a propria medicao dela (carta 23, item 3): medi com o SETOR DE EXEMPLO de
+  uma carta anterior ("ADM NOVA ANDRADINA", 18 letras), que cabia em 272px.
+  O diagnostico das bases rodou depois (21/10/2026) e achou a grafia real
+  mais longa entre as 31 que existem -- "ADM NOVA ANDRAD CCM", 19 letras,
+  uma a mais, e foi o bastante para a segunda linha quebrar em duas:
+
+    272px -> "CPF . setor" quebra em DUAS linhas (medido com a grafia real)
+    282px -> cabe em UMA -- mas com CPF de zeros
+    285px -> cabe em UMA com o PIOR CPF, 444.444.444-44 (limiar)
+    288px -> cabe em UMA, com 3px de folga
+
+  E O CPF NAO TEM LARGURA FIXA. Os digitos da Inter sao PROPORCIONAIS:
+  medido em 21/10/2026 a 12.5px, o "1" tem 5,1px e o "4" tem 8,1px. O
+  primeiro numero desta conta foi tirado com 000.000.000-00 e dava 284 --
+  um CPF cheio de 4 quebrava nele. O piso tem de sair do pior CPF possivel,
+  e nao de um CPF qualquer.
+
+  NAO ERA O NOME QUE FALTAVA FOLGA -- ERA O EXEMPLO QUE NAO ERA O REAL. A
+  funcao que mede isto (12_Bases.gs, "Grafia de setor mais longa") ja avisava
+  que o exemplo antigo era "o mais longo que ELE conhecia, e nao tinha como
+  saber se era o mais longo que EXISTE". Agora sabe-se, e o numero aqui saiu
+  do diagnostico, nao de um exemplo escolhido.
+
+  CELULA FINAL: 288px, nome em 2 linhas + "CPF . setor" em 1, 75px de altura
+  -- mais baixa que as duas tentativas anteriores (168px dava 154px; o 272px
+  calibrado no exemplo teria dado 90px com a grafia real, por quebrar em duas).
+
+  ENTAO A TROCA "altura contra largura" CONTINUA NAO EXISTINDO: 288px da a
+  celula mais BAIXA das tres, nao a mais alta.
+
+  AGORA O PARADO. Com a tabela rolando (o `display: block` que entrou hoje),
+  quem rola para marcar a ultima coluna perde o nome de vista -- e marca acesso
+  sem ver de quem e. A Interface levantou isso e o argumento e dela: rolagem
+  vertical custa tempo; rolagem horizontal NESTA tela custa acerto, e o erro e
+  silencioso dos dois lados.
+
+  OS TRES PEDACOS SAO UM CONSERTO SO, e os tres foram vistos faltando numa
+  renderizacao de 21/10/2026 -- os dois primeiros a Interface previu sem
+  renderizar, e estavam certos:
+
+    FUNDO PROPRIO -- sem ele as colunas de modulo passam POR BAIXO e aparecem
+      atraves do nome. A tela fica ilegivel, nao "um pouco pior".
+    SOMBRA E NAO BORDA -- com `border-collapse: collapse` a borda da celula e
+      pintada pela tabela e nao acompanha a celula parada. A sombra e da
+      celula e acompanha.
+    Z-INDEX -- sem ele o `sticky` empata com as outras celulas e quem vem
+      depois no documento ganha. O cabecalho leva um a mais porque ele para
+      nos dois eixos.
+
+  E O `overflow: hidden` DA TABELA NAO BRIGA com o `sticky` -- era o risco que
+  a Interface levantou, e foi medido: a coluna continua parada a 1px da borda
+  depois de rolar 462px.
+*/
+.n-adm-tab th.n-adm-p,
+.n-adm-tab td.n-adm-p {
+  min-width: 288px;
+  position: sticky;
+  left: 0;
+  background: var(--superficie);
+  box-shadow: 1px 0 0 var(--linha);
+  z-index: 2;
+}
+.n-adm-tab th.n-adm-p { z-index: 3; }
+
+/*
+  AS COLUNAS DE MODULO ENCOLHEM AO CONTEUDO. ELAS NAO FICAM IGUAIS.
+  ==========================================================================
+  ESTE COMENTARIO AFIRMAVA IGUALDADE, E A IGUALDADE NAO ACONTECE. Ele dizia
+  "as colunas de modulo tem a mesma largura, e ate 03/09 nao tinham", e que
+  `1%` em todas era "igual a todas iguais".
+
+  MEDIDO EM 21/10/2026, renderizando esta folha no Chromium com dez modulos,
+  em seis larguras de 1024 a 1920: as colunas de modulo medem de **46 a 135
+  pixels** -- fator de tres -- em TODAS elas. E medem isso HOJE, sem nenhuma
+  mudanca; nao e regressao de nada.
+
+  O MOTIVO: `width: 1%` nao reparte igual. Ele pede a MENOR largura possivel,
+  e a menor possivel de cada coluna e o conteudo dela -- "TI" cabe em 46px e
+  "GESTAO A VISTA" precisa de 135. O `1%` fez o oposto do que o comentario
+  dizia: em vez de igualar, deu a cada coluna o seu proprio minimo.
+
+  A REGRA FICA, porque o que ela faz de fato e util: encolhe as colunas de
+  modulo para a coluna da PESSOA ficar com o que sobra. Sem ela a pessoa fica
+  com 93px em telas medias, e o nome nao cabe.
+
+  O QUE NAO FICA E A AFIRMACAO. Se a igualdade for desejada, ela precisa de
+  outra regra (`table-layout: fixed` com largura declarada, ou `min-width` por
+  coluna) e de uma decisao: igualar pelo maior gasta largura que a coluna da
+  pessoa nao tem. **Isso e desenho, e e da Interface** -- a decisao de 03/09
+  foi dela, e a medicao que a desmente vai na carta 17.
 */
 .n-adm-tab th:not(.n-adm-p),
-.n-adm-tab td:not(.n-adm-p) { width: 1%; }
+.n-adm-tab td:not(.n-adm-p) { min-width: 101px; max-width: 101px; }
+
+/*
+  OS 101px, E DE ONDE ELES SAEM -- que nao e de onde todo mundo achou.
+  ==========================================================================
+  Medido pela frente Interface em 21/10/2026, com a Barlow Condensed 600 de
+  verdade, nas especificacoes desta folha (13px, uppercase, letter-spacing
+  .1em, padding 12px 8px). O NUCLEO NAO CONFERIU: a Barlow Condensed nao
+  existe no ambiente dele, e medir na fonte do sistema daria numero de outra
+  fonte. Numero da Interface, medido por ela, e dito aqui com o dono.
+
+  E O NOME MAIS LONGO NAO E O QUE MANDA:
+
+    Treinamentos    12 letras   ->  101px   <- este decide
+    Gestao a Vista  14 letras   ->   60px
+
+  O de 14 letras cabe em 60 e o de 12 precisa de 101, porque a quebra
+  acontece em ESPACO: o que manda e o MAIOR PEDACO INDIVISIVEL, e nao o
+  comprimento. "Gestao a Vista" tem espaco e quebra; "Treinamentos" nao tem e
+  nao quebra.
+
+  A REGRA E DO NUCLEO E FOI O NUCLEO QUE A APLICOU AO CONTRARIO: ela esta
+  escrita na carta 18 dele, sobre a coluna da PESSOA, e na carta 19 ele mandou
+  o nome mais longo como se fosse a resposta. A Interface devolveu.
+
+  A REGRA INTEIRA, para quando entrar modulo novo:
+    largura = o maior entre (o maior pedaco indivisivel dos modulos ATIVOS)
+              e (a nota "nao publicado", que pede 71px em Inter 10.5px).
+  Hoje a nota nao decide, mas decidiria se os nomes fossem curtos.
+
+  E ISTO E O QUE A DECISAO DE 03/09 QUERIA E NUNCA TEVE: as colunas de modulo
+  com a MESMA largura, porque sao a mesma pergunta repetida. O `width: 1%` que
+  estava aqui dava a cada uma o seu proprio minimo -- 46 a 135px, medidos em
+  21/10/2026 -- e o comentario dizia que igualava. Agora iguala de verdade.
+
+  E PRECISA DAS DUAS PROPRIEDADES, `min-width` E `max-width`. Medido pelo
+  Nucleo em 21/10/2026, com os sete modulos reais, em quatro larguras:
+
+    width: 101px (a primeira tentativa)  -> 79 a 135px   NAO iguala
+    table-layout: fixed                  -> 79 a 135px   NAO iguala
+    min-width: 101px sozinho             -> 101 a 135px  NAO iguala
+    min-width + max-width                -> 131/108/101/101, SEMPRE IGUAIS
+
+  POR QUE `width` SOZINHO NAO BASTA: numa tabela de layout automatico o
+  `width` e sugestao, e o navegador reparte o que sobra pelo CONTEUDO. E a
+  mesma razao pela qual o `width: 1%` que estava aqui antes nunca igualou --
+  trocar um valor de `width` por outro repetia o defeito com numero novo.
+
+  POR QUE `table-layout: fixed` NAO FUNCIONA AQUI, e isto e consequencia de
+  outra decisao desta folha: o `display: block` que faz a tabela rolar de lado
+  tira dela o tipo `table`, e o `table-layout` passa a ser ignorado. As duas
+  regras moram neste arquivo e uma desliga a outra em silencio.
+
+  AS COLUNAS CRESCEM JUNTAS quando sobra espaco (131px em 1920), que e o que a
+  decisao de 03/09 queria: a mesma pergunta repetida tem o mesmo peso visual.
+
+  MARGEM: a Interface mediu os modulos ja discutidos neste projeto e nenhum
+  passa de 101 (Almoxarifado 100, Comunicacao 94, Capacitacao 91, Seguranca
+  82, Pessoas 65, Frota 51, TI 27).
+*/
 
 /*
   NOTA SOB O NOME DA COLUNA. Nome neutro de proposito: ela serve a duas frases
@@ -1254,3 +1470,566 @@ h3 { font-size: 18px; }
 .n-adm-salvar-txt { font-size: 14px; color: var(--tinta-media); flex: 1; }
 .n-adm-salvar-txt ul { margin: 6px 0 0; padding-left: 20px; }
 .n-adm-salvar-txt li { margin-bottom: 2px; }
+
+/* =========================================================================
+   MENU LATERAL, PAINEL DE COMUNICACOES E ESPERA -- POR-05
+   =========================================================================
+   QUARTA VERSAO DO DIA, da frente Interface (21/10/2026), e substitui as tres
+   anteriores inteiras. 32 classes, as mesmas da terceira: nenhuma nasceu e
+   nenhuma morreu -- o que mudou foi UMA REGRA e os comentarios.
+
+   A REGRA NOVA, e ela e a primeira do bloco da Interface a MEXER NUMA CLASSE
+   DESTA FOLHA:
+
+       .n-portal-corpo > .conteudo { flex: 1 1 auto; min-width: 0; }
+
+   O `.conteudo` e do Nucleo, nao da Interface, e por isso vale dizer em voz
+   alta: esta regra e ACEITAVEL porque esta presa ao `.n-portal-corpo >`, que e
+   da Interface -- fora da POR-05 ela nao alcanca nada. Uma regra solta em
+   `.conteudo` no fim deste arquivo mudaria toda tela da plataforma, e o
+   proximo que copiar este padrao pode nao copiar o escopo junto.
+
+   O QUE ELA CONSERTA, nas palavras deles: sem ela a coluna branca tinha a
+   largura NASCIDA DO CONTEUDO -- larga com os cartoes desenhados, estreita
+   durante o carregamento. A tela "pulava" sem nada ter mudado de regra. O
+   Dalton viu as 08h13.
+
+   md5 DE CHEGADA: 11.214 bytes, `e7074b150a0fdfe9ad0dbf8f84328c99`, 319
+   linhas, zero byte fora do ASCII. A Interface nao mandou md5 desta vez; este
+   e o que o Nucleo calculou, e a forma canonica (LF com quebra final) e
+   identica ao recebido -- nenhum estrago de transporte.
+
+   O QUE O NUCLEO MUDOU AO COLAR:
+     - 21 trocas de cor por token, as mesmas oito cores;
+     - tres comentarios de contraste com o numero certo, a data e CONTRA QUAL
+       FUNDO;
+     - DOIS comentarios sobre a `.oculto` reescritos, porque afirmavam errado
+       sobre esta folha: eles diziam que a `.oculto` ganhar era "sorte" e um
+       "motivo que eu nao li". Ela e `display: none !important` (linha 705), e
+       o risco que os dois comentarios descreviam nao existe.
+
+   DEZ CORES FICARAM A MAO, cada uma com o motivo ao lado. A que mais importa:
+   o #8e949b e o #9aa0a6 ficaram separados de proposito, porque juntar os dois
+   num token apagaria a decisao da Interface de o subtitulo do menu pesar menos
+   que o rotulo.
+
+   A ORDEM DE COLAR IMPORTA: trocar cor por token DEPOIS de reescrever o
+   comentario faz a troca global entrar no proprio comentario -- o texto
+   "estava certa sobre o #1b1b1b que ela escreveu" vira "sobre o
+   var(--grafite) que ela escreveu", que se contradiz. Trocas primeiro,
+   comentarios depois. Errei isto na primeira colagem de hoje.
+   ========================================================================= */
+/* ===================================================================== *
+ *  MENU LATERAL E PAINEL DE COMUNICACOES  --  Interface, 20/10/2026
+ *
+ *  ACRESCENTAR ao Estilo.html do Nucleo. Nao substitui nada: sao classes
+ *  novas, todas com o prefixo `n-`, pela regra do contrato 5.1 (classe que o
+ *  nucleo INVENTOU leva `n-`; as 41 herdadas do Treinamentos mantem o nome).
+ *
+ *  AS CORES ESTAO ESCRITAS A MAO, e isso e um pedido ao Nucleo: a Interface
+ *  nao tem o Estilo.html para ler quais sao os tokens de la. **Se houver
+ *  variavel para o vermelho institucional, o preto da barra e os cinzas,
+ *  troquem** -- os valores abaixo vieram do prototipo e podem divergir dos
+ *  de voces sem nada acusar, que e a familia 39.
+ * ===================================================================== */
+
+/* ---- as duas colunas da POR-05 ---- */
+
+.n-portal-corpo { display: flex; align-items: flex-start; gap: 0; }
+
+.n-menu {
+  flex: 0 0 248px;
+  align-self: stretch;
+  background: var(--grafite);
+  color: var(--superficie);
+  padding: 16px 0 14px;
+  display: flex;
+  flex-direction: column;
+  /* A ALTURA NAO MORA MAIS AQUI -- ver `.n-portal-tela` no fim do arquivo.
+     Ate 21/10/2026 esta regra dizia `min-height: 60vh`, e era isso que fazia a
+     barra escura parar no meio da tela enquanto a grade carregava: o conteudo
+     ao lado era curto, entao a linha toda era curta, e o 60vh era o unico piso.
+     O Dalton viu as 07h47. A altura agora vem da tela, que e uma coluna de
+     altura cheia -- e assim nao e preciso saber a altura do cabecalho. */
+}
+
+.n-menu-rotulo {
+  margin: 0 0 8px;
+  padding: 0 18px;
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  /* 5,32:1 sobre o --grafite (medido pelo Nucleo em 21/10/2026). A Interface
+     mediu 5,63:1 e estava certa: a conta dela era sobre o preto #1b1b1b que ela
+     escreveu a mao. A barra passou a ser o token, que e um fio mais claro, e o
+     numero caiu. Rotulo pequeno precisa passar em 4,5:1, e passa com folga.
+     NAO VIROU TOKEN DE PROPOSITO: a Interface usa dois cinzas diferentes no
+     menu para o subtitulo pesar menos que o rotulo (o outro e o #9aa0a6, que da
+     6,17:1 aqui), e junta-los num token so apagaria essa decisao dela. */
+  color: #8e949b;
+}
+
+.n-menu-mod {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  box-sizing: border-box;
+  /* 48px de altura minima: a regra de toque da plataforma, e o menu e usado
+     no celular tanto quanto no computador */
+  min-height: 48px;
+  padding: 9px 18px;
+  border: 0;
+  background: transparent;
+  color: var(--superficie);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.n-menu-mod:hover:not(:disabled) { background: var(--grafite-claro); }
+.n-menu-mod:focus-visible { outline: 2px solid var(--superficie); outline-offset: -2px; }
+
+.n-menu-icone { flex: 0 0 22px; text-align: center; font-size: 15px; }
+.n-menu-txt   { flex: 1 1 auto; min-width: 0; }
+
+.n-menu-nome {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.n-menu-abaixo {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: #9aa0a6;
+}
+
+/*
+ * OS DOIS BLOQUEIOS NAO SAO O MESMO BLOQUEIO.
+ *
+ * `n-menu-resolve` e "clique aqui para poder" -- o modulo que RESOLVE a
+ * pendencia, e ele continua clicavel. `n-menu-bloq` e "voce nao pode".
+ * Pintar os dois de cinza apaga a unica saida que a pessoa tem.
+ */
+.n-menu-resolve { border-left: 3px solid var(--vermelho); padding-left: 15px; }
+.n-menu-resolve .n-menu-abaixo { color: #ff9ca1; }   /* 8,17:1 sobre o --grafite
+     (medido pelo Nucleo em 21/10/2026). O 8,63 da Interface era sobre o preto
+     #1b1b1b escrito a mao, antes de a barra virar token; e o 5.9 antes dele era
+     dela e errado, achado por ela mesma.
+     SEM TOKEN DE PROPOSITO: nao existe vermelho claro para fundo escuro na
+     folha, porque a folha nunca teve superficie escura. Esta e a primeira. */
+
+.n-menu-bloq { opacity: .5; cursor: default; }
+.n-menu-bloq:hover { background: transparent; }
+
+.n-menu-pe {
+  margin: auto 0 0;
+  padding: 14px 18px 0;
+  border-top: 1px solid #313131;
+  font-size: 11.5px;
+  color: #8e949b;
+}
+
+/* ---- o painel das comunicacoes ---- */
+
+/* O `:not(.oculto)` E INOFENSIVO E DISPENSAVEL -- e fica.
+   A Interface escreveu aqui que a `.oculto` do nucleo "ganha por algum motivo
+   que eu nao li" e que era sorte. O Nucleo foi ler, em 21/10/2026:
+
+       .oculto { display: none !important; }      (linha 705 desta folha)
+
+   E `!important`, entao nao havia sorte nenhuma: ele nao disputa
+   especificidade, ganha de qualquer regra sem `!important`, venha antes ou
+   depois. **Nao existe o risco que o comentario original descrevia** -- nenhuma
+   classe acrescentada no fim desta folha vence a `.oculto` por estar depois.
+
+   O `:not` fica porque nao custa nada e deixa a intencao legivel. O comentario
+   mudou porque um comentario que assusta a proxima frente sem motivo custa. */
+.n-painel:not(.oculto) {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  padding: 18px;
+  margin: 0 0 22px;
+}
+
+/*
+ * A ALTURA E FIXA E A LARGURA SAI DA PROPORCAO -- e nao o contrario.
+ *
+ * E o que reserva o espaco ANTES de a imagem chegar: o navegador so sabe o
+ * tamanho real depois de baixar, e em 4G ruim isso e a tela pulando. A arte
+ * entra INTEIRA (`contain`), nunca recortada: ela carrega texto.
+ */
+.n-painel-arte {
+  flex: 0 0 auto;
+  height: 320px;
+  border-radius: 8px;
+  background: #eef0f3;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.n-arte-4x5 { width: 256px; }   /* 320 x 0,8 */
+.n-arte-1x1 { width: 320px; }
+
+.n-painel-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* A arte que nao carregou deixa a caixa marcada, e o texto ao lado fica.
+   Uma comunicacao sem a arte ainda comunica; uma faixa em branco nao. */
+.n-arte-falhou { border: 1px dashed #b4bac2; background: var(--fundo); }
+
+.n-painel-texto { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.n-painel-linha { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.n-cat {
+  font-size: 11px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: #eef0f2;
+  color: #3f4449;          /* 8,61:1 (medido pelo Nucleo em 20/10/2026) */
+}
+
+.n-selo-semana {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 3px;
+  border: 1px solid var(--vermelho);
+  /* 7,03:1 sobre branco (medido pelo Nucleo em 21/10/2026, JA COM O TOKEN).
+     A Interface escreveu #AE1017 a mao aqui, nas QUATRO versoes de hoje, e mediu
+     7,28:1 em cima dele. Os dois numeros estao certos e sao de cores DIFERENTES:
+     o #AE1017 da 7,28:1 e o --vermelho-forte (#B2101F) da 7,03:1. Virou token
+     porque foi o que a Interface pediu no cabecalho dela, e o 7,28 e o aviso de
+     por que ela nao tinha como saber: ela nao ve esta folha.
+
+     E a cor existe por um motivo so: o --vermelho puro da 4,38:1 sobre branco e
+     REPROVA como texto. O :root dele carrega os quatro fundos medidos. */
+  color: var(--vermelho-forte);
+}
+
+.n-painel-titulo { margin: 14px 0 0; font-size: 26px; line-height: 1.22; letter-spacing: -.015em; }
+.n-painel-data   { margin: 7px 0 0; font-size: 13.5px; color: var(--tinta-media); }
+.n-painel-link   { margin-top: 12px; align-self: flex-start; font-size: 14px; }
+
+.n-painel-pontos { margin: auto 0 0; padding-top: 18px; display: flex; gap: 7px; align-items: center; }
+
+.n-painel-ponto {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  height: 9px;
+  width: 9px;
+  border-radius: 5px;
+  background: #d3d8de;
+  transition: width .2s, background .2s;
+}
+
+/* O ponto da semana e mais largo: a ponderacao do ciclo fica visivel na tela,
+   em vez de so acontecer. Largura, e nao so cor -- cor sozinha nao conta. */
+.n-ponto-semana { width: 15px; background: #b9c0c8; }
+.n-ponto-aqui   { width: 27px; background: var(--vermelho); }
+
+.n-painel-falhou { margin: 0; font-size: 14px; color: var(--tinta-media); }
+
+/* ---- a tela de dentro e uma coluna de altura cheia ---- */
+
+/*
+ * POR QUE `:not(.oculto)` E NAO SO `.n-portal-tela`:
+ * pelo mesmo motivo do painel la em cima, e com a mesma correcao -- a `.oculto`
+ * desta folha e `display: none !important`, entao um `display: flex` solto aqui
+ * NAO ganharia dela e as telas escondidas nao apareceriam empilhadas. O `:not`
+ * e barato e deixa a intencao legivel, e por isso fica; o que ele nao e e
+ * necessario. Lido na linha 705 pelo Nucleo em 21/10/2026.
+ *
+ * E POR QUE A ALTURA VEM DAQUI e nao do menu: assim nao e preciso saber a
+ * altura do cabecalho. A tela e uma coluna de 100dvh, o `.topo` ocupa o que
+ * precisa, e o corpo fica com o resto exato.
+ */
+.n-portal-tela:not(.oculto) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;   /* a segunda vence onde o navegador a entende */
+}
+.n-portal-tela > .n-portal-corpo { flex: 1 1 auto; }
+
+/*
+ * A COLUNA BRANCA OCUPA SEMPRE O QUE SOBRA, e isto conserta um defeito que so
+ * aparecia durante a espera -- visto pelo Dalton em 21/10/2026, as 08h13.
+ *
+ * Sem esta linha a `.conteudo` e um item de flex com largura NASCIDA DO
+ * CONTEUDO: com os cartoes desenhados ela fica larga, e durante o carregamento,
+ * com a grade vazia, ela encolhe. A coluna inteira muda de largura, e o mesmo
+ * texto aparece em lugares diferentes antes e depois da resposta -- a tela
+ * "pulando" sem que nada tenha mudado de regra.
+ *
+ * O `min-width: 0` vai junto porque sem ele um filho largo (a tabela da POR-08)
+ * impede o encolhimento e empurra a coluna para fora da tela.
+ */
+.n-portal-corpo > .conteudo {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  /*
+   * E ELA TAMBEM OCUPA A ALTURA, pelo defeito que o Dalton viu em 21/10/2026
+   * as 14h35: "o carregando nao esta centralizado na area branca".
+   *
+   * MEDIDO, e nao deduzido -- a tela renderizada com esta folha, 1440x900:
+   * a area branca vai de y=66 a y=900, meio em 483; e a roda da espera ficava
+   * com o meio em **y=158**. Trezentos e vinte e cinco pixels acima do meio.
+   * Na largura ela ja estava certa (844 nos dois), e e por isso que o defeito
+   * passou: metade dele estava consertada desde as 08h13.
+   *
+   * A CAUSA E O `align-items: flex-start` do `.n-portal-corpo`, no comeco
+   * desta secao (a Interface escreveu "tres linhas acima" no bloco dela; aqui,
+   * colado no Nucleo, fica mais longe): a coluna branca parava de crescer
+   * na altura do conteudo. O `align-self` desfaz isso so para ela, sem mexer
+   * no menu.
+   *
+   * E POR QUE SO `align-self`, E NAO `display: flex` AQUI -- a primeira versao
+   * desta correcao punha os dois, para a espera crescer como item de flex.
+   * Funcionava, e **custava 18px na ficha ja desenhada**: medido, o rotulo
+   * "Acessos" ia de y=224 para y=242 e a lista de modulos crescia 12px. Dois
+   * efeitos de virar flex: as margens dos filhos deixam de se colapsar entre
+   * si, e cada filho vira raiz de contexto, segurando as margens de dentro.
+   *
+   * Com `align-self` sozinho e `height: 100%` na espera (regra seguinte), a
+   * ficha desenhada fica **identica, pixel por pixel**, ao que era antes --
+   * conferido medindo os cinco filhos nos dois estados, antes e depois.
+   *
+   * O conserto que mexe na tela que ja estava certa nao e conserto: e troca.
+   */
+  align-self: stretch;
+}
+
+/* A espera fica com TODA a altura que sobra, e ai o `justify-content: center`
+   que ela ja tem passa a centrar no meio da area branca, e nao no meio dos
+   220px dela mesma. */
+.conteudo > .n-carregando:not(.oculto) { height: 100%; }
+
+/* ---- a espera da grade ---- */
+
+/*
+ * A BOLINHA E NOVA, E NAO E A `.n-roda` QUE JA EXISTE -- de proposito.
+ * A `.n-roda` mora no `Estilo.html`, que nao esta com esta frente, e ela e
+ * usada sobre a cobertura da tela inteira. Reaproveita-la aqui seria deduzir
+ * a cor dela sobre um fundo claro, e deduzir fundo que eu nao li ja custou um
+ * numero errado hoje de manha. Esta tem quatro linhas e nenhuma suposicao.
+ */
+.n-carregando:not(.oculto) {
+  width: 100%;          /* centra na area branca inteira, e nao no bloco de texto */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 220px;
+  color: var(--tinta-media);
+  font-size: 15px;
+}
+.n-carrega-roda {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--linha);
+  border-top-color: var(--vermelho);
+  border-radius: 50%;
+  animation: n-gira .8s linear infinite;
+}
+@keyframes n-gira { to { transform: rotate(360deg); } }
+/* Quem pediu menos movimento no sistema continua vendo que algo acontece --
+   some seria trocar um incomodo por uma tela que parece travada. */
+@media (prefers-reduced-motion: reduce) {
+  .n-carrega-roda { animation-duration: 2.4s; }
+}
+
+/* =========================================================================
+   A TELA DE UMA PESSOA -- POR-09 (Interface, 21/10/2026, tarde)
+   =========================================================================
+   SEXTA VERSAO DO BLOCO DA INTERFACE (15.059 bytes, md5
+   8f6e4ab2664fabe606e9861f1f60bdbc, igual ao da carta 26 deles, conferido na
+   forma LF). Conferido por diff contra a quinta, em 21/10/2026: mudou SO esta
+   secao, e em tres pontos --
+     - o motivo ja veio com o --vermelho-forte, escrito pela Interface;
+     - o apagado do campo de bases saiu do bloco e foi para as linhas, a
+       proposta do Nucleo (com o bloco inteiro apagado a nota que explica o
+       apagado caia para 2,71:1);
+     - o campo do motivo, novo.
+
+   O QUE O NUCLEO MUDOU AO COLAR: 17 trocas de cor por token, a mesma tabela
+   das outras versoes (o #1b1b1b de TEXTO vira --tinta, e nao --grafite,
+   porque e letra sobre branco e nao a barra). Uma cor ficou a mao, com o
+   motivo ao lado.
+   ========================================================================= */
+/* ---- a tela de uma pessoa (POR-09) ---- */
+
+/*
+ * O NOME NA GRADE VIROU BOTAO, e botao traz bagagem: fundo, borda, fonte
+ * propria e -- o que morde aqui -- `white-space` que nao quebra em alguns
+ * navegadores. A celula tem 288px justamente para o nome caber em DUAS
+ * linhas; um botao que nao quebra desmancharia a medicao de 21/10/2026.
+ */
+.n-adm-abrir {
+  all: unset;
+  display: block;
+  white-space: normal;
+  text-align: left;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--tinta);
+  cursor: pointer;
+  text-decoration: underline;
+  /* A MAO, de proposito: e um sublinhado de enfeite, que diz "clicavel" sem
+     pesar, e a folha nao tem cinza com esse papel. O texto, que precisa de
+     contraste, e o --tinta. */
+  text-decoration-color: #c9ced4;
+  text-underline-offset: 2px;
+}
+.n-adm-abrir:hover { text-decoration-color: var(--vermelho); }
+.n-adm-abrir:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 2px; }
+
+.n-ficha {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 0 0 18px;
+}
+.n-ficha-nome { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.2; }
+.n-ficha-meta { margin: 4px 0 0; font-size: 13px; color: var(--tinta-media); }
+
+.n-mod {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin: 0 0 12px;
+}
+.n-mod-topo { display: flex; align-items: center; gap: 10px; }
+.n-mod-nome { font-weight: 600; font-size: 16px; flex: 1 1 auto; min-width: 0; }
+.n-mod-perfil {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tinta-media);
+  flex: 0 0 auto;
+}
+
+/* O motivo fica COLADO no modulo e nao num aviso no alto da tela: ele explica
+   aquela linha, e aviso longe do objeto vira texto que ninguem liga a nada. */
+.n-mod-motivo {
+  margin: 8px 0 0 32px;
+  font-size: 13px;
+  /* TOKEN, E NAO HEX -- esta e a quinta vez que o `#AE1017` chega ao Nucleo e
+     eles o trocam por este token na mao (carta no 22 deles, 21/10/2026). Eles
+     ja escreveram o nome duas vezes; continuar mandando hex seria pedir a
+     sexta. As outras cores deste arquivo continuam em hex, que e a combinacao
+     de sempre -- esta sai da combinacao porque ela ja custou cinco trocas. */
+  color: var(--vermelho-forte);
+}
+
+.n-bases { margin: 12px 0 0 32px; }
+.n-bases-rotulo {
+  margin: 0 0 8px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tinta-media);
+}
+.n-bases-nota { margin: 0; font-size: 13px; color: var(--tinta-media); }
+/*
+ * O APAGADO VAI SO NAS LINHAS, E NAO NO BLOCO -- achado do Nucleo em 21/10.
+ *
+ * Com `opacity: .6` no bloco inteiro, a NOTA que explica por que o campo esta
+ * apagado caia para 2,71:1 e ficava ilegivel. **Era justamente a frase que
+ * responde a pergunta que o apagado levanta.** Apagar a explicacao do apagado
+ * e o pior lugar possivel para economizar contraste.
+ */
+.n-bases-off .n-bases-linhas { opacity: .55; }
+
+.n-base { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; }
+.n-base-nome { font-size: 14.5px; }
+.n-base-nota { font-size: 12.5px; color: var(--tinta-media); }
+/* A linha presa e mais clara, e a diferenca e de PESO e nao de cor: travado e
+   nao-marcado sao estados opostos, e pintar os dois de cinza apagaria isso. */
+.n-base-presa .n-base-nome { color: var(--tinta-media); }
+
+/* O campo do motivo so aparece quando ha base ACRESCENTADA -- tirar nao cria
+   pergunta para o futuro, entao nao pede explicacao. */
+.n-base-motivo { margin: 10px 0 2px; display: flex; flex-direction: column; gap: 5px; }
+.n-base-motivo-rot {
+  font-size: 13px;
+  color: var(--tinta-media);
+}
+.n-base-motivo input {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  background: var(--superficie);
+  max-width: 420px;
+}
+.n-base-motivo input:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 1px; }
+
+@media (max-width: 900px) {
+  .n-mod-motivo, .n-bases { margin-left: 0; }
+  .n-mod-topo { flex-wrap: wrap; }
+}
+
+/* ---- celular: as duas colunas empilham ---- */
+
+/*
+ * O CORTE E 900, E NAO 760 -- e a conta e esta, feita em 21/10/2026:
+ *
+ * o menu tem 248px fixos; o painel gasta 2 de borda, 36 de padding e 22 de
+ * gap; a arte quadrada tem 320. Sobra para o texto = largura - 628 - o padding
+ * da pagina. Em 761px isso da 133px (ou 101 com padding de 16 de cada lado) --
+ * titulo de 20px em 133px nao e layout, e acidente. Em 901px da 273px.
+ * 620 seria pior ainda: -7px, ou seja, a arte sozinha ja estoura.
+ *
+ * Entao 900 nao foi escolhido por ser numero que a folha do Nucleo ja usa
+ * (420, 620, 900) -- foi escolhido por caber. As duas razoes apontam junto.
+ */
+@media (max-width: 900px) {
+  .n-portal-corpo { display: block; }
+
+  .n-menu {
+    flex: none;
+    min-height: 0;
+    padding: 10px 0;
+    /* Rolagem horizontal em vez de empilhar oito itens antes do conteudo:
+       no celular o menu e atalho, e a grade continua sendo a tela. */
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 4px;
+  }
+  .n-menu-rotulo, .n-menu-pe { display: none; }
+  .n-menu-mod { width: auto; flex: 0 0 auto; padding: 8px 14px; }
+  .n-menu-abaixo { display: none; }
+  .n-menu-resolve { border-left: 0; border-bottom: 3px solid var(--vermelho); padding-left: 14px; }
+
+  /* A arte ocupa a largura e a altura sai da proporcao -- o inverso do
+     computador, porque no celular quem manda e a largura. */
+  .n-painel { flex-direction: column; gap: 14px; }
+  .n-painel-arte { width: 100%; height: auto; aspect-ratio: 4 / 5; }
+  .n-arte-1x1 { aspect-ratio: 1 / 1; }
+  .n-arte-4x5 { width: 100%; }
+  .n-painel-titulo { font-size: 20px; }
+  .n-painel-pontos { padding-top: 14px; }
+  /* Alvo de toque de 44px sem engordar o ponto: a area cresce, o desenho nao. */
+  .n-painel-ponto { height: 22px; background-clip: content-box; padding: 6px 0; }
+}

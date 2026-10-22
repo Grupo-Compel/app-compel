@@ -41,6 +41,9 @@ function prepararSite() {
   var raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'casca-site-'));
   fs.cpSync(REPOSITORIO, raiz, { recursive: true, filter: function (o) { var b = path.basename(o); return b !== '.git' && b !== 'node_modules'; } });
   fs.rmSync(path.join(raiz, 'blocos', 'indice.js'), { force: true });
+  // A bateria nunca fala com o login de verdade: na cópia, o endereço fica vazio, e cada teste que precisa de login
+  // põe o imitado no lugar (abrir, mais abaixo).
+  fs.writeFileSync(path.join(raiz, 'config', 'login.js'), "var ENDERECO_DO_LOGIN = '';\n");
   fs.cpSync(path.join(REPOSITORIO, 'testes', 'bloco-exemplo'), path.join(raiz, 'blocos', 'exemplo'), { recursive: true });
   fs.writeFileSync(path.join(raiz, 'blocos', 'exemplo', 'servidor.sha256'), crypto.createHash('sha256').update(SERVIDOR_EXEMPLO).digest('hex') + '\n');
   // Uma página vazia do mesmo site, para a bateria preparar o celular antes de o app abrir (T26).
@@ -66,7 +69,7 @@ function isoMenosDias(base, n) { var d = new Date(base); d.setUTCDate(d.getUTCDa
 /* ---------- o login imitado ---------- */
 function novoLogin() {
   var L = {
-    pessoas: {}, sessoes: {}, pedidos: [], fora: false, hoje: '2026-10-21',
+    pessoas: {}, sessoes: {}, pedidos: [], fora: false, hoje: '2026-10-21', cortadas: {}, senhaMudou: {}, aceitos: {}, termo: null,
     criar: function (nome, dados) { var cpf = cpfSorteado(); L.pessoas[cpf] = Object.assign({ cpf: cpf, nome: nome }, dados); return cpf; }
   };
   L.resposta = function (p) {
@@ -102,12 +105,20 @@ function novoLogin() {
       case 'esqueciSenha':
         if (!p) return { ok: false, erro: 'CPF não encontrado.' };
         return { ok: true, mensagem: 'Mandamos uma senha temporária para o e-mail cadastrado.' };
+      // As respostas da carta nº 14 do Núcleo: sessão cortada → pedirCpf; senha mudada em outro celular → recusa sem
+      // pedirCpf (aqui com o entrarDeNovo que a casca pediu); termo pendente → a forma do api_abrir do Portal.
       case 'token':
-        if (!p) return { ok: false, erro: 'Sessão vencida.' };
+        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, erro: 'Este celular foi desligado. Entre com o CPF.' };
+        if (L.senhaMudou[corpo.sessao]) return { ok: false, entrarDeNovo: true, erro: 'Sua senha mudou. Entre de novo com a senha nova.' };
+        if (L.termo && !L.aceitos[p.cpf]) return { ok: false, precisaAceitarTermo: true, id: L.termo.id, versao: L.termo.versao, titulo: L.termo.titulo, texto: L.termo.texto, link: L.termo.link, quantos: 1 };
         return { ok: true, token: 'tok-' + Math.random().toString(36).slice(2) };
       case 'avisos':
-        if (!p) return { ok: false, erro: 'Sessão vencida.' };
+        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, erro: 'Este celular foi desligado. Entre com o CPF.' };
         return { ok: true, comunicacoes: L.comunicacoes || [] };
+      case 'aceitarTermo':
+        if (!p) return { ok: false, pedirCpf: true, erro: 'Entre com o CPF.' };
+        if (!L.termo || corpo.id !== L.termo.id || corpo.versao !== L.termo.versao) return { ok: false, erro: 'Termo desconhecido.' };
+        L.aceitos[p.cpf] = true; return { ok: true };
     }
     return { ok: false, erro: 'ação desconhecida' };
   };
@@ -685,6 +696,55 @@ var TESTES = {
     proprio.closeAllConnections(); await new Promise(function (ok) { proprio.close(ok); });
     await ctx.close();
   },
+  /* ---------- o login de verdade (carta nº 14 do Núcleo, 22/10/2026) ---------- */
+  T27_sessao_cortada_no_token_volta_a_pedir_o_cpf: async function () {
+    var x = loginComAna(), a = await abrir(x.L);
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    Object.keys(x.L.sessoes).forEach(function (s) { x.L.cortadas[s] = true; });
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'Entre com o CPF');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-01', 'com a sessão cortada, o app devia voltar à entrada');
+    afirmar(await a.page.isVisible('#cpf'), 'a entrada devia pedir o CPF, e não o nome');
+    var abertas = a.ctx.pages().length;
+    afirmar(abertas === 1, 'a janela aberta no toque devia ser fechada; há ' + abertas);
+    await a.ctx.close();
+  },
+  T28_o_termo_pendente_se_aceita_no_app: async function () {
+    var x = loginComAna();
+    x.L.termo = { id: 'TERMO-1', versao: '3', titulo: 'Código de Ética', texto: 'Linha um.\nLinha dois.', link: 'https://modulo.teste.invalid/etica' };
+    var a = await abrir(x.L);
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'Código de Ética');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-09', 'o termo pendente devia abrir a tela do termo');
+    afirmar(a.ctx.pages().length === 1, 'com o termo pendente, nenhuma janela de sistema podia ficar aberta');
+    await a.page.click('[data-acao="ajuda"]');
+    afirmar(((await a.page.textContent('#textoAjuda').catch(function () { return ''; })) || '').length > 40, 'a tela do termo não tem ajuda');
+    for (var largura of [360, 412]) {
+      await a.page.setViewportSize({ width: largura, height: 800 });
+      var passa = await a.page.evaluate(function () { return document.documentElement.scrollWidth - document.documentElement.clientWidth; });
+      afirmar(passa <= 0, 'a tela do termo passa ' + passa + ' px da largura de ' + largura);
+    }
+    await a.page.click('[data-acao="aceitarTermo"]');
+    await esperarTexto(a.page, 'Termo aceito');
+    var aceite = x.L.pedidos.filter(function (q) { return q.acao === 'aceitarTermo'; }).pop();
+    afirmar(aceite && aceite.id === 'TERMO-1' && aceite.versao === '3' && aceite.sessao && !aceite.cpf, 'o aceite devia levar a sessão, o id e a versão, sem CPF: ' + JSON.stringify(aceite));
+    var aguardar = a.ctx.waitForEvent('page');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    var janela = await aguardar;
+    await janela.waitForURL(/modulo\.teste\.invalid\/treino\?t=tok-/);
+    await a.ctx.close();
+  },
+  T29_senha_mudada_em_outro_celular_entra_pelo_nome: async function () {
+    var x = loginComAna(), a = await abrir(x.L);
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    Object.keys(x.L.sessoes).forEach(function (s) { x.L.senhaMudou[s] = true; });
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'Sua senha mudou');
+    afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'com a senha mudada, a entrada devia ser pelo nome');
+    afirmar((await texto(a.page)).indexOf('Senha de Ana') >= 0, 'a pessoa escolhida devia ser a Ana');
+    await a.ctx.close();
+  },
   T17_tirar_meus_dados_deste_celular: async function () {
     var x = loginComAna(), a = await abrir(x.L);
     await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
@@ -700,9 +760,11 @@ var TESTES = {
 
 /* OS TESTES QUE ESPERAM UM CONSERTO DE OUTRA FRENTE. Rodam sempre, e a falha deles não para a publicação; mas se um
    deles PASSAR, a bateria falha, para ele sair desta lista e passar a valer. Assim a espera não vira esquecimento.
-   - T19 espera o Estilo.html de 81.150 bytes do Núcleo, com o texto vermelho em --vermelho-forte (cartas nº 12 e
-     nº 13 do Núcleo, 21/10/2026). Falha hoje em sete lugares da cópia de 18/10. */
-var ESPERANDO = { T19_nenhum_texto_no_vermelho_da_marca: 'o Estilo.html novo do Núcleo (81.150 bytes)' };
+   - T19 espera o Núcleo pôr o texto vermelho da folha em --vermelho-forte. A folha de 81.150 bytes (carta nº 13 do
+     Núcleo; trocada no app em 22/10/2026) ainda pinta com o #ED1C24 o .aviso.erro, o .link-texto e o
+     .btn.secundario, entre outros: a mudança é visual e espera o Dalton (revisão diária de 21/10). Medido em
+     22/10/2026: falha nos mesmos sete lugares da cópia de 18/10. */
+var ESPERANDO = { T19_nenhum_texto_no_vermelho_da_marca: 'o texto vermelho da folha do Núcleo em --vermelho-forte' };
 
 (async function () {
   var so = process.argv.indexOf('--so') >= 0 ? process.argv[process.argv.indexOf('--so') + 1] : null;

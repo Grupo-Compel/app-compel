@@ -9,8 +9,9 @@ quando o sinal volta.
 > **Estado em 21/10/2026:** a casca tem as telas de entrada (CPF e senha, primeiro acesso, senha temporária, esqueci
 > a senha, entrada sem sinal), o Início, os Avisos, o Envio e o Perfil, e tudo o que um bloco usa: a tela do celular
 > guardada para abrir sem sinal, a fila de envio com o segundo plano e a trava única, a conferência do endereço do
-> servidor pelo resumo (ver `blocos/README.md`). **Ninguém entra ainda:** o endereço do login do Núcleo, em
-> `config/login.js`, está vazio até o projeto do login nascer (carta nº 12 do App ao Núcleo). Nenhum bloco entrou.
+> servidor pelo resumo (ver `blocos/README.md`). **Desde 22/10/2026 o app está ligado ao login do Núcleo**
+> (`config/login.js`, o projeto "Login do App Compel"; carta nº 14 do Núcleo), com a tela do termo (APP-09) e a volta à
+> entrada quando a sessão do aparelho é cortada. Nenhum bloco entrou.
 
 ## As regras deste repositório
 

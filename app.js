@@ -269,9 +269,35 @@ function abrirModulo(i) {
   E.ocupado = true; E.erro = ''; desenhar();
   return cascaAbrirComToken(p, m.modulo, m.url, janela).then(function (r) {
     E.ocupado = false;
+    if (r.termo) { E.termo = r.termo; return irPara('termo'); }
+    if (r.pedirCpf) return exigirEntrada(true, r.erro);
+    if (r.entrarDeNovo) return exigirEntrada(false, r.erro);
     if (r.erro) return mostrarErro(r.erro);
     desenhar();
   });
+}
+
+/* A sessão do aparelho deixou de valer no login (carta nº 14 do Núcleo): a entrada de hoje acaba aqui, e a pessoa
+   entra de novo. Com `pedirCpf` (sessão cortada, vencida ou de outro aparelho), pelo CPF; com `entrarDeNovo` (a senha
+   mudou em outro celular), pelo nome, com a senha nova — a sessão revive. Nada do que ela deixou guardado sai. */
+function exigirEntrada(peloCpf, msg) {
+  var chave = E.atual && E.atual.chave;
+  E.atual = null; E.avisos = null; E.escolhida = peloCpf ? null : chave;
+  return gravarAtual().then(function () { E.tela = 'entrar'; mostrarErro(msg); });
+}
+
+/* ---------- o termo (APP-09) ---------- */
+function aceitarTermo() {
+  var p = pessoaAtual(), t = E.termo;
+  if (!p || !t) return irPara('inicio');
+  if (!comSinal()) return mostrarErro('Sem sinal: aceitar o termo precisa de sinal.');
+  E.ocupado = true; E.erro = ''; desenhar();
+  return postarAoLogin({ acao: 'aceitarTermo', sessao: p.sessao, id: t.id, versao: t.versao }).then(function (r) {
+    if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
+    if (!r || r.ok !== true) return mostrarErro((r && r.erro) || 'O login não gravou o aceite. Tente de novo.');
+    E.termo = null;
+    irPara('inicio', 'Termo aceito. Toque de novo no sistema que você queria abrir.');
+  }, function () { mostrarErro('Não consegui falar com o login. Tente com sinal melhor.'); });
 }
 
 /* ---------- Envio: a fila dos blocos ----------
@@ -335,6 +361,8 @@ function buscarAvisos() {
   var p = pessoaAtual();
   if (!p || !p.sessao || !comSinal() || !enderecoDoLogin()) return Promise.resolve();
   return postarAoLogin({ acao: 'avisos', sessao: p.sessao }).then(function (r) {
+    if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
+    if (r && r.entrarDeNovo) return exigirEntrada(false, r.erro || 'Sua senha mudou. Entre de novo com a senha nova.');
     if (!r || r.ok !== true) { E.avisos = { erro: (r && r.erro) || 'O login não mandou os avisos.' }; return desenhar(); }
     E.avisos = { lista: avisosDaJanela(r.comunicacoes, p) };
     if (E.tela === 'avisos') marcarAvisosVistos();
@@ -354,14 +382,15 @@ function marcarAvisosVistos() {
    As telas usam as classes da folha do Núcleo (estilo/nucleo.css), as mesmas do App.html do Portal: a tela de
    entrada com a moldura vermelha e a marca quadrada, a barra grafite com a marca horizontal, a saudação, o rótulo
    "Seus sistemas" e os cartões .n-modulo. O que só o app tem leva o prefixo app- e mora no index.html. */
-var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08' };
-var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil'];
+var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09' };
+var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil', 'termo'];
 var AJUDAS = {
   entrar: 'Entre com o seu CPF e a mesma senha do Portal. Quem já entrou neste celular aparece na lista: toque no seu nome e digite só a senha. Sem sinal, só entra quem já entrou neste celular com sinal antes. A entrada vale até o fim do dia; amanhã o app pede a senha de novo.',
   primeiro: 'Primeira vez no app ou no Portal: digite o CPF, o seu e-mail e crie a senha. O e-mail é para onde vai uma senha nova se um dia você esquecer a sua. Precisa de sinal.',
   trocar: 'Você entrou com uma senha temporária. Crie agora a sua senha, que vale também para o Portal.',
   esqueci: 'Digite o CPF. O sistema manda uma senha temporária para o e-mail cadastrado. Entre com ela, e o app pede para você criar a sua.',
   inicio: 'Aqui estão os sistemas que você pode abrir. Toque num deles para abrir, já com você entrado. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
+  termo: 'A Compel pede que você leia e aceite este termo antes de abrir os sistemas. O aceite fica registrado com a data, e vale também para o Portal. Se o texto tiver um documento completo, ele abre pelo link. Precisa de sinal.',
   envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
   avisos: 'As comunicações da Compel dos últimos 30 dias. As marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
   perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal.'
@@ -487,6 +516,16 @@ function telaEnvio() {
   }).join('');
   return '<div class="conteudo">' + h + ajuda('envio') + '</div>';
 }
+function telaTermo() {
+  var t = E.termo;
+  if (!t) return '<div class="conteudo"><div class="vazio">Nenhum termo para aceitar.</div>' + ajuda('termo') + '</div>';
+  return '<div class="conteudo"><p class="etiqueta n-secao app-sem-margem">Termo</p>' + mensagens() +
+    '<div class="cartao" id="termo"><b class="app-titulo">' + esc(t.titulo) + '</b>' +
+    (t.texto ? '<p class="app-termo-texto">' + esc(t.texto) + '</p>' : '') +
+    (t.link ? '<a class="link-texto" href="' + esc(t.link) + '" target="_blank" rel="noopener">Ler o documento completo</a>' : '') +
+    botao('aceitarTermo', E.ocupado ? 'Gravando…' : 'Li e aceito', E.ocupado, false, E.ocupado || !comSinal()) +
+    '<button type="button" class="btn fantasma" data-aba="inicio">Agora não</button></div>' + ajuda('termo') + '</div>';
+}
 function telaPerfil() {
   var p = pessoaAtual(), par = parametrosDe(p);
   var linhas = [['Nome', p.nomeCompleto || p.nome], ['Matrícula', p.matricula], ['Função', p.funcao], ['Lotação', p.lotacao]].filter(function (l) { return l[1]; });
@@ -518,7 +557,7 @@ function desenhar() {
   var guardados = {};
   if (E.telaDesenhada === tela) ['cpf', 'email'].forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
   E.telaDesenhada = tela;
-  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, perfil: telaPerfil }[tela];
+  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil }[tela];
   $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
 }
@@ -561,6 +600,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'irEsqueci') return irPara('esqueci');
   if (a === 'irEntrar') { E.memoria = null; return irPara('entrar'); }
   if (a === 'abrirModulo') return abrirModulo(+b.getAttribute('data-i'));
+  if (a === 'aceitarTermo') return aceitarTermo();
   if (a === 'enviarBloco') return enviarBloco(b.getAttribute('data-bloco'), 'Enviar agora');
   if (a === 'sair') return sair();
   if (a === 'esquecer') return esquecerNesteCelular();

@@ -24,7 +24,11 @@ function cascaEnderecoDoLogin() { return typeof ENDERECO_DO_LOGIN === 'string' ?
 function cascaPostarAoLogin(corpo) {
   var url = cascaEnderecoDoLogin();
   if (!url) return Promise.reject({ semEndereco: true });
-  corpo.app = 'casca'; corpo.versao = VERSAO_APP;
+  /* O `versao` do envelope é a versão do app (carta nº 12 do App), mas o `aceitarTermo` do login usa o mesmo nome
+     para a versão do TERMO (carta nº 14 do Núcleo). A versão do termo é a que decide o aceite, então ela fica, e a do
+     app vai também em `versaoApp`. Achado pela bateria em 22/10/2026 (T28): o aceite saía com a versão do app no
+     lugar da do termo, e o login respondia "termo desconhecido". */
+  corpo.app = 'casca'; if (corpo.versao === undefined) corpo.versao = VERSAO_APP; corpo.versaoApp = VERSAO_APP;
   var controle = new AbortController(), relogio = setTimeout(function () { controle.abort(); }, CASCA_ESPERA_DO_LOGIN_MS);
   return fetch(url, { method: 'POST', body: JSON.stringify(corpo), redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, signal: controle.signal })
     .then(function (r) { return r.text(); })
@@ -51,11 +55,28 @@ function cascaAbrirComToken(pessoaGuardada, modulo, url, janela) {
   if (!url || !/^https:\/\/\S+$/.test(url)) return Promise.resolve(fechar({ erro: 'O endereço deste sistema está com defeito na planilha. Avise a administração.' }));
   if (navigator.onLine === false) return Promise.resolve(fechar({ erro: 'Sem sinal: as telas do sistema só abrem com sinal.' }));
   return cascaPostarAoLogin({ acao: 'token', sessao: pessoaGuardada.sessao, modulo: modulo }).then(function (r) {
+    var termo = cascaTermoPendente(r);
+    if (termo) return fechar({ termo: termo });
+    if (r && r.pedirCpf) return fechar({ pedirCpf: true, erro: r.erro || 'Entre de novo com o seu CPF.' });
+    if (r && r.entrarDeNovo) return fechar({ entrarDeNovo: true, erro: r.erro || 'Sua senha mudou. Entre de novo com a senha nova.' });
     if (!r || r.ok !== true || !r.token) return fechar({ erro: (r && r.erro) || 'O login não liberou a abertura.' });
     var destino = url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(r.token);
     if (janela) janela.location.href = destino; else location.href = destino;
     return { ok: true };
   }, function () { return fechar({ erro: 'Não consegui falar com o login. Tente com sinal melhor.' }); });
+}
+
+/* O TERMO PENDENTE (carta nº 14 do Núcleo, 22/10/2026). O token não sai enquanto a pessoa não aceitar o termo ativo,
+   e para quem é de campo e não abre o Portal a ação `aceitarTermo` do app é o único caminho. A forma é a mesma do
+   `api_abrir` do Portal (CODIGO_GS_DO_PORTAL_21-10): { ok:false, precisaAceitarTermo:true, id, versao, titulo,
+   texto, link }. A casca aceita também o termo dentro de um objeto, para não depender de qual das duas formas o
+   login escolheu; `id` e `versao` são o que volta no aceite, e sem eles nada é mostrado. */
+function cascaTermoPendente(r) {
+  if (!r || !r.precisaAceitarTermo) return null;
+  var t = typeof r.precisaAceitarTermo === 'object' ? r.precisaAceitarTermo : r.termo && typeof r.termo === 'object' ? r.termo : r;
+  if (!t.id || t.versao === undefined || t.versao === null || t.versao === '') return null;
+  return { id: String(t.id), versao: t.versao, titulo: String(t.titulo || 'Termo para aceitar'), texto: String(t.texto || t.detalhe || ''),
+           link: /^https:\/\/\S+$/.test(String(t.link || '')) ? String(t.link) : '' };
 }
 
 /* Pedir ao Android que acorde o app para enviar quando o sinal voltar. No iPhone isso não existe (não medido; a
@@ -186,7 +207,11 @@ var Casca = (function () {
       return cascaLer('enderecos').then(function (e) {
         var url = String(e && e[estado.bloco.servidor] || '').trim();
         if (!url) { if (janela) janela.close(); return { erro: 'O endereço do sistema ainda não chegou a este celular. Entre no app com sinal uma vez.' }; }
-        return cascaAbrirComToken(estado.guardada, estado.bloco.servidor, url, janela);
+        // O termo e a sessão cortada se resolvem na casca, e não na tela do bloco: o bloco recebe só o recado.
+        return cascaAbrirComToken(estado.guardada, estado.bloco.servidor, url, janela).then(function (r) {
+          if (r.termo) return { erro: 'Há um termo da Compel para aceitar. Volte ao Início e toque no sistema por lá.' };
+          return r;
+        });
       });
     }
   };

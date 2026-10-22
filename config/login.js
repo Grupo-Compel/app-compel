@@ -15,6 +15,7 @@
  * O endereço do servidor de cada bloco NÃO vem para cá: ele chega na resposta do login, com os módulos da pessoa.
  * A conferência do repositório (conferencia/conferir.js) recusa endereço de servidor em qualquer outro arquivo.
  *
- * Vazio até o projeto do login do Núcleo nascer (carta nº 8 do Núcleo, 19/10/2026).
+ * Preenchido em 22/10/2026 com o /exec do projeto "Login do App Compel", que o Dalton implantou e mandou às 07h48
+ * (o projeto foi construído pelo Núcleo; carta nº 14 do Núcleo ao App).
  */
-var ENDERECO_DO_LOGIN = '';
+var ENDERECO_DO_LOGIN = 'https://script.google.com/macros/s/AKfycbyHxNB5Rv3QqFdf6KAwnAVIyoKVXUZysxqXeuXxl4x1aiSawhfk1pdYIr5MFe-R5A4/exec';
