@@ -120,6 +120,7 @@ function novoLogin() {
           if (!t) return { ok: false, erro: 'Termo desconhecido.' };
           L.aceitos[p.cpf + '|' + t.id] = true; return { ok: true };
         }
+        if (p.temporaria) return { ok: false, precisaTrocar: true, erro: 'Troque a senha temporária antes de abrir os sistemas.' };
         if (termos.length) { var u = termos[0]; return { ok: false, precisaAceitarTermo: true, id: u.id, versao: u.versao, titulo: u.titulo, texto: u.texto, link: u.link, quantos: termos.length, erro: 'Há termo para aceitar.' }; }
         return { ok: true, token: 'tok-' + Math.random().toString(36).slice(2) };
     }
@@ -795,6 +796,28 @@ var TESTES = {
     afirmar(itens.length === 2 && itens[0].titulo === 'Aviso sem arte', 'o aviso com arte vazia devia aparecer, com o título: ' + JSON.stringify(itens));
     afirmar(!itens[0].img, 'o aviso com arte vazia não pode desenhar uma imagem quebrada');
     afirmar(itens[1].img && itens[1].prop.replace(/\s/g, '') === '1.91/1', 'a proporção com decimal devia valer; veio ' + itens[1].prop);
+    await a.ctx.close();
+  },
+  T33_senha_resetada_com_o_dia_aberto_leva_a_troca: async function () {
+    var x = loginComAna(), a = await abrir(x.L);
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    // A administração reseta a senha com a entrada do dia já aberta: o login passa a pedir a troca no token.
+    var p = x.L.pessoas[x.cpf]; p.senha = 'temp-456'; p.temporaria = true;
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(a.page, 'senha temporária');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-01', 'com a senha resetada, o app devia voltar à entrada');
+    afirmar(await a.page.isVisible('[data-acao="entrarEscolhida"]'), 'a entrada devia ser pelo nome, com a temporária');
+    afirmar(a.ctx.pages().length === 1, 'a janela aberta no toque devia ser fechada');
+    await a.page.fill('#senha', 'temp-456'); await a.page.click('[data-acao="entrarEscolhida"]');
+    await esperarTexto(a.page, 'Escolha uma senha sua');
+    afirmar((await texto(a.page, '#codigo')) === 'APP-03', 'a temporária devia levar à troca');
+    await a.page.fill('#senha', 'nova-da-ana'); await a.page.fill('#senha2', 'nova-da-ana');
+    await a.page.click('[data-acao="trocarSenha"]');
+    await esperarTexto(a.page, 'Olá, Ana');
+    afirmar(p.senha === 'nova-da-ana' && !p.temporaria, 'a senha nova devia ir ao login');
+    var aguardar = a.ctx.waitForEvent('page');
+    await a.page.click('#modulos .n-modulo[data-i="0"]');
+    var janela = await aguardar; await janela.waitForURL(/modulo\.teste\.invalid\/treino\?t=tok-/);
     await a.ctx.close();
   },
   T17_tirar_meus_dados_deste_celular: async function () {

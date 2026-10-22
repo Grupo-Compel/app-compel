@@ -272,6 +272,9 @@ function abrirModulo(i) {
     if (r.termo) { E.termo = r.termo; return irPara('termo'); }
     if (r.pedirCpf) return exigirEntrada(true, r.erro);
     if (r.entrarDeNovo) return exigirEntrada(false, r.erro);
+    // A frase é da casca, e não do login: a do login foi escrita para o Portal, e aqui a pessoa precisa saber onde
+    // está a senha temporária e que a troca começa entrando com ela.
+    if (r.precisaTrocar) return exigirEntrada(false, 'Sua senha foi trocada por uma senha temporária (ela foi para o seu e-mail). Entre com ela aqui e crie a sua.');
     if (r.erro) return mostrarErro(r.erro);
     desenhar();
   });
