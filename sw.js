@@ -26,7 +26,7 @@ BLOCOS.forEach(function (b) {
   try { importScripts(b.envia.script); } catch (e) { b.quebrado = 'o envio não carregou: ' + (e && e.message); PROBLEMAS.push(b.id + ': ' + b.quebrado); }
 });
 
-var VERSAO_CASCA = 'app-compel-casca-1.6';
+var VERSAO_CASCA = 'app-compel-casca-1.7';
 var CACHE_DA_CASCA = VERSAO_CASCA + '-' + (typeof VERSAO_DOS_BLOCOS === 'string' ? VERSAO_DOS_BLOCOS : 'sem-blocos');
 var ARQUIVOS = ['./', './index.html', './app.js', './servicos.js', './casca.js', './config/login.js', './manifest.webmanifest', './icone-192.png', './icone-512.png',
   './estilo/fontes.css', './estilo/nucleo.css',

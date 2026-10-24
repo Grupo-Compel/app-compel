@@ -14,7 +14,7 @@
  */
 'use strict';
 
-var VERSAO_APP = '1.6 (22/10/2026)';
+var VERSAO_APP = '1.7 (24/10/2026)';
 var CASCA_BANCO = 'app-compel-casca';    // o banco da casca; o de cada bloco é do bloco, e a casca nunca o apaga
 var FUSO_PADRAO = 'America/Sao_Paulo';   // pessoa sem base cai aqui (carta nº 9 do Núcleo): é o fuso que termina o dia primeiro
 var CASCA_ESPERA_DO_ENVIO_MS = 90000;    // o mesmo do campo/: o Apps Script frio com foto passa de 30 s em rede fraca
@@ -109,11 +109,13 @@ function cascaPessoaDoDia() {
   });
 }
 /* O que o bloco recebe da pessoa (FRONTEIRA §5.2): nunca o CPF, nem o resumo dele, nem a sessão do aparelho, nem o
-   verificador da senha. E nenhum campo se chama `base` (o defeito de 18/08, carta nº 8 do Núcleo, C7). */
+   verificador da senha. E nenhum campo se chama `base` (o defeito de 18/08, carta nº 8 do Núcleo, C7).
+   O `fuso` é o da base da pessoa, o mesmo que fecha a entrada do dia (carta nº 1 do Módulo Segurança, 23/10/2026): sem
+   ele, o bloco contava o dia no fuso do celular, e um celular do Rio levado a Dourados mudaria de dia uma hora antes. */
 function cascaPessoaParaBloco(p) {
   if (!p) return null;
   return { nome: p.nome || '', nomeCompleto: p.nomeCompleto || '', matricula: p.matricula || '', funcao: p.funcao || '',
-           lotacao: p.lotacao || '', bases: JSON.parse(JSON.stringify(p.bases || [])) };
+           lotacao: p.lotacao || '', bases: JSON.parse(JSON.stringify(p.bases || [])), fuso: fusoDe(p) };
 }
 /* A matrícula como chave: só os algarismos, sem os zeros da frente (a mesma conta do campo/, 5d). Sem isso, "0123" do
    pacote e "123" do cadastro seriam duas pessoas. */

@@ -46,6 +46,17 @@ function prepararSite() {
   fs.writeFileSync(path.join(raiz, 'config', 'login.js'), "var ENDERECO_DO_LOGIN = '';\n");
   fs.cpSync(path.join(REPOSITORIO, 'testes', 'bloco-exemplo'), path.join(raiz, 'blocos', 'exemplo'), { recursive: true });
   fs.writeFileSync(path.join(raiz, 'blocos', 'exemplo', 'servidor.sha256'), crypto.createHash('sha256').update(SERVIDOR_EXEMPLO).digest('hex') + '\n');
+  // Um segundo bloco, só do celular e sem envio, para o exemplo abrir com contexto (FRONTEIRA §5.4; T38). É a forma do
+  // checklist da Segurança aberto pelo diário da Operação, sem o que é de cada um.
+  var outro = path.join(raiz, 'blocos', 'outro'); fs.mkdirSync(outro, { recursive: true });
+  fs.writeFileSync(path.join(outro, 'bloco.json'), JSON.stringify({ nome: 'Outro', dono: 'App Compel (só na bateria)', especie: 'celular', quemVe: ['ELETRICISTA'],
+    servidor: 'OUTRO', versao: '1', entrada: 'index.html', arquivos: ['index.html', 'tela.js'], cache: 'outro-bloco-' }));
+  fs.writeFileSync(path.join(outro, 'index.html'), fs.readFileSync(path.join(raiz, 'blocos', 'exemplo', 'index.html'), 'utf8')
+    .replace('<title>Exemplo', '<title>Outro').replace('<script src="envio.js"></script>\n', ''));
+  fs.writeFileSync(path.join(outro, 'tela.js'), "'use strict';\nCasca.iniciar('outro').then(function (r) {\n  window.INICIO_DO_BLOCO = r;\n" +
+    "  document.getElementById('corpo').innerHTML = '<p id=\"pronto\">Outro</p><button type=\"button\" class=\"btn fantasma\" id=\"voltar\">Voltar</button><div id=\"ajuda\"></div>';\n" +
+    "  Casca.ajuda(document.getElementById('ajuda'), 'A tela do outro bloco (só na bateria).');\n" +
+    "  document.getElementById('voltar').addEventListener('click', function () { Casca.voltar(); });\n});\n");
   // Uma página vazia do mesmo site, para a bateria preparar o celular antes de o app abrir (T26).
   fs.writeFileSync(path.join(raiz, 'vazio.html'), '<!doctype html><title>vazio</title>');
   var r = require(path.join(REPOSITORIO, 'conferencia', 'indice.js')).montar(raiz);
@@ -174,7 +185,8 @@ async function rotearServidores(ctx, S) {
   await ctx.route(SERVIDOR_EXEMPLO + '*', function (r) {
     var corpo = JSON.parse(r.request().postData() || '{}');
     S.pedidos.push(corpo);
-    setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) }).catch(function () { }); }, S.demora);
+    var resposta = S.responder ? S.responder(corpo) : { ok: true };
+    setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify(resposta) }).catch(function () { }); }, S.demora);
   });
   await ctx.route(SERVIDOR_OUTRO + '*', function (r) { S.noOutro.push(r.request().postData()); r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
 }
@@ -553,8 +565,10 @@ var TESTES = {
     await a.page.click('#modulos .n-modulo[data-i="5"]');
     await a.page.waitForURL(/\/blocos\/exemplo\/index\.html$/); await esperarTexto(a.page, 'Olá, Ana');
     var p = await a.page.evaluate(function () { return window.PESSOA_DO_BLOCO; }), j = JSON.stringify(p);
-    afirmar(Object.keys(p).sort().join(',') === 'bases,funcao,lotacao,matricula,nome,nomeCompleto', 'o bloco recebeu campos a mais ou a menos: ' + Object.keys(p).join(','));
+    afirmar(Object.keys(p).sort().join(',') === 'bases,funcao,fuso,lotacao,matricula,nome,nomeCompleto', 'o bloco recebeu campos a mais ou a menos: ' + Object.keys(p).join(','));
     afirmar(p.matricula === '99901' && p.nome === 'Ana Teste', 'o bloco devia receber o nome e a matrícula');
+    // O celular da bateria está no fuso do Rio, e a Ana é de Dourados: o bloco tem de receber o da base, e não o do celular.
+    afirmar(p.fuso === 'America/Campo_Grande', 'o bloco devia receber o fuso da base da pessoa, e recebeu ' + p.fuso);
     afirmar(j.indexOf(x.cpf) < 0 && j.indexOf('sess-') < 0 && !/"base"/.test(j), 'o bloco recebeu o CPF, a sessão ou um campo "base"');
     afirmar(!x.L.pedidos.some(function (q) { return q.acao === 'token'; }), 'a tela do celular abre sem pedir token');
     await a.page.click('#voltar'); await esperarTexto(a.page, 'Seus sistemas');
@@ -820,6 +834,110 @@ var TESTES = {
     var aguardar = a.ctx.waitForEvent('page');
     await a.page.click('#modulos .n-modulo[data-i="0"]');
     var janela = await aguardar; await janela.waitForURL(/modulo\.teste\.invalid\/treino\?t=tok-/);
+    await a.ctx.close();
+  },
+  /* A sessão do bloco pelo token do Núcleo (Casca.sessaoNova; cartas nº 8 a 10 da Operação e nº 1 do Módulo Segurança,
+     22 a 24/10/2026). */
+  T34_sessao_nova_sem_o_token_nem_a_sessao_na_tela: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S });
+    S.responder = function (c) {
+      return c.acao === 'sessaoDoNucleo' ? { ok: true, sessao: 'sb-1', valeAte: Date.now() + 30 * 864e5, matricula: '099901', nome: 'Ana Teste', perfil: 'ELETRICISTA' } : { ok: true };
+    };
+    await entrarNoExemplo(a, x);
+    afirmar(!(await a.page.evaluate(function () { return Casca.temSessao(); })).tem, 'antes do sessaoNova, não havia sessão');
+    // O `extra` não troca o pedido: ação, token e sessão são da casca.
+    var r = await a.page.evaluate(function () { return Casca.sessaoNova({ aparelho: 'chave-do-ligar', acao: 'outra', token: 'falso', sessao: 'falsa' }); });
+    var q = S.pedidos.filter(function (p) { return p.acao === 'sessaoDoNucleo'; });
+    afirmar(q.length === 1 && S.pedidos.length === 1, 'devia ir um pedido só, o sessaoDoNucleo; foram ' + JSON.stringify(S.pedidos.map(function (p) { return p.acao; })));
+    afirmar(/^tok-/.test(q[0].token) && q[0].aparelho === 'chave-do-ligar' && q[0].sessao === undefined, 'o pedido devia levar o token do login e o aparelho de quem chamou: ' + JSON.stringify(q[0]));
+    afirmar(q[0].app === 'exemplo' && q[0].versao === '1', 'o pedido devia levar o app e a versão do bloco');
+    afirmar(JSON.stringify(q[0]).indexOf(x.cpf) < 0 && JSON.stringify(q[0]).indexOf('sess-') < 0, 'o CPF ou a sessão do aparelho foram ao servidor do bloco');
+    afirmar(r.ok === true && r.nome === 'Ana Teste' && r.perfil === 'ELETRICISTA', 'a tela devia receber a resposta do servidor: ' + JSON.stringify(r));
+    afirmar(r.sessao === undefined && JSON.stringify(r).indexOf('tok-') < 0 && JSON.stringify(r).indexOf('sb-1') < 0, 'a tela não pode receber a sessão nem o token: ' + JSON.stringify(r));
+    afirmar((await a.page.evaluate(function () { return Casca.temSessao(); })).tem, 'depois, a sessão devia estar guardada');
+    await anotar(a, 'com a sessão nova');
+    var reg = S.pedidos.filter(function (p) { return p.acao === 'registro'; });
+    afirmar(reg.length === 1 && reg[0].sessao === 'sb-1', 'o registro devia subir com a sessão que o servidor deu: ' + JSON.stringify(reg.map(function (p) { return p.sessao; })));
+    // A sessão que já venceu não conta como sessão: o bloco tem de saber que precisa de outra.
+    S.responder = function () { return { ok: true, sessao: 'sb-velha', valeAte: Date.now() - 1000 }; };
+    await a.page.evaluate(function () { return Casca.sessaoNova(); });
+    var t = await a.page.evaluate(function () { return Casca.temSessao(); });
+    afirmar(t.tem === false && t.venceu === true, 'a sessão vencida devia aparecer como vencida: ' + JSON.stringify(t));
+    await a.ctx.close();
+  },
+  T35_sessao_nova_com_o_token_recusado_pede_outro_uma_vez: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S }), vezes = 0;
+    S.responder = function () { return ++vezes === 1 ? { ok: false, tokenRecusado: true, erro: 'O token já foi usado.' } : { ok: true, sessao: 'sb-2', valeAte: Date.now() + 864e5 }; };
+    await entrarNoExemplo(a, x);
+    var r = await a.page.evaluate(function () { return Casca.sessaoNova(); });
+    var q = S.pedidos.filter(function (p) { return p.acao === 'sessaoDoNucleo'; }), tokens = x.L.pedidos.filter(function (p) { return p.acao === 'token'; });
+    afirmar(r.ok === true && q.length === 2 && tokens.length === 2 && q[0].token !== q[1].token, 'com o token recusado, a casca devia pedir outro e tentar de novo: ' + JSON.stringify(r) + ' ' + q.length + ' ' + tokens.length);
+    S.responder = function () { return { ok: false, tokenRecusado: true, erro: 'O token já foi usado.' }; };
+    r = await a.page.evaluate(function () { return Casca.sessaoNova(); });
+    q = S.pedidos.filter(function (p) { return p.acao === 'sessaoDoNucleo'; });
+    afirmar(r.ok === false && r.tokenRecusado === true && r.erro === 'O token já foi usado.', 'recusado de novo, a tela devia receber a marca e a frase do servidor: ' + JSON.stringify(r));
+    afirmar(q.length === 4, 'só uma segunda tentativa, e não um laço; foram ' + (q.length - 2));
+    await a.ctx.close();
+  },
+  T36_sessao_nova_de_outra_pessoa_ou_recusada_nao_guarda: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S });
+    S.responder = function () { return { ok: true, sessao: 'sb-de-outra', valeAte: Date.now() + 864e5, mat: '12345' }; };
+    await entrarNoExemplo(a, x);
+    var r = await a.page.evaluate(function () { return Casca.sessaoNova(); });
+    afirmar(r.ok === false && r.outraPessoa === true, 'a resposta com outra matrícula devia ser recusada: ' + JSON.stringify(r));
+    afirmar(!(await a.page.evaluate(function () { return Casca.temSessao(); })).tem, 'a sessão de outra pessoa não podia ser guardada');
+    S.responder = function () { return { ok: false, foraDaBase: true, erro: 'A matrícula não é do campo desta base.', sessao: 'nao-devia-passar' }; };
+    r = await a.page.evaluate(function () { return Casca.sessaoNova(); });
+    afirmar(r.ok === false && r.foraDaBase === true && r.erro === 'A matrícula não é do campo desta base.' && r.sessao === undefined, 'a recusa devia chegar com a marca e a frase, e sem sessão: ' + JSON.stringify(r));
+    afirmar(!(await a.page.evaluate(function () { return Casca.temSessao(); })).tem, 'a recusa não guarda sessão');
+    await a.ctx.close();
+  },
+  T37_sessao_nova_confere_o_endereco_e_o_termo_antes_do_token: async function () {
+    var S = novoServidor(), x = anaComExemplo(SERVIDOR_OUTRO), a = await abrir(x.L, { servidor: S });
+    await entrarNoExemplo(a, x);
+    var r = await a.page.evaluate(function () { return Casca.sessaoNova(); });
+    afirmar(r.ok === false && r.enderecoMudou === true, 'com o endereço que não bate, o sessaoNova devia recusar: ' + JSON.stringify(r));
+    afirmar(!x.L.pedidos.some(function (p) { return p.acao === 'token'; }), 'com o endereço errado, nenhum token devia ser pedido');
+    afirmar(S.pedidos.length === 0 && S.noOutro.length === 0, 'com o endereço errado, nada podia sair');
+    await a.ctx.close();
+    var S2 = novoServidor(), x2 = anaComExemplo(), b = await abrir(x2.L, { servidor: S2 });
+    await entrarNoExemplo(b, x2);
+    x2.L.termo = { id: 'T-1', versao: '3', titulo: 'Código de Ética', texto: 'Texto do termo.' };
+    r = await b.page.evaluate(function () { return Casca.sessaoNova(); });
+    afirmar(r.ok === false && r.termo === true && /termo/.test(r.erro), 'com termo pendente, o sessaoNova devia mandar aceitar no Início: ' + JSON.stringify(r));
+    afirmar(S2.pedidos.length === 0, 'com termo pendente, nada devia ir ao servidor do bloco');
+    await b.ctx.close();
+  },
+  /* Abrir a tela de outro bloco com contexto (FRONTEIRA §5.4; cartas nº 1 do Módulo Segurança, do PESSOAS e da Linha ao
+     App, 23/10/2026). */
+  T38_abrir_outro_bloco_com_contexto_e_voltar_para_quem_chamou: async function () {
+    var x = anaComExemplo(), a = await abrir(x.L, { servidor: novoServidor() });
+    await entrarNoExemplo(a, x);
+    var ruins = await a.page.evaluate(function () {
+      return [Casca.abrirBloco('outro', { equipe: [{ nome: 'José', cpf: '1' }] }), Casca.abrirBloco('outro', { obs: '123.456.789-10' }),
+              Casca.abrirBloco('outro', { tokenDoNucleo: 'x' }), Casca.abrirBloco('nao-existe', {})];
+    });
+    afirmar(ruins.every(function (r) { return r.erro && !r.ok; }), 'contexto com CPF ou token, e bloco que não existe, deviam ser recusados: ' + JSON.stringify(ruins));
+    afirmar(/\/blocos\/exemplo\/index\.html$/.test(a.page.url()), 'com o contexto recusado, nenhuma tela podia abrir');
+    var ctx = { porta: 'operacao', base: 'DOU', prefixo: 'CPL-DOU-B210', placa: 'ABC1D23', assessor: 'Maria',
+                equipe: [{ matricula: '1234', nome: 'José Ação Conceição', funcao: 'ELETRICISTA' }] };
+    await a.page.evaluate(function (c) { return Casca.abrirBloco('outro', c); }, ctx);
+    await a.page.waitForURL(/\/blocos\/outro\/index\.html#de=exemplo&ctx=/); await a.page.waitForSelector('#pronto');
+    var ini = await a.page.evaluate(function () { return window.INICIO_DO_BLOCO; });
+    afirmar(ini.de === 'exemplo' && JSON.stringify(ini.contexto) === JSON.stringify(ctx), 'o outro bloco devia receber o contexto inteiro, com os acentos, e quem chamou: ' + JSON.stringify(ini));
+    afirmar(ini.pessoa && ini.pessoa.matricula === '99901', 'o outro bloco recebe a pessoa do dia como qualquer bloco');
+    // Um link escrito à mão, com CPF no contexto: chega nulo, e não pela metade.
+    await a.page.goto(base + '/vazio.html');
+    await a.page.goto(base + '/blocos/outro/index.html#de=exemplo&ctx=' + Buffer.from(JSON.stringify({ porta: 'x', cpf: x.cpf })).toString('base64url'));
+    await a.page.waitForSelector('#pronto');
+    ini = await a.page.evaluate(function () { return window.INICIO_DO_BLOCO; });
+    afirmar(ini.contexto === null, 'o contexto com CPF devia chegar nulo: ' + JSON.stringify(ini.contexto));
+    await a.page.click('#voltar');
+    await a.page.waitForURL(/\/blocos\/exemplo\/index\.html$/); await a.page.waitForSelector('#anotar');
+    // Sem quem chamou, o voltar é o de sempre: o Início.
+    await a.page.goto(base + '/vazio.html'); await a.page.goto(base + '/blocos/outro/index.html'); await a.page.waitForSelector('#pronto');
+    afirmar((await a.page.evaluate(function () { return window.INICIO_DO_BLOCO; })).de === null, 'aberto pelo endereço, sem quem chamou');
+    await a.page.click('#voltar'); await esperarTexto(a.page, 'Seus sistemas');
     await a.ctx.close();
   },
   T17_tirar_meus_dados_deste_celular: async function () {
