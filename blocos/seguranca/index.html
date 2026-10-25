@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Segurança · App Compel</title>
+<!-- A tela do celular do bloco Segurança (23/10/2026). O estilo é o da casca, que é o do Portal; o que o bloco inventou
+     leva o prefixo seg- e fica aqui, curto, para não virar uma segunda folha (PADRAO_MODULO_NOVO §2). -->
+<link rel="stylesheet" href="../../estilo/fontes.css">
+<link rel="stylesheet" href="../../estilo/nucleo.css">
+<style>
+  .seg-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .seg-fila { font: 600 12px Inter, sans-serif; padding: 6px 10px; border-radius: 999px; background: var(--verde-claro, #E4F4EB); color: var(--verde, #0E7A47); cursor: pointer; }
+  .seg-fila.espera { background: var(--ambar-claro, #FFF3DC); color: #6B4400; }
+  .seg-h1 { font: 700 22px 'Josefin Sans', sans-serif; margin: 6px 0 12px; }
+  .seg-h2 { font: 600 15px Inter, sans-serif; margin: 14px 0 8px; }
+  .seg-sub { color: var(--tinta-media, #5A5C63); font-size: 13px; display: block; }
+  .seg-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+  .seg-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 104px; padding: 14px; border: 0; border-radius: 16px; background: var(--superficie, #fff); box-shadow: var(--sombra, 0 4px 14px rgba(15,31,46,.06)); text-align: left; font: 15px Inter, sans-serif; color: var(--tinta, #231F20); cursor: pointer; border-left: 5px solid var(--linha, #E2E4E8); }
+  .seg-tile small { color: var(--tinta-media, #5A5C63); font-size: 12px; }
+  .seg-tile.ok { border-left-color: var(--verde, #0E7A47); } .seg-tile.pend { border-left-color: var(--ambar, #B87400); } .seg-tile.ruim { border-left-color: var(--vermelho, #ED1C24); }
+  .seg-ico { font-size: 24px; line-height: 1; }
+  .seg-meta { display: flex; align-items: center; gap: 14px; }
+  .seg-item { display: flex; flex-direction: column; gap: 8px; }
+  .seg-critico { box-shadow: inset 0 0 0 2px var(--vermelho, #ED1C24); }
+  .seg-tres { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg-dois { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .seg-dois .campo input { width: 100%; box-sizing: border-box; }
+  .seg-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .seg-opcao { display: block; width: 100%; text-align: left; min-height: 48px; margin: 6px 0; padding: 10px 12px; border: 1px solid var(--linha, #E2E4E8); border-radius: 10px; background: #fff; font: 14px Inter, sans-serif; cursor: pointer; }
+  .seg-opcao.ativo { border-color: var(--grafite, #231F20); box-shadow: inset 0 0 0 1px var(--grafite, #231F20); }
+  .seg-lido { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; margin: 6px 0; border-radius: 10px; border-left: 4px solid var(--linha, #E2E4E8); }
+  .seg-lido small { display: block; color: var(--tinta-media, #5A5C63); }
+  .seg-lido.presente { background: var(--verde-claro, #E4F4EB); border-left-color: var(--verde, #0E7A47); }
+  .seg-lido.conferir { background: var(--ambar-claro, #FFF3DC); border-left-color: var(--ambar, #B87400); }
+  .chip.seg-ok { background: var(--verde-claro, #E4F4EB); } .chip.seg-pend { background: var(--ambar-claro, #FFF3DC); }
+</style>
+</head>
+<body>
+<main class="conteudo" id="corpo"><div class="carregando">Abrindo…</div></main>
+<input type="file" id="arquivoFoto" accept="image/*" capture="environment" class="oculto">
+<script src="../../config/login.js"></script>
+<script src="../../servicos.js"></script>
+<script src="../indice.js"></script>
+<script src="../../casca.js"></script>
+<script src="envio.js"></script>
+<script src="jsQR.js"></script>
+<script src="leitor.js"></script>
+<script src="folha.js"></script>
+<script src="tela.js"></script>
+</body>
+</html>

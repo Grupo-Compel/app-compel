@@ -1,0 +1,12 @@
+{
+  "nome": "Segurança",
+  "dono": "Segurança (módulo SEGURANCA)",
+  "especie": "ambas",
+  "quemVe": ["COLABORADOR", "ENCARREGADO", "INSPETOR", "SUPERVISOR", "COORDENADOR", "GERENTE", "ADMIN"],
+  "servidor": "SEGURANCA",
+  "versao": "0.2",
+  "entrada": "index.html",
+  "arquivos": ["index.html", "tela.js", "envio.js", "leitor.js", "jsQR.js", "folha.js"],
+  "cache": "seguranca-bloco-",
+  "envia": { "etiqueta": "enviar-seguranca", "app": "seguranca", "script": "envio.js" }
+}
