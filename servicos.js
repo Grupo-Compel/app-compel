@@ -14,7 +14,7 @@
  */
 'use strict';
 
-var VERSAO_APP = '1.7 (24/10/2026)';
+var VERSAO_APP = '1.7.1 (25/10/2026)';
 var CASCA_BANCO = 'app-compel-casca';    // o banco da casca; o de cada bloco é do bloco, e a casca nunca o apaga
 var FUSO_PADRAO = 'America/Sao_Paulo';   // pessoa sem base cai aqui (carta nº 9 do Núcleo): é o fuso que termina o dia primeiro
 var CASCA_ESPERA_DO_ENVIO_MS = 90000;    // o mesmo do campo/: o Apps Script frio com foto passa de 30 s em rede fraca

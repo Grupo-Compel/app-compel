@@ -255,7 +255,8 @@ function esquecerNesteCelular() {
 
 /* ---------- Início: os módulos ---------- */
 function siglaDe(m) { return String(m.modulo || m.nome || '?').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase(); }
-/* A ordem é a que veio do login (a coluna ORDEM da MODULOS): a casca não ordena nada (carta nº 9 do Núcleo).
+/* A ordem é a que veio do login: a casca não ordena nada (carta nº 9 do Núcleo). Desde 25/10 o Núcleo manda em ordem
+   de nome (carta nº 18 dele); se a ordem mudar de novo, muda lá, e o app acompanha sem versão nova.
    O módulo que tem tela do celular neste app (um bloco de espécie celular ou ambas) abre a tela guardada no próprio
    celular, com ou sem sinal. O outro abre a tela do sistema, numa janela nova, com o token pedido no toque. */
 function telaDoCelular(m) { var b = cascaBlocoDoModulo(m.modulo); return b && b.entrada ? b : null; }
