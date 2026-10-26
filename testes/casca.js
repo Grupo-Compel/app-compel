@@ -966,23 +966,28 @@ var TESTES = {
     }
     async function estado(id) {
       return p.evaluate(function (id) { var c = document.getElementById(id), b = document.getElementById('ver_' + id);
-        return { tipo: c.type, valor: c.value, texto: b.textContent, nome: b.getAttribute('aria-label') }; }, id);
+        return { tipo: c.type, valor: c.value, olho: b.getAttribute('data-a-vista'), nome: b.getAttribute('aria-label'),
+          cortado: b.querySelectorAll('svg path').length === 2, texto: b.textContent.trim() }; }, id);
     }
     await p.waitForSelector('#senha');
     await todoCampoTemBotao('de entrada');
+    var e0 = await estado('senha');
+    afirmar(e0.tipo === 'password' && e0.olho === 'nao' && !e0.cortado && e0.nome === 'Mostrar senha', 'a tela devia abrir com a senha escondida e o olho aberto');
+    afirmar(e0.texto === '', 'o botão é só o ícone do olho, sem palavra escrita (decisão do Dalton, 26/10), e abriu com "' + e0.texto + '"');
     await p.fill('#senha', 'segredo-123');
     await p.click('#ver_senha');
     var e = await estado('senha');
     afirmar(e.tipo === 'text' && e.valor === 'segredo-123', 'o toque devia mostrar a senha sem apagá-la (tipo ' + e.tipo + ')');
-    afirmar(e.texto === 'Esconder' && e.nome === 'Esconder senha', 'o rótulo devia dizer Esconder, e disse ' + e.texto + ' / ' + e.nome);
+    afirmar(e.olho === 'sim' && e.cortado && e.nome === 'Esconder senha', 'o olho devia ficar cortado e o nome dizer Esconder, e veio ' + e.olho + ' / ' + e.cortado + ' / ' + e.nome);
+    afirmar(e.texto === '', 'o botão é só o ícone do olho, sem palavra escrita (decisão do Dalton, 26/10), e veio "' + e.texto + '"');
     await p.click('#ver_senha');
     e = await estado('senha');
-    afirmar(e.tipo === 'password' && e.texto === 'Mostrar' && e.nome === 'Mostrar senha', 'o segundo toque devia esconder de novo');
+    afirmar(e.tipo === 'password' && e.olho === 'nao' && !e.cortado && e.nome === 'Mostrar senha', 'o segundo toque devia esconder de novo, com o olho aberto');
     // Mostrada e a tela refeita (a ajuda redesenha): volta escondida.
     await p.click('#ver_senha');
     await p.click('[data-acao="ajuda"]');
     e = await estado('senha');
-    afirmar(e.tipo === 'password' && e.texto === 'Mostrar', 'a senha ficou à vista depois de a tela ser refeita');
+    afirmar(e.tipo === 'password' && e.olho === 'nao', 'a senha ficou à vista depois de a tela ser refeita');
     // Outra tela, com senha e confirmação: cada uma tem o seu botão, e um não mexe no outro.
     await p.click('[data-acao="irPrimeiro"]');
     await p.waitForSelector('#senha2');

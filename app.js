@@ -431,11 +431,16 @@ function campoCpf() { return campo('cpf', 'Seu CPF', 'type="tel" inputmode="nume
      e não têm como se desencontrar (o defeito que a lista e a conferência do padrão existem para pegar);
    - não há o esconderTodasAsSenhas. A casca refaz a tela inteira a cada mudança (desenhar), e o campo volta escondido
      e vazio sozinho. A bateria (T39) confere as duas coisas.
-   O rótulo carrega o estado ("Mostrar"/"Esconder"), sem aria-pressed, como a Interface decidiu (um estado, uma fonte). */
+   O botão é o ícone do olho DENTRO do campo, à direita, e não um botão escrito ao lado: decisão do Dalton (26/10/2026,
+   13h07), depois de ver o botão escrito na tela. O olho aberto quer dizer "toque para ver"; o olho cortado, "toque para
+   esconder". Quem não vê o ícone ouve o estado pelo nome ("Mostrar senha"/"Esconder senha"), sem aria-pressed, como a
+   Interface decidiu (um estado, uma fonte). */
+var OLHO_ABERTO = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+var OLHO_CORTADO = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
 function campoSenha(id, rotulo, nova) {
   return '<div class="campo"><label for="' + id + '">' + esc(rotulo) + '</label><div class="n-senha-linha">' +
     '<input id="' + id + '" type="password" autocomplete="' + (nova ? 'new-password' : 'current-password') + '">' +
-    '<button type="button" class="n-ver-senha" id="ver_' + id + '" data-acao="verSenha" data-campo="' + id + '" aria-label="Mostrar senha">Mostrar</button>' +
+    '<button type="button" class="n-ver-senha" id="ver_' + id + '" data-acao="verSenha" data-campo="' + id + '" data-a-vista="nao" aria-label="Mostrar senha">' + OLHO_ABERTO + '</button>' +
     '</div></div>';
 }
 function alternarVerSenha(id) {
@@ -443,7 +448,8 @@ function alternarVerSenha(id) {
   if (!c || !b) return;
   var aVista = c.type !== 'text';
   c.type = aVista ? 'text' : 'password';
-  b.textContent = aVista ? 'Esconder' : 'Mostrar';
+  b.innerHTML = aVista ? OLHO_CORTADO : OLHO_ABERTO;
+  b.setAttribute('data-a-vista', aVista ? 'sim' : 'nao');
   b.setAttribute('aria-label', (aVista ? 'Esconder' : 'Mostrar') + ' senha');
   c.focus();
   try { c.setSelectionRange(c.value.length, c.value.length); } catch (e) { /* campo que não aceita cursor: só não move */ }
