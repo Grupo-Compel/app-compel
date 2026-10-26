@@ -138,7 +138,7 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', relato: 'Relatar acidente ou quase acidente' };
 var AJUDAS = {
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
@@ -149,7 +149,8 @@ var AJUDAS = {
   dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento.',
   meus: 'O que você fez neste mês, contado neste celular. Sem percentual: o número que vale para a Campanha é o do extrato.',
   equipe: 'Cada pessoa da equipe com o que a função dela pede. Toque no que falta para fazer por ela: o registro fica no nome dela, marcado "feito no celular do encarregado", e no fim pede a foto do SEU rosto.',
-  fila: 'Tudo o que foi feito neste celular e ainda não subiu, e o que o servidor recusou (com o motivo). O que espera sobe sozinho quando houver sinal.'
+  fila: 'Tudo o que foi feito neste celular e ainda não subiu, e o que o servidor recusou (com o motivo). O que espera sobe sozinho quando houver sinal.',
+  relato: 'Conte o que aconteceu com as suas palavras: o que foi, quando, onde, quem se machucou. Fotos ajudam. Funciona sem sinal: o relato sobe sozinho depois, e um técnico de segurança completa e investiga. Relatar quase acidente também conta: é ele que evita o próximo acidente.'
 };
 function desenhar() {
   var corpo = $('corpo'), t = S.tela;
@@ -162,7 +163,7 @@ function desenhar() {
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
   else if (S.msg) avisos += '<div class="aviso erro">' + h(S.msg) + '</div>';
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
-  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, meus: telaMeus, equipe: telaEquipe, fila: telaFila })[t]();
+  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
   Casca.ajuda($('ajuda'), AJUDAS[t]);
   // Volta ao topo só quando a TELA muda: o redesenho de 20 em 20 s não pode jogar para cima quem está rolando a lista.
@@ -207,6 +208,9 @@ function recuperarRascunho() {
 function telaInicio() {
   var eu = S.pessoa, dev = devidosHoje(eu.matricula), feitos = dev.filter(function (t) { return feitoHoje(t, eu.matricula); }).length;
   var html = '<p class="n-saudacao">Olá, ' + h(eu.nome.split(' ')[0]) + '.</p>';
+  /* Para todo mundo, e no alto (26/10/2026): o relato não depende da função nem do perfil, e quem precisa dele está com
+     pressa. Escondido no fim da lista, ele pareceria coisa só do técnico. */
+  html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou quase acidente</button>';
   if (ehDe(INSPECIONA)) {
     var p = S.pacote, meta = p.meta || { sqp: 0 }, mes = hoje().slice(0, 7);
     var sqpMes = (p.feitasNoMes && p.feitasNoMes.sqp || 0) + S.registros.filter(function (r) { return r.tipo === 'sqp' && r.estado !== 'enviado' && r.dia.slice(0, 7) === mes; }).length;
@@ -346,22 +350,49 @@ function telaSqp() {
   if (!f.nova) html += '<button type="button" class="btn secundario" data-acao="novaIrr">+ Irregularidade</button>';
   else html += formIrregularidade(f);
   html += '<button type="button" class="btn" data-acao="salvarSqp"' + (f.nova ? ' disabled' : '') + '>Concluir inspeção' + (f.irr.length ? '' : ' sem irregularidade') + '</button>';
+  // O botão apagado diz por quê (o teste do Dalton no celular, 25/10/2026: ele ficou sem saber o que faltava).
+  if (f.nova) html += '<p class="seg-sub seg-falta">Para concluir: acrescente ou cancele a irregularidade aberta acima.</p>';
   return html;
 }
 function desvio(id) { return S.pacote && S.pacote.desvios.filter(function (d) { return d.id === id; })[0]; }
+/* A busca do desvio pelas palavras de quem está em campo (26/10/2026): o código, o texto, a área e as palavras de busca
+   de cada item (o PALAVRAS do catálogo, que o servidor completa com as palavras padrão). "cone sem fita" acha pelas duas
+   palavras que importam; o desvio que acerta mais palavras vem primeiro. As palavras curtas ("sem", "de") não contam: com
+   elas, qualquer desvio que diga "sem" apareceria. */
+var DESVIO_NAO_PREVISTO = 'NP-01';
+function buscarDesvios(busca) {
+  var ps = normalizar(busca).split(/[^a-z0-9-]+/).filter(function (w) { return w.length > 3 || /^(ca|apr|cnh|epi|epc|dds|re|nr\d+)$/.test(w); });
+  if (!ps.length) return [];
+  return S.pacote.desvios.map(function (d) {
+    var txt = normalizar(d.id + ' ' + d.desvio + ' ' + d.area + ' ' + (d.palavras || []).join(' '));
+    return { d: d, n: ps.filter(function (w) { return txt.indexOf(w) >= 0; }).length };
+  }).filter(function (x) { return x.n && x.d.id !== DESVIO_NAO_PREVISTO; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 8).map(function (x) { return x.d; });
+}
+function oQueFaltaNaIrregularidade(n) {
+  var f = [];
+  if (!n.desvio) f.push('escolher o desvio');
+  if (!n.foto) f.push('tirar a foto');
+  if (n.desvio === DESVIO_NAO_PREVISTO && String(n.obs || '').trim().length < 5) f.push('escrever o que viu');
+  return f;
+}
 function formIrregularidade(f) {
   var n = f.nova, q = normalizar(f.busca);
-  var achados = !q ? [] : S.pacote.desvios.filter(function (d) { return normalizar(d.id + ' ' + d.desvio + ' ' + d.area).indexOf(q) >= 0; }).slice(0, 8);
+  var achados = !q ? [] : buscarDesvios(f.busca), temNaoPrevisto = !!desvio(DESVIO_NAO_PREVISTO), faltaAqui = oQueFaltaNaIrregularidade(n);
   var equipe = (S.contexto && S.contexto.equipe) || [];
   return '<div class="cartao"><div class="campo"><label>Desvio (procure por palavra: perneira, escada, cone…)</label><input data-campo="busca" value="' + h(f.busca) + '"></div>' +
     achados.map(function (d) { return '<button type="button" class="seg-opcao' + (n.desvio === d.id ? ' ativo' : '') + '" data-acao="escolherDesvio" data-v="' + h(d.id) + '"><b>' + h(d.id) + '</b> ' + h(d.desvio) + ' <span class="selo">' + h(d.nivel === 'sesmt' ? 'a classificar' : d.nivel) + '</span></button>'; }).join('') +
-    (n.desvio ? '<p><b>Escolhido:</b> ' + h(n.desvio) + '</p>' : '') +
+    /* Sem achar, a tela diz que não achou e oferece o "não previsto" da Política (7.2.8): registra agora e o SESMT
+       classifica depois, em vez de o inspetor desistir ou escolher um parecido, que puniria pelo nível errado. */
+    (q && !achados.length ? '<p class="seg-sub">Nada com "' + h(f.busca) + '" no catálogo. Tente outra palavra' + (temNaoPrevisto ? ', ou registre como desvio não previsto:' : '.') + '</p>' : '') +
+    (q && temNaoPrevisto ? '<button type="button" class="seg-opcao' + (n.desvio === DESVIO_NAO_PREVISTO ? ' ativo' : '') + '" data-acao="escolherDesvio" data-v="' + DESVIO_NAO_PREVISTO + '"><b>Desvio não previsto</b> no catálogo: descreva o que viu, e o SESMT classifica <span class="selo">a classificar</span></button>' : '') +
+    (n.desvio ? '<p><b>Escolhido:</b> ' + h(n.desvio === DESVIO_NAO_PREVISTO ? 'desvio não previsto' : n.desvio) + '</p>' : '') +
     '<div class="campo"><label>Matrículas dos envolvidos (separadas por vírgula)</label><input data-nova="envolvidosTxt" inputmode="numeric" value="' + h(n.envolvidosTxt || '') + '"></div>' +
     (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addEnvolvido" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '') +
-    '<div class="campo"><label>O que viu</label><input data-nova="obs" value="' + h(n.obs || '') + '"></div>' +
+    '<div class="campo"><label>O que viu' + (n.desvio === DESVIO_NAO_PREVISTO ? ' (obrigatório no desvio não previsto)' : '') + '</label><input data-nova="obs" value="' + h(n.obs || '') + '"></div>' +
     '<button type="button" class="chip' + (n.solucionadaNaHora ? ' ativo' : '') + '" data-acao="alternar" data-c="solucionadaNaHora">Solucionada na hora</button> ' +
     '<button type="button" class="btn secundario auto" data-acao="fotoNova">' + (n.foto ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' +
-    '<div class="seg-tres"><button type="button" class="btn auto" data-acao="addIrr"' + (n.desvio && n.foto ? '' : ' disabled') + '>Acrescentar</button><button type="button" class="btn fantasma auto" data-acao="cancelarIrr">Cancelar</button></div></div>';
+    '<div class="seg-tres"><button type="button" class="btn auto" data-acao="addIrr"' + (faltaAqui.length ? ' disabled' : '') + '>Acrescentar</button><button type="button" class="btn fantasma auto" data-acao="cancelarIrr">Cancelar</button></div>' +
+    (faltaAqui.length ? '<p class="seg-sub seg-falta">Para acrescentar, falta ' + faltaAqui.join(' e ') + '.</p>' : '') + '</div>';
 }
 
 /* ---------- Blitz ---------- */
@@ -440,6 +471,48 @@ function lerPagina(arquivo, pagina) {
   }).then(desenhar, function (e) { S.lido = { erro: 'Não consegui ler a foto: ' + (e && e.message || e) }; desenhar(); });
 }
 
+/* ---------- relato de acidente ou quase acidente ----------
+   O pedido (Dalton, 26/10/2026, 07h35): "uma tela simples para qualquer um, mesmo offline, e depois um TST ou engenheiro
+   de segurança complementa e investiga". Por isso ela pergunta pouco e com as palavras do campo, e nada do que a
+   investigação decide (classificação, tipologia, causa). Sem sinal, fica guardado e sobe sozinho, como os checklists.
+
+   O aviso do alto vem primeiro de propósito: quem se machucou precisa de socorro e do supervisor agora, por telefone. O
+   relato no celular não substitui isso, e pode demorar a subir se não houver sinal. */
+var TIPOS_RELATO = [['lesao', 'Alguém se machucou'], ['quase', 'Quase acidente (ninguém se machucou)'], ['transito', 'Acidente de trânsito'], ['dano', 'Dano a veículo, equipamento ou instalação']];
+var FOTOS_POR_RELATO = 6;
+function agoraHHMM() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+function oQueFaltaNoRelato(f) {
+  var l = [];
+  if (!f.tipoRelato) l.push('dizer o que aconteceu');
+  if (!f.data) l.push('o dia');
+  if ((f.tipoRelato === 'lesao' || f.tipoRelato === 'transito') && !f.ferido) l.push('dizer quem se machucou');
+  if (f.ferido === 'outro' && !String(f.feridoMatricula || '').trim() && !String(f.feridoNome || '').trim()) l.push('a matrícula ou o nome de quem se machucou');
+  if (String(f.descricao || '').trim().length < 10) l.push('contar o que aconteceu (uma frase, pelo menos)');
+  return l;
+}
+function telaRelato() {
+  var f = S.form = S.form || { id: novoId('rel'), tipo: 'relato', tipoRelato: '', data: hoje(), hora: agoraHHMM(), local: '', ferido: '', feridoMatricula: '', feridoNome: '', descricao: '', naHora: '', fotos: [] };
+  var sel = function (campo, op) { return '<div class="seg-chips">' + op.map(function (x) { return '<button type="button" class="chip' + (f[campo] === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="' + campo + '" data-v="' + x[0] + '">' + h(x[1]) + '</button>'; }).join('') + '</div>'; };
+  var html = '<div class="aviso atencao"><div><b>Se alguém se machucou:</b> primeiro o socorro, e avise o supervisor agora, por telefone. Este relato não substitui o aviso na hora.</div></div>';
+  html += '<div class="cartao"><b>O que aconteceu?</b>' + sel('tipoRelato', TIPOS_RELATO) + '</div>';
+  html += '<div class="cartao"><div class="seg-dois"><div class="campo"><label>Dia</label><input type="date" data-campo="data" max="' + h(hoje()) + '" value="' + h(f.data) + '"></div>' +
+    '<div class="campo"><label>Hora (mais ou menos)</label><input type="time" data-campo="hora" value="' + h(f.hora) + '"></div></div>' +
+    '<div class="campo"><label>Onde (endereço, poste, trecho ou a base)</label><input data-campo="local" value="' + h(f.local) + '"></div></div>';
+  if (f.tipoRelato === 'lesao' || f.tipoRelato === 'transito') {
+    html += '<div class="cartao"><b>Quem se machucou?</b>' + sel('ferido', [['eu', 'Eu'], ['outro', 'Outra pessoa'], ['ninguem', 'Ninguém']]) +
+      (f.ferido === 'outro' ? '<div class="seg-dois"><div class="campo"><label>Matrícula (se souber)</label><input data-campo="feridoMatricula" inputmode="numeric" value="' + h(f.feridoMatricula) + '"></div>' +
+        '<div class="campo"><label>Nome</label><input data-campo="feridoNome" value="' + h(f.feridoNome) + '"></div></div>' : '') + '</div>';
+  }
+  html += '<div class="cartao"><div class="campo"><label>Conte o que aconteceu</label><textarea data-campo="descricao" rows="5" class="seg-texto">' + h(f.descricao) + '</textarea></div>' +
+    '<div class="campo"><label>O que foi feito na hora (se algo foi feito)</label><textarea data-campo="naHora" rows="2" class="seg-texto">' + h(f.naHora) + '</textarea></div></div>';
+  html += '<div class="cartao"><b>Fotos (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">Do lugar, do equipamento ou do veículo. Não precisa fotografar ferimento.</p>' +
+    f.fotos.map(function (id, i) { return '<span class="chip seg-ok">Foto ' + (i + 1) + ' ✓ <button type="button" class="link-texto" data-acao="tirarFotoRelato" data-i="' + i + '">tirar</button></span>'; }).join(' ') +
+    (f.fotos.length < FOTOS_POR_RELATO ? '<button type="button" class="btn secundario auto" data-acao="fotoRelato">Tirar foto</button>' : '') + '</div>';
+  var faltam = oQueFaltaNoRelato(f);
+  return html + '<button type="button" class="btn" data-acao="salvarRelato"' + (faltam.length ? ' disabled' : '') + '>Enviar o relato</button>' +
+    (faltam.length ? '<p class="seg-sub seg-falta">Para enviar, falta ' + faltam.join(', ') + '.</p>' : '<p class="seg-sub">Vai para a engenharia de segurança, com o seu nome. Sem sinal, sobe sozinho depois.</p>');
+}
+
 /* ---------- equipe do dia (porta da Operação) ---------- */
 function telaEquipe() {
   var eq = (S.contexto && S.contexto.equipe) || [];
@@ -457,7 +530,7 @@ function telaEquipe() {
 function telaMeus() {
   var mes = hoje().slice(0, 7), meus = S.registros.filter(function (r) { return r.dia.slice(0, 7) === mes && String(r.carimbo.emNomeDe.matricula) === String(S.pessoa.matricula); });
   var conta = function (t) { return meus.filter(function (r) { return r.tipo === t; }).length; };
-  return '<div class="cartao"><b>Neste mês, neste celular</b><p>Checklists de EPI/EPC: <b>' + conta('epi') + '</b><br>Testes de luvas: <b>' + conta('luvas') + '</b><br>Checklists veiculares: <b>' + conta('veicular') + '</b></p><p class="seg-sub">Sem percentual de propósito: o número que vale para a Campanha é o do seu extrato, na área pessoal.</p></div>';
+  return '<div class="cartao"><b>Neste mês, neste celular</b><p>Checklists de EPI/EPC: <b>' + conta('epi') + '</b><br>Testes de luvas: <b>' + conta('luvas') + '</b><br>Checklists veiculares: <b>' + conta('veicular') + '</b><br>Relatos de acidente ou quase acidente: <b>' + conta('relato') + '</b></p><p class="seg-sub">Sem percentual de propósito: o número que vale para a Campanha é o do seu extrato, na área pessoal.</p></div>';
 }
 function telaFila() {
   var l = S.registros.filter(function (r) { return r.estado !== 'enviado'; });
@@ -472,8 +545,12 @@ function telaFila() {
 /* ---------- os toques ---------- */
 document.addEventListener('input', function (ev) {
   var t = ev.target, f = S.form; if (!f) return;
-  if (t.dataset.nova && f.nova) f.nova[t.dataset.nova] = t.value;
-  if (t.dataset.campo) { f[t.dataset.campo] = t.value; if (t.dataset.campo === 'busca') redesenharMantendoFoco(t); }
+  if (t.dataset.nova && f.nova) { f.nova[t.dataset.nova] = t.value; if (t.dataset.nova === 'obs' && f.nova.desvio === DESVIO_NAO_PREVISTO) redesenharMantendoFoco(t); }
+  if (t.dataset.campo) {
+    f[t.dataset.campo] = t.value;
+    // No relato, o botão de enviar depende do que se digita: redesenha mantendo o cursor onde estava.
+    if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
+  }
   if (t.dataset.obs !== undefined) f.obs[f._itens[+t.dataset.obs]] = t.value;
   if (t.dataset.manual) { f.manuais[t.dataset.manual] = t.value.replace(/\D/g, ''); }
   guardarRascunho();
@@ -483,7 +560,11 @@ document.addEventListener('input', function (ev) {
    depende de texto é conferido no toque do botão, com a frase do que falta. */
 document.addEventListener('change', function (ev) { if (ev.target.id === 'arquivoFoto') aoEscolherFoto(ev.target.files[0]); });
 function falta(msg) { S.msg = msg; desenhar(); return true; }
-function redesenharMantendoFoco(el) { var nome = el.dataset.campo, pos = el.selectionStart; desenhar(); var n = document.querySelector('[data-campo="' + nome + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }
+function redesenharMantendoFoco(el) {
+  var qual = el.dataset.campo ? '[data-campo="' + el.dataset.campo + '"]' : '[data-nova="' + el.dataset.nova + '"]', pos = el.selectionStart;
+  desenhar();
+  var n = document.querySelector(qual); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } }
+}
 
 document.addEventListener('click', function (ev) {
   var b = ev.target.closest('[data-acao]'); if (!b || b.disabled) return;
@@ -532,6 +613,15 @@ document.addEventListener('click', function (ev) {
       return it ? { desvio: it.desvio, envolvidos: f.alvoTipo === 'pessoa' ? [f.alvoId] : [], itemBlitz: p[0] + ' · ' + it.item, motivo: f.motivo[k], foto: f.fotos[k] } : null;
     }).filter(Boolean);
     return concluir({ id: f.id, tipo: 'blitz', inspecao: { alvo: { tipo: f.alvoTipo, id: f.alvoId }, placa: f.alvoTipo === 'veiculo' ? f.alvoId : '', irregularidades: irr } }, 'Blitz salva (' + irr.length + ' não conforme).');
+  }
+  if (a === 'fotoRelato') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); });
+  if (a === 'tirarFotoRelato') { f.fotos.splice(+b.dataset.i, 1); return desenhar(); }
+  if (a === 'salvarRelato') {
+    if (oQueFaltaNoRelato(f).length && falta('Para enviar, falta ' + oQueFaltaNoRelato(f).join(', ') + '.')) return;
+    var fer = f.tipoRelato === 'lesao' || f.tipoRelato === 'transito' ? f.ferido || 'ninguem' : 'ninguem';
+    return concluir({ id: f.id, tipo: 'relato', relato: { tipo: f.tipoRelato, data: f.data, hora: f.hora, local: String(f.local).trim(), ferido: fer,
+      feridoMatricula: fer === 'outro' ? String(f.feridoMatricula).replace(/\D/g, '') : '', feridoNome: fer === 'outro' ? String(f.feridoNome).trim() : '',
+      descricao: String(f.descricao).trim(), naHora: String(f.naHora).trim(), fotos: f.fotos.slice() } }, 'Relato salvo. Um técnico de segurança vai completar e investigar.');
   }
   if (a === 'salvarDds' && !String(f.tema).trim() && falta('Escreva o tema do DDS.')) return;
   if (a === 'salvarDds' && document.querySelector('[data-manual]') && Array.prototype.some.call(document.querySelectorAll('[data-manual]'), function (x) { return !x.value.trim(); }) && falta('Digite a matrícula de cada linha escrita à mão.')) return;
