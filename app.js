@@ -41,8 +41,24 @@ var E = {
   avisos: null,        // { lista, quando } | { erro }
   ajuda: false,
   ocupado: false,
-  envio: {}            // id do bloco -> { pendentes, estado, acordadas, enviando }: o que a tela de Envio mostra
+  envio: {},          // id do bloco -> { pendentes, estado, acordadas, enviando }: o que a tela de Envio mostra
+  relato: null,        // { texto, foto, de }: o relato do "!" sendo escrito; só na memória, nunca vai ao disco
+  relatoLigado: false  // o login já recebe relato (ver buscarAvisos)
 };
+
+/* ---------- os últimos erros, para o relato do "!" ----------
+   O relato leva sozinho a tela, a versão, a hora e os últimos erros (decisão do Dalton e do Suporte, 25 e 26/10/2026).
+   Guarda só a mensagem, curta, e o que tem forma de CPF sai antes: o relato vai para uma planilha que outras pessoas
+   leem. Fica só na memória: some quando o app fecha. */
+var ERROS_GUARDADOS = 5, ultimosErros = [];
+function guardarErro(m) {
+  var t = String(m || '').replace(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g, '[cpf]').slice(0, 200);
+  if (!t) return;
+  ultimosErros.push(new Date().toISOString().slice(11, 19) + ' ' + t);
+  if (ultimosErros.length > ERROS_GUARDADOS) ultimosErros.shift();
+}
+window.addEventListener('error', function (e) { guardarErro(e && (e.message || (e.error && e.error.message))); });
+window.addEventListener('unhandledrejection', function (e) { var r = e && e.reason; guardarErro(r && (r.message || r.msg) || String(r)); });
 
 /* ---------- utilidades ---------- */
 function $(id) { return document.getElementById(id); }
@@ -130,7 +146,7 @@ function guardarEntrada(chave, r, senha) {
 }
 
 /* ---------- a entrada ---------- */
-function mostrarErro(t) { E.erro = t; E.ok = ''; E.ocupado = false; desenhar(); }
+function mostrarErro(t) { guardarErro((CODIGOS[E.tela] || E.tela) + ': ' + t); E.erro = t; E.ok = ''; E.ocupado = false; desenhar(); }
 
 /* Sem sinal (ou o login sem responder): só o verificador guardado decide. A trava conta os erros sem sinal, com o
    número e o tempo que o Núcleo mandou na última entrada com sinal. */
@@ -241,7 +257,7 @@ function esqueciSenha() {
 
 /* Sair: a próxima pessoa entra. O que esta pessoa deixou guardado (o verificador, a sessão) continua, para ela entrar
    sem sinal amanhã e para a fila dos blocos subir com a sessão dela (FRONTEIRA §2.1). */
-function sair() { E.atual = null; E.escolhida = null; E.erro = ''; E.ok = ''; E.avisos = null; return gravarAtual().then(function () { irPara('entrar'); }); }
+function sair() { E.atual = null; E.escolhida = null; E.erro = ''; E.ok = ''; E.avisos = null; E.relato = null; E.relatoLigado = false; return gravarAtual().then(function () { irPara('entrar'); }); }
 /* Tirar a pessoa deste celular: o verificador e a sessão saem. Não desliga nada no Núcleo (a sessão vence sozinha em
    30 dias sem contato, ou é cortada pelo administrador). */
 function esquecerNesteCelular() {
@@ -370,10 +386,15 @@ function avisosDaJanela(lista, p) {
   return (lista || []).filter(function (a) { var d = String(a.data || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) && diasEntre(d, hoje) >= 0 && diasEntre(d, hoje) < DIAS_DOS_AVISOS; })
     .sort(function (a, b) { return String(b.data).localeCompare(String(a.data)); });
 }
+/* Os avisos da pessoa (o relato corrigido, a pendência, o aviso geral), no campo avisosDaPessoa da ação avisos (cartas
+   nº 18 e 19 com o Núcleo, 25/10/2026). O recorte dos 3 dias e o "já lido" são do Núcleo: o app mostra o que vier, e
+   só põe "Marcar como lido" onde vier marcavel: true. Item sem id ou sem texto é ignorado. */
+function avisosDaPessoa(l) { return (Array.isArray(l) ? l : []).filter(function (a) { return a && a.id && a.texto; }); }
+function marcaveis() { return E.avisos && E.avisos.pessoais ? E.avisos.pessoais.filter(function (a) { return a.marcavel === true; }).length : 0; }
 function quantosNovos() {
   var p = pessoaAtual();
   if (!p || !E.avisos || !E.avisos.lista) return 0;
-  return E.avisos.lista.filter(function (a) { return String(a.data).slice(0, 10) > String(p.vistoAvisos || ''); }).length;
+  return E.avisos.lista.filter(function (a) { return String(a.data).slice(0, 10) > String(p.vistoAvisos || ''); }).length + marcaveis();
 }
 function buscarAvisos() {
   var p = pessoaAtual();
@@ -382,11 +403,63 @@ function buscarAvisos() {
     if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
     if (r && r.entrarDeNovo) return exigirEntrada(false, senhaMudou(r.erro));
     if (!r || r.ok !== true) { E.avisos = { erro: (r && r.erro) || 'O login não mandou os avisos.' }; return desenhar(); }
-    E.avisos = { lista: avisosDaJanela(r.comunicacoes, p) };
+    E.avisos = { lista: avisosDaJanela(r.comunicacoes, p), pessoais: avisosDaPessoa(r.avisosDaPessoa) };
+    /* O "!" acende quando o login passa a mandar os avisos da pessoa: o Núcleo os entrega junto com a RELATOS, onde o
+       relato é gravado (carta nº 19 dele, 25/10/2026). Antes disso, o "!" levaria a uma ação que o login não tem. */
+    E.relatoLigado = Array.isArray(r.avisosDaPessoa);
     if (E.tela === 'avisos') marcarAvisosVistos();
     desenhar();
   }, function (e) { E.avisos = { erro: e && e.msg || 'Sem sinal agora.' }; desenhar(); });
 }
+function marcarAvisoLido(id) {
+  var p = pessoaAtual();
+  if (!p || !p.sessao || !id) return;
+  if (!comSinal()) return mostrarErro('Sem sinal: marcar como lido precisa de sinal.');
+  E.ocupado = true; desenhar();
+  return postarAoLogin({ acao: 'marcarAvisoLido', sessao: p.sessao, id: id }).then(function (r) {
+    E.ocupado = false;
+    if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
+    if (r && r.entrarDeNovo) return exigirEntrada(false, senhaMudou(r.erro));
+    if (!r || r.ok !== true) return mostrarErro((r && r.erro) || 'O login não marcou o aviso como lido.');
+    if (E.avisos && E.avisos.pessoais) E.avisos.pessoais = E.avisos.pessoais.filter(function (a) { return a.id !== id; });
+    desenhar();
+  }, function () { mostrarErro('Sem sinal agora. Tente de novo quando o sinal voltar.'); });
+}
+
+/* ---------- o relato do "!" ----------
+   O "!" da casca, e não do kit da ajuda (carta nº 2 do Suporte, 25/10/2026). Pede sinal: sem sinal, diz isso, e o
+   texto fica na memória enquanto o app estiver aberto. O print é opcional e anexado pela pessoa (decisão do Dalton,
+   26/10/2026, 20h36), porque a página não pode tirar a foto da própria tela. */
+var TETO_DO_PRINT = 900 * 1024;   // em base64 fica perto de 1,2 MB; o Núcleo recusa acima de 2 MB (carta nº 3 dele ao Suporte)
+var RELATO_MINIMO = 10;            // uma frase: menos que isso não diz à triagem o que aconteceu
+function irRelato() { E.relato = { texto: '', foto: '', de: E.tela }; irPara('relato'); }
+function anexarPrint(arquivo) {
+  if (!arquivo || !E.relato) return;
+  E.ocupado = true; desenhar();
+  return cascaReduzirFoto(arquivo, [1600, 1200, 900], TETO_DO_PRINT, null).then(function (r) {
+    return new Promise(function (ok, falha) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = falha; fr.readAsDataURL(r.blob); });
+  }).then(function (url) { E.ocupado = false; if (E.relato) E.relato.foto = url; desenhar(); }, function () { mostrarErro('Não consegui ler esse print. Tente outra imagem.'); });
+}
+function enviarRelato() {
+  var p = pessoaAtual(), r = E.relato;
+  if (!p || !p.sessao || !r) return;
+  if (!comSinal()) return mostrarErro('Sem sinal: o relato precisa de sinal para ir.');
+  var texto = String(r.texto || '').trim();
+  if (texto.length < RELATO_MINIMO) return mostrarErro('Escreva pelo menos uma frase para enviar.');
+  E.ocupado = true; desenhar();
+  var corpo = { acao: 'enviarRelato', sessao: p.sessao, texto: texto,
+    contexto: { tela: CODIGOS[r.de] || r.de || '', versaoApp: VERSAO_APP, hora: new Date().toISOString(), fuso: fusoDe(p), erros: ultimosErros.slice() } };
+  if (r.foto) corpo.foto = r.foto;
+  return postarAoLogin(corpo).then(function (x) {
+    if (x && x.pedirCpf) return exigirEntrada(true, x.erro || 'Entre de novo com o seu CPF.');
+    if (x && x.entrarDeNovo) return exigirEntrada(false, senhaMudou(x.erro));
+    if (!x || x.ok !== true) return mostrarErro((x && x.erro) || 'O login não recebeu o relato. Tente de novo.');
+    var de = TELAS_DE_DENTRO.indexOf(r.de) >= 0 && r.de !== 'relato' ? r.de : 'inicio';
+    E.relato = null;
+    irPara(de, 'Relato enviado' + (x.id ? ' (nº ' + x.id + ')' : '') + '. Quando for corrigido, o aviso aparece em Avisos.');
+  }, function () { mostrarErro('Sem sinal agora. O relato não foi. Tente de novo quando o sinal voltar.'); });
+}
+
 /* O celular guarda só a data do aviso mais novo que a pessoa já viu (FRONTEIRA §2.1): nada do conteúdo fica. */
 function marcarAvisosVistos() {
   var p = pessoaAtual();
@@ -400,8 +473,8 @@ function marcarAvisosVistos() {
    As telas usam as classes da folha do Núcleo (estilo/nucleo.css), as mesmas do App.html do Portal: a tela de
    entrada com a moldura vermelha e a marca quadrada, a barra grafite com a marca horizontal, a saudação, o rótulo
    "Seus sistemas" e os cartões .n-modulo. O que só o app tem leva o prefixo app- e mora no index.html. */
-var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09' };
-var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil', 'termo'];
+var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09', relato: 'APP-10' };
+var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil', 'termo', 'relato'];
 var AJUDAS = {
   entrar: 'Entre com o seu CPF e a mesma senha do Portal. Quem já entrou neste celular aparece na lista: toque no seu nome e digite só a senha. Sem sinal, só entra quem já entrou neste celular com sinal antes. A entrada vale até o fim do dia; amanhã o app pede a senha de novo.',
   primeiro: 'Primeira vez no app ou no Portal: digite o CPF, o seu e-mail e crie a senha. O e-mail é para onde vai uma senha nova se um dia você esquecer a sua. Precisa de sinal.',
@@ -410,7 +483,8 @@ var AJUDAS = {
   inicio: 'Aqui estão os sistemas que você pode abrir. Toque num deles para abrir, já com você entrado. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
   termo: 'A Compel pede que você leia e aceite este termo antes de abrir os sistemas. O aceite fica registrado com a data, e vale também para o Portal. Se o texto tiver um documento completo, ele abre pelo link. Precisa de sinal.',
   envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
-  avisos: 'As comunicações da Compel dos últimos 30 dias. As marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
+  avisos: 'Em cima, o que é só para você (o problema que você relatou e foi corrigido, por exemplo): "Marcar como lido" tira o aviso daqui. Embaixo, as comunicações da Compel dos últimos 30 dias; as marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
+  relato: 'Algo deu errado no app? Conte com as suas palavras o que você tentou fazer e o que apareceu. A tela, a versão do app e a hora vão junto, sozinhas. Se quiser, anexe um print (tire o print com o botão do celular antes de abrir aqui). Precisa de sinal. Quando o problema for corrigido, o aviso aparece em Avisos.',
   perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal.'
 };
 function ajuda(tela) {
@@ -524,8 +598,9 @@ function telaAvisos() {
   if (!comSinal()) h += '<div class="aviso atencao">Sem sinal: os avisos aparecem quando o celular tiver sinal.</div>';
   else if (!E.avisos) h += '<div class="carregando">Buscando os avisos…</div>';
   else if (E.avisos.erro) h += '<div class="aviso atencao">' + esc(E.avisos.erro) + '</div>';
+  else if (E.avisos.pessoais && E.avisos.pessoais.length && !E.avisos.lista.length) h += avisosPessoaisHtml();
   else if (!E.avisos.lista.length) h += '<div class="vazio" id="semAvisos">Nenhum aviso nos últimos ' + DIAS_DOS_AVISOS + ' dias.</div>';
-  else h += '<div id="listaAvisos">' + E.avisos.lista.map(function (a) {
+  else h += avisosPessoaisHtml() + '<div id="listaAvisos">' + E.avisos.lista.map(function (a) {
     var novo = String(a.data).slice(0, 10) > String(E.avisosNovosAntes !== undefined ? E.avisosNovosAntes : p.vistoAvisos || '');
     /* A `proporcao` sai das medidas da imagem desde 22/10/2026 (carta nº 15 do Núcleo), e pode vir com decimal
        ("1.91:1"). Ela só reserva o espaço antes de a arte chegar; o `object-fit: contain` não deixa deformar. O
@@ -537,6 +612,28 @@ function telaAvisos() {
       (a.link ? '<a class="link-texto" href="' + esc(a.link) + '" target="_blank" rel="noopener">Abrir</a>' : '') + '</div>';
   }).join('') + '</div>';
   return '<div class="conteudo">' + h + ajuda('avisos') + '</div>';
+}
+function avisosPessoaisHtml() {
+  var l = E.avisos && E.avisos.pessoais || [];
+  if (!l.length) return '';
+  return '<div id="avisosPessoais">' + l.map(function (a) {
+    return '<div class="cartao aviso-item app-pessoal">' + (a.origem ? '<div class="app-linha"><span class="app-cat">' + esc(a.origem) + '</span></div>' : '') +
+      '<p class="app-texto">' + esc(a.texto) + '</p>' + (a.criadoEm ? '<span class="app-data">' + esc(brDe(a.criadoEm)) + '</span>' : '') +
+      (a.marcavel === true ? '<button type="button" class="btn fantasma auto" data-acao="marcarLido" data-id="' + esc(a.id) + '"' + (comSinal() && !E.ocupado ? '' : ' disabled') + '>Marcar como lido</button>' : '') + '</div>';
+  }).join('') + '</div>';
+}
+function telaRelato() {
+  var r = E.relato || (E.relato = { texto: '', foto: '', de: 'inicio' }), falta = String(r.texto).trim().length < RELATO_MINIMO;
+  var h = '<p class="etiqueta n-secao app-sem-margem">Relatar um problema</p>' + mensagens() +
+    (comSinal() ? '' : '<div class="aviso atencao" id="relatoSemSinal">Sem sinal: o relato precisa de sinal para ir. O que você escreveu fica aqui enquanto o app estiver aberto.</div>') +
+    '<div class="cartao"><div class="campo"><label for="relatoTexto">O que aconteceu?</label><textarea id="relatoTexto" rows="5" class="app-texto-longo">' + esc(r.texto) + '</textarea>' +
+    '<div class="ajuda">A tela, a versão do app e a hora vão junto, sozinhas.</div></div>' +
+    '<div class="campo"><label>Print da tela (se quiser)</label>' + (r.foto ? '<p class="app-print" id="printAnexado">Print anexado ✓ <button type="button" class="link-texto" data-acao="tirarPrint">tirar</button></p>'
+      : '<button type="button" class="btn fantasma auto" data-acao="anexarPrint"' + (E.ocupado ? ' disabled' : '') + '>Anexar um print</button>') + '</div>' +
+    botao('enviarRelato', E.ocupado ? 'Enviando…' : 'Enviar o relato', E.ocupado, false, E.ocupado || falta || !comSinal()) +
+    '<p class="ajuda' + (falta ? '' : ' oculto') + '" id="relatoFalta">Escreva pelo menos uma frase para enviar.</p>' +
+    botao('voltarDoRelato', 'Voltar', false, true) + '</div>';
+  return '<div class="conteudo">' + h + ajuda('relato') + '</div>';
 }
 function quandoDe(iso) {
   if (!iso) return '';
@@ -598,6 +695,7 @@ function desenhar() {
   // Na entrada não há barra (como no Portal); dentro, a barra grafite com a marca e as abas de baixo.
   $('topo').classList.toggle('oculto', !logado);
   $('abas').classList.toggle('oculto', !logado);
+  $('botaoRelato').classList.toggle('oculto', !(logado && E.relatoLigado && tela !== 'relato'));
   Array.prototype.forEach.call(document.querySelectorAll('#abas button'), function (b) { b.classList.toggle('ativo', b.getAttribute('data-aba') === tela); });
   var n = logado ? quantosNovos() : 0, bol = $('bolinha'); bol.classList.toggle('oculto', !n); bol.textContent = n > 9 ? '9+' : n;
   // A aba de Envio só existe quando algum bloco deste app envia; a bolinha dela é o que espera para subir.
@@ -608,7 +706,7 @@ function desenhar() {
   var guardados = {};
   if (E.telaDesenhada === tela) ['cpf', 'email'].forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
   E.telaDesenhada = tela;
-  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil }[tela];
+  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil, relato: telaRelato }[tela];
   $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
 }
@@ -654,10 +752,25 @@ document.addEventListener('click', function (ev) {
   if (a === 'abrirModulo') return abrirModulo(+b.getAttribute('data-i'));
   if (a === 'aceitarTermo') return aceitarTermo();
   if (a === 'enviarBloco') return enviarBloco(b.getAttribute('data-bloco'), 'Enviar agora');
+  if (a === 'marcarLido') return marcarAvisoLido(b.getAttribute('data-id'));
+  if (a === 'relatar') return irRelato();
+  if (a === 'voltarDoRelato') { var de = E.relato && TELAS_DE_DENTRO.indexOf(E.relato.de) >= 0 && E.relato.de !== 'relato' ? E.relato.de : 'inicio'; E.relato = null; return irPara(de); }
+  if (a === 'anexarPrint') { var i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = function () { anexarPrint(i.files && i.files[0]); }; return i.click(); }
+  if (a === 'tirarPrint') { if (E.relato) E.relato.foto = ''; return desenhar(); }
+  if (a === 'enviarRelato') return enviarRelato();
   if (a === 'sair') return sair();
   if (a === 'esquecer') return esquecerNesteCelular();
 });
-document.addEventListener('input', function (ev) { if (ev.target && ev.target.id === 'cpf') ev.target.value = mascaraDoCpf(ev.target.value); });
+document.addEventListener('input', function (ev) {
+  if (ev.target && ev.target.id === 'cpf') ev.target.value = mascaraDoCpf(ev.target.value);
+  /* O texto do relato não redesenha a tela (o cursor sairia do campo): só o botão e a frase do que falta mudam. */
+  if (ev.target && ev.target.id === 'relatoTexto' && E.relato) {
+    E.relato.texto = ev.target.value;
+    var falta = ev.target.value.trim().length < RELATO_MINIMO, b = document.querySelector('[data-acao="enviarRelato"]'), m = $('relatoFalta');
+    if (b) b.disabled = falta || !comSinal() || E.ocupado;
+    if (m) m.classList.toggle('oculto', !falta);
+  }
+});
 document.addEventListener('keydown', function (ev) {
   if (ev.key !== 'Enter' || !ev.target || ev.target.tagName !== 'INPUT') return;
   var b = $('corpo').querySelector('.btn:not(.fantasma)'); if (b && !b.disabled) { ev.preventDefault(); b.click(); }

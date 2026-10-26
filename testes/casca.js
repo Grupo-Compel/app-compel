@@ -125,7 +125,7 @@ function novoLogin() {
         if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, entrarDeNovo: false, erro: 'Este celular foi desligado. Entre com o CPF.' };
         if (L.senhaMudou[corpo.sessao]) return { ok: false, entrarDeNovo: true, pedirCpf: false, erro: 'Sua senha mudou. Entre de novo com a senha nova.' };
         var termos = (L.termos || (L.termo ? [L.termo] : [])).filter(function (t) { return !L.aceitos[p.cpf + '|' + t.id]; });
-        if (corpo.acao === 'avisos') return { ok: true, comunicacoes: L.comunicacoes || [] };
+        if (corpo.acao === 'avisos') { var resp = { ok: true, comunicacoes: L.comunicacoes || [] }; if (L.avisosDaPessoa !== undefined) resp.avisosDaPessoa = L.avisosDaPessoa; return resp; }
         if (corpo.acao === 'aceitarTermo') {
           var t = termos.filter(function (u) { return u.id === corpo.id && u.versao === corpo.versao; })[0];
           if (!t) return { ok: false, erro: 'Termo desconhecido.' };
@@ -134,6 +134,18 @@ function novoLogin() {
         if (p.temporaria) return { ok: false, precisaTrocar: true, erro: 'Troque a senha temporária antes de abrir os sistemas.' };
         if (termos.length) { var u = termos[0]; return { ok: false, precisaAceitarTermo: true, id: u.id, versao: u.versao, titulo: u.titulo, texto: u.texto, link: u.link, quantos: termos.length, erro: 'Há termo para aceitar.' }; }
         return { ok: true, token: 'tok-' + Math.random().toString(36).slice(2) };
+      // As duas ações combinadas com o Núcleo nas cartas nº 18 e 19 (25/10/2026): o "lido" só para o que é marcável, e o
+      // relato com o CPF tirado da sessão (o corpo nunca traz CPF).
+      case 'marcarAvisoLido':
+      case 'enviarRelato':
+        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, entrarDeNovo: false, erro: 'Este celular foi desligado. Entre com o CPF.' };
+        if (corpo.acao === 'marcarAvisoLido') {
+          var av = (L.avisosDaPessoa || []).filter(function (x) { return x.id === corpo.id; })[0];
+          if (!av || !av.marcavel) return { ok: false, erro: 'Este aviso não se marca como lido.' };
+          L.avisosDaPessoa = L.avisosDaPessoa.filter(function (x) { return x.id !== corpo.id; }); return { ok: true };
+        }
+        if (L.recusarRelato) return { ok: false, erro: L.recusarRelato };
+        return { ok: true, id: 'R-7' };
     }
     return { ok: false, erro: 'ação desconhecida' };
   };
@@ -949,6 +961,74 @@ var TESTES = {
     await a.ctx.setOffline(true);
     await entrarCpf(a.page, x.cpf, 'senha-da-ana');
     await esperarTexto(a.page, 'precisa de sinal');
+    await a.ctx.close();
+  },
+  /* Os avisos da pessoa (cartas nº 18 e 19 com o Núcleo, 25/10/2026): só aparecem quando o login os manda, o "lido"
+     só onde vier marcavel, e o aviso marcado sai da tela. Sem o campo, nada muda e o "!" não aparece. */
+  T40_os_avisos_da_pessoa_e_o_marcar_como_lido: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana');
+    await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="avisos"]'); await esperarTexto(p, 'Nenhum aviso');
+    afirmar(!(await p.$('#avisosPessoais')), 'sem o campo do Núcleo, não podia haver aviso da pessoa');
+    afirmar(await p.$eval('#botaoRelato', function (b) { return b.classList.contains('oculto'); }), 'sem o campo do Núcleo, o "!" não podia aparecer');
+    x.L.avisosDaPessoa = [
+      { id: 'FIN#0042', texto: 'O problema que você relatou foi corrigido.', origem: 'Relato', criadoEm: '2026-10-21', valeAte: '2026-10-24', marcavel: true },
+      { id: 'PEND-1', texto: 'Há um curso para fazer.', origem: 'Pendência', marcavel: false },
+      { id: 'SEM-TEXTO', origem: 'Relato', marcavel: true }
+    ];
+    // Os avisos são buscados ao abrir o Início; o app reaberto busca de novo, já com o campo do Núcleo.
+    await p.reload(); await esperarTexto(p, 'Há 1 aviso novo');
+    afirmar((await texto(p, '#bolinha')) === '1', 'a bolinha devia contar só o aviso marcável');
+    await p.click('[data-aba="avisos"]'); await p.waitForSelector('#avisosPessoais');
+    var itens = await p.$$eval('#avisosPessoais .app-pessoal', function (l) { return l.map(function (d) { return d.textContent; }); });
+    afirmar(itens.length === 2, 'devia mostrar os 2 avisos com texto, e mostrou ' + itens.length);
+    var botoes = await p.$$eval('[data-acao="marcarLido"]', function (l) { return l.map(function (b) { return b.getAttribute('data-id'); }); });
+    afirmar(botoes.join() === 'FIN#0042', 'o "Marcar como lido" só no marcável, e veio em: ' + botoes.join());
+    await p.click('[data-acao="marcarLido"]');
+    await p.waitForFunction(function () { return !document.querySelector('[data-acao="marcarLido"]'); });
+    var pedido = x.L.pedidos.filter(function (q) { return q.acao === 'marcarAvisoLido'; }).pop();
+    afirmar(pedido && pedido.id === 'FIN#0042' && pedido.sessao && !pedido.cpf, 'o pedido do lido devia levar a sessão e o id, sem CPF');
+    afirmar((await texto(p, '#avisosPessoais')).indexOf('curso') >= 0, 'o aviso que não se marca devia continuar');
+    await a.ctx.close();
+  },
+  /* O "!" (casca 1.9): acende com o campo do Núcleo, abre o relato a partir da tela em que a pessoa estava, pede uma
+     frase, leva o print reduzido em JPEG e o contexto sem CPF, e sem sinal não deixa enviar. */
+  T41_o_relato_do_ponto_de_exclamacao: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    x.L.avisosDaPessoa = [];
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana');
+    await esperarTexto(p, 'Olá, Ana');
+    await p.waitForFunction(function () { return !document.getElementById('botaoRelato').classList.contains('oculto'); });
+    await p.click('[data-aba="perfil"]'); await esperarTexto(p, 'Matrícula');
+    await p.click('#botaoRelato'); await p.waitForSelector('#relatoTexto');
+    afirmar((await texto(p, '#codigo')) === 'APP-10', 'o código da tela do relato');
+    afirmar(await p.isDisabled('[data-acao="enviarRelato"]'), 'sem texto, o envio devia estar apagado');
+    await p.fill('#relatoTexto', 'curto');
+    afirmar(await p.isDisabled('[data-acao="enviarRelato"]'), 'com menos de uma frase, o envio devia continuar apagado');
+    await p.fill('#relatoTexto', 'O cartão da Segurança não abriu.');
+    afirmar(!(await p.isDisabled('[data-acao="enviarRelato"]')), 'com uma frase, o envio devia acender');
+    var escolha = p.waitForEvent('filechooser');
+    await p.click('[data-acao="anexarPrint"]');
+    await (await escolha).setFiles(path.join(REPOSITORIO, 'icone-512.png'));
+    await p.waitForSelector('#printAnexado');
+    afirmar((await p.inputValue('#relatoTexto')) === 'O cartão da Segurança não abriu.', 'o texto se perdeu ao anexar o print');
+    await a.ctx.setOffline(true);
+    await p.evaluate(function () { window.dispatchEvent(new Event('offline')); });
+    await p.waitForSelector('#relatoSemSinal');
+    afirmar(await p.isDisabled('[data-acao="enviarRelato"]'), 'sem sinal, o envio devia ficar apagado');
+    await a.ctx.setOffline(false);
+    await p.evaluate(function () { window.dispatchEvent(new Event('online')); });
+    await p.waitForFunction(function () { var b = document.querySelector('[data-acao="enviarRelato"]'); return b && !b.disabled; });
+    await p.click('[data-acao="enviarRelato"]');
+    await esperarTexto(p, 'nº R-7');
+    var r = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }).pop(), txt = JSON.stringify(r);
+    afirmar(r.texto === 'O cartão da Segurança não abriu.' && r.sessao, 'o relato devia levar o texto e a sessão');
+    afirmar(r.contexto && r.contexto.tela === 'APP-07', 'a tela do contexto devia ser a de onde a pessoa veio (APP-07), e veio ' + (r.contexto && r.contexto.tela));
+    afirmar(r.contexto.versaoApp && r.contexto.fuso === 'America/Campo_Grande' && /^\d{4}-\d{2}-\d{2}T/.test(r.contexto.hora) && Array.isArray(r.contexto.erros), 'o contexto devia ter versão, fuso, hora e erros');
+    afirmar(/^data:image\/jpeg;base64,/.test(r.foto || '') && r.foto.length < 2000000, 'o print devia ir reduzido, em JPEG e abaixo de 2 MB');
+    afirmar(txt.indexOf(x.cpf) < 0 && txt.indexOf(formatado(x.cpf)) < 0, 'o relato não pode levar CPF');
+    afirmar((await texto(p, '#codigo')) === 'APP-07', 'depois de enviar, devia voltar à tela de onde veio');
     await a.ctx.close();
   },
   /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o
