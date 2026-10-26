@@ -144,8 +144,8 @@ var AJUDAS = {
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, o par sai de uso: tire a foto e avise o almoxarifado.',
   veicular: 'Item por item: aprovado ou reprovado. Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
-  sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido.',
-  blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção.',
+  sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
+  blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. O que ficou em aberto da Blitz anterior aparece logo abaixo: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo.',
   dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento.',
   meus: 'O que você fez neste mês, contado neste celular. Sem percentual: o número que vale para a Campanha é o do extrato.',
   equipe: 'Cada pessoa da equipe com o que a função dela pede. Toque no que falta para fazer por ela: o registro fica no nome dela, marcado "feito no celular do encarregado", e no fim pede a foto do SEU rosto.',
@@ -315,9 +315,12 @@ function telaLuvas() {
 
 /* ---------- veicular ---------- */
 function telaVeicular() {
-  var f = S.form = S.form || { id: novoId('vei'), tipo: 'veicular', placa: (S.contexto && S.contexto.placa) || '', tipoV: '', estados: {}, fotos: {}, obs: {} };
+  var f = S.form = S.form || { id: novoId('vei'), tipo: 'veicular', placa: (S.contexto && S.contexto.placa) || '', tipoV: '', km: '', estados: {}, fotos: {}, obs: {} };
   var tipos = S.pacote ? Object.keys(S.pacote.veiculos) : [], crit = (S.pacote ? S.pacote.criticosVeiculo : []).map(normalizar);
-  var html = '<div class="cartao"><div class="campo"><label>Placa</label><input data-campo="placa" value="' + h(f.placa) + '" placeholder="ABC1D23" autocapitalize="characters"></div><b>Tipo do veículo</b><div class="seg-chips">' +
+  /* O km é opcional (proposto pelo Frota, carta nº 1 ao Frota, §4; entregue em 26/10/2026): o servidor já tinha a coluna
+     KM. Obrigatório, ele travaria o checklist de quem está com o painel apagado ou sem ver o hodômetro. */
+  var html = '<div class="cartao"><div class="campo"><label>Placa</label><input data-campo="placa" value="' + h(f.placa) + '" placeholder="ABC1D23" autocapitalize="characters"></div>' +
+    '<div class="campo"><label>Km do hodômetro (se puder ver)</label><input data-campo="km" inputmode="numeric" value="' + h(f.km || '') + '"></div><b>Tipo do veículo</b><div class="seg-chips">' +
     tipos.map(function (t) { return '<button type="button" class="chip' + (f.tipoV === t ? ' ativo' : '') + '" data-acao="campo" data-c="tipoV" data-v="' + h(t) + '">' + h(t) + '</button>'; }).join('') + '</div></div>';
   if (!S.pacote) return html + '<div class="aviso atencao">Os itens de cada tipo de veículo chegam com o pacote. Abra com sinal uma vez.</div>';
   if (!f.tipoV) return html;
@@ -342,8 +345,9 @@ function telaVeicular() {
 
 /* ---------- SQP ---------- */
 function telaSqp() {
-  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', irr: [], busca: '', nova: null };
-  var html = '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div><div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" value="' + h(f.placa) + '"></div></div>';
+  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', irr: [], busca: '', nova: null, anterior: {} };
+  var html = '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div>' + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" value="' + h(f.placa) + '"></div>' +
+    campoCondutor(f, f.placa) + '</div>' + painelAnterior(f, chavesDoSqp(f));
   html += '<h2 class="seg-h2">Irregularidades (' + f.irr.length + ')</h2>' + f.irr.map(function (x, i) {
     var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
   }).join('');
@@ -395,14 +399,93 @@ function formIrregularidade(f) {
     (faltaAqui.length ? '<p class="seg-sub seg-falta">Para acrescentar, falta ' + faltaAqui.join(' e ') + '.</p>' : '') + '</div>';
 }
 
+/* ---------- a Blitz anterior e o condutor (etapa 4b, 26/10/2026) ----------
+   O pedido do Dalton (24/10, 16h38): "quando eu for fazer uma nova blitz naquela mesma equipe, eu preciso ver o
+   resultado da blitz anterior". A equipe muda de dia para dia, o EPI é de cada pessoa e o material do caminhão é da
+   placa: por isso o que ficou em aberto é achado por TRÊS CHAVES (o prefixo, a matrícula de quem está presente e a
+   placa). A lista vem no pacote, e a conferência funciona sem sinal. */
+function chaveDoPrefixo(t) { return normalizar(String(t || '').split(' - ')[0]).replace(/[^a-z0-9]/g, ''); }
+function soPlaca(p) { return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function matsDoTexto(t) { return String(t || '').split(/[^0-9]+/).map(function (m) { return m.replace(/^0+(?=\d)/, ''); }).filter(String); }
+/* "B203" acha "CPL-NAN-B203" pelo fim. Menos de três letras não compara: "B2" acharia meia base. */
+function mesmoPrefixo(a, b) { if (a.length < 3 || b.length < 3) return false; return a.length >= b.length ? a.slice(-b.length) === b : b.slice(-a.length) === a; }
+function diaBr(d) { var p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : String(d || ''); }
+function anterioresDa(c) {
+  var l = (S.pacote && S.pacote.anteriores) || [], p = chaveDoPrefixo(c.prefixo), pl = soPlaca(c.placa), ms = c.mats || [];
+  if (!p && !pl && !ms.length) return [];
+  return l.filter(function (a) {
+    var am = String(a.m || '').split(',').filter(String);
+    return (p && a.p && mesmoPrefixo(p, a.p)) || (pl && a.pl === pl) || ms.some(function (m) { return am.indexOf(m) >= 0; });
+  });
+}
+function painelAnterior(f, c) {
+  if (!S.pacote || !S.pacote.anteriores) return '';
+  var l = anterioresDa(c);
+  if (!l.length) return chaveDoPrefixo(c.prefixo) || soPlaca(c.placa) || (c.mats || []).length ? '<p class="seg-sub">Nada em aberto da Blitz anterior para esta equipe, pessoa ou placa.</p>' : '';
+  f.anterior = f.anterior || {};
+  var ult = l.filter(function (a) { return a.p && mesmoPrefixo(chaveDoPrefixo(c.prefixo), a.p); })[0];
+  var feitos = l.filter(function (a) { return f.anterior[a.r] && f.anterior[a.r].resultado; }).length;
+  return '<h2 class="seg-h2">Em aberto da Blitz anterior (' + feitos + ' de ' + l.length + ' conferido(s))</h2>' +
+    (ult ? '<p class="seg-sub">A última do prefixo foi em ' + diaBr(ult.d) + (ult.n ? ', por ' + h(ult.n) : '') + '.</p>' : '') + l.map(function (a) {
+      var x = f.anterior[a.r] || {}, quem = String(a.m || '').split(',').filter(String);
+      return '<div class="cartao seg-item seg-anterior"><b>' + h(a.i) + '</b><small class="seg-sub">' + diaBr(a.d) + ' · ' + h(a.o) + (a.pt ? ' · ' + h(a.pt) : '') + (a.pl ? ' · ' + h(a.pl) : '') +
+        (quem.length ? ' · ' + h(quem.join(', ')) : '') + (a.li ? ' · prazo ' + diaBr(a.li) : '') + '</small><div class="seg-tres">' +
+        [['resolvido', 'Resolvido'], ['continua', 'Continua'], ['vale', 'Gerar vale']].map(function (y) { return '<button type="button" class="chip' + (x.resultado === y[0] ? ' ativo' : '') + '" data-acao="anterior" data-r="' + h(a.r) + '" data-v="' + y[0] + '">' + y[1] + '</button>'; }).join('') + '</div>' +
+        (x.resultado === 'vale' ? '<p class="seg-sub">Quem vai arcar com o vale?</p>' + (quem.length > 1 ? '<div class="seg-chips">' + quem.map(function (m) { return '<button type="button" class="chip' + (x.matricula === m ? ' ativo' : '') + '" data-acao="valeQuem" data-r="' + h(a.r) + '" data-v="' + h(m) + '">' + h(m) + '</button>'; }).join('') + '</div>' : '') +
+          '<div class="campo"><input data-vale="' + h(a.r) + '" inputmode="numeric" placeholder="Matrícula" value="' + h(x.matricula || '') + '"></div>' : '') + '</div>';
+    }).join('');
+}
+/* Só vai o que está na lista de AGORA: quem marcou itens da B203 e trocou o prefixo para B204 não manda a conferência da
+   B203 junto. */
+function anteriorParaEnviar(f, c) {
+  var r = f.anterior || {}, vistos = anterioresDa(c).map(function (a) { return a.r; });
+  return vistos.filter(function (k) { return r[k] && r[k].resultado; }).map(function (k) { return { ref: k, resultado: r[k].resultado, matricula: r[k].resultado === 'vale' ? matsDoTexto(r[k].matricula)[0] || '' : '' }; });
+}
+function valeSemQuem(f, c) { return anteriorParaEnviar(f, c).filter(function (x) { return x.resultado === 'vale' && !x.matricula; }).length; }
+/* O condutor, só com a placa (carta nº 1 ao Frota, §5, pelo §7º do ACT do MS): a sugestão é quem fez o checklist
+   veicular daquela placa hoje, e o inspetor confirma ou troca. */
+function campoCondutor(f, placa) {
+  var pl = soPlaca(placa); if (!pl) return '';
+  var sug = ((S.pacote && S.pacote.veicularesHoje) || {})[pl] || [];
+  return '<div class="campo"><label>Quem conduz o veículo (matrícula)</label><input data-campo="condutor" inputmode="numeric" value="' + h(f.condutor || '') + '"></div>' +
+    (sug.length ? '<p class="seg-sub">Fez o checklist desta placa hoje:</p><div class="seg-chips">' + sug.map(function (x) { return '<button type="button" class="chip' + (String(f.condutor) === String(x.m) ? ' ativo' : '') + '" data-acao="campo" data-c="condutor" data-v="' + h(x.m) + '">' + h(x.n || x.m) + (x.h ? ' · ' + h(x.h) : '') + '</button>'; }).join('') + '</div>' : '');
+}
+/* A formação do mês da Operação (Dalton, no teste do celular, 25/10/2026, 18h: "digitando o nome, aparecem os prefixos
+   dessa pessoa. É o mais prático na hora"). Vem no pacote, então funciona sem sinal. O campo do
+   prefixo mostra os parecidos enquanto se digita, e o encarregado acha o prefixo pelo nome ou pela matrícula. Botões, e
+   não a lista própria do navegador (datalist): a tela se redesenha a cada letra para mostrar a Blitz anterior, e o
+   redesenho fecharia a lista do navegador debaixo do dedo. */
+function formacao() { return (S.pacote && S.pacote.formacao) || []; }
+function campoDoEncarregado(f, alvo) {
+  if (!formacao().length) return '';
+  var q = normalizar(f.encarregadoBusca), soNum = q.replace(/\D/g, '');
+  var achados = q.length < 3 ? [] : formacao().filter(function (x) { return x.n && (normalizar(x.n).indexOf(q) >= 0 || (soNum.length >= 3 && x.m === soNum)); }).slice(0, 8);
+  var k = chaveDoPrefixo(f[alvo]), atual = formacao().filter(function (x) { return k && chaveDoPrefixo(x.p) === k; })[0];
+  var parecidos = atual || k.length < 2 ? [] : formacao().filter(function (x) { return chaveDoPrefixo(x.p).indexOf(k) >= 0; }).slice(0, 8);
+  return (parecidos.length ? '<div class="seg-chips">' + parecidos.map(function (x) { return '<button type="button" class="chip" data-acao="campo" data-c="' + alvo + '" data-v="' + h(x.p) + '">' + h(x.p) + (x.n ? ' · ' + h(x.n) : '') + '</button>'; }).join('') + '</div>' : '') + '<div class="campo"><label>Ou procure pelo encarregado (nome ou matrícula)</label><input data-campo="encarregadoBusca" value="' + h(f.encarregadoBusca || '') + '"></div>' +
+    (achados.length ? '<div class="seg-chips">' + achados.map(function (x) { return '<button type="button" class="chip" data-acao="campo" data-c="' + alvo + '" data-v="' + h(x.p) + '">' + h(x.p) + ' · ' + h(x.n) + '</button>'; }).join('') + '</div>'
+      : q.length >= 3 ? '<p class="seg-sub">Nenhum encarregado com "' + h(f.encarregadoBusca) + '" na formação do mês.</p>' : '') +
+    (atual ? '<p class="seg-sub">' + h(atual.b) + ' · ' + (atual.n ? 'encarregado ' + h(atual.n) + (atual.m ? ' (' + h(atual.m) + ')' : '') : 'sem encarregado na formação do mês') + (atual.t ? ' · ' + h(atual.t) : '') + '</p>' : '');
+}
+function chavesDoSqp(f) { return { prefixo: f.equipe, placa: f.placa, mats: [] }; }
+function placaDaBlitz(f) { return f.alvoTipo === 'veiculo' ? f.alvoId : f.alvoTipo === 'equipe' ? f.placa : ''; }
+function chavesDaBlitz(f) { return { prefixo: f.alvoTipo === 'equipe' ? f.alvoId : '', placa: placaDaBlitz(f), mats: f.alvoTipo === 'pessoa' ? matsDoTexto(f.alvoId) : f.alvoTipo === 'equipe' ? matsDoTexto(f.integrantesTxt) : [] }; }
+
 /* ---------- Blitz ---------- */
 function telaBlitz() {
-  var f = S.form = S.form || { id: novoId('blz'), tipo: 'blitz', alvoTipo: 'pessoa', alvoId: '', cat: '', resp: {}, motivo: {}, fotos: {} };
+  var f = S.form = S.form || { id: novoId('blz'), tipo: 'blitz', alvoTipo: 'pessoa', alvoId: '', placa: '', condutor: '', integrantesTxt: '', cat: '', resp: {}, motivo: {}, fotos: {}, anterior: {} };
   if (!S.pacote) return '<div class="aviso atencao">A Blitz precisa do pacote (itens e catálogo). Abra com sinal uma vez.</div>';
   var cats = Object.keys(S.pacote.blitz).filter(function (c) { return f.alvoTipo === 'equipe' || S.pacote.blitz[c][0].alvo === f.alvoTipo; });
   if (cats.indexOf(f.cat) < 0) f.cat = cats[0] || '';
+  var equipe = (S.contexto && S.contexto.equipe) || [];
+  /* Na Blitz da equipe, a placa e quem estava presente. O Controle da Blitz de hoje não tem a placa em 1.071 das 1.111
+     linhas de equipe (contado em 24/10/2026), mesmo com item do caminhão; sem ela, o material não volta à placa. */
+  var daEquipe = f.alvoTipo !== 'equipe' ? '' : '<div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" value="' + h(f.placa) + '" autocapitalize="characters"></div>' +
+    '<div class="campo"><label>Matrículas de quem está presente (separadas por vírgula)</label><input data-campo="integrantesTxt" inputmode="numeric" value="' + h(f.integrantesTxt) + '"></div>' +
+    (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addIntegrante" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '');
   var html = '<div class="cartao"><div class="seg-tres">' + [['pessoa', 'Pessoa'], ['veiculo', 'Veículo'], ['equipe', 'Equipe']].map(function (x) { return '<button type="button" class="chip' + (f.alvoTipo === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="alvoTipo" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-    '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa', equipe: 'Prefixo da equipe' }[f.alvoTipo] + '</label><input data-campo="alvoId" value="' + h(f.alvoId) + '"></div></div>' +
+    '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa', equipe: 'Prefixo da equipe' }[f.alvoTipo] + '</label><input data-campo="alvoId" value="' + h(f.alvoId) + '"></div>' + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
+    painelAnterior(f, chavesDaBlitz(f)) +
     '<div class="seg-chips">' + cats.map(function (c) { var n = S.pacote.blitz[c].filter(function (it) { return f.resp[chaveBlitz(c, it.item)]; }).length; return '<button type="button" class="chip' + (f.cat === c ? ' ativo' : '') + '" data-acao="campo" data-c="cat" data-v="' + h(c) + '">' + h(c) + ' <b>' + n + '/' + S.pacote.blitz[c].length + '</b></button>'; }).join('') + '</div>';
   (S.pacote.blitz[f.cat] || []).forEach(function (it, i) {
     var k = chaveBlitz(f.cat, it.item), r = f.resp[k];
@@ -550,7 +633,10 @@ document.addEventListener('input', function (ev) {
     f[t.dataset.campo] = t.value;
     // No relato, o botão de enviar depende do que se digita: redesenha mantendo o cursor onde estava.
     if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
+    // A Blitz anterior e a sugestão do condutor aparecem enquanto se digita o prefixo, a placa ou quem está presente.
+    else if ((f.tipo === 'blitz' && /^(alvoId|placa|integrantesTxt|encarregadoBusca)$/.test(t.dataset.campo)) || (f.tipo === 'sqp' && /^(equipe|placa|encarregadoBusca)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
   }
+  if (t.dataset.vale && f.anterior && f.anterior[t.dataset.vale]) f.anterior[t.dataset.vale].matricula = t.value;
   if (t.dataset.obs !== undefined) f.obs[f._itens[+t.dataset.obs]] = t.value;
   if (t.dataset.manual) { f.manuais[t.dataset.manual] = t.value.replace(/\D/g, ''); }
   guardarRascunho();
@@ -592,6 +678,15 @@ document.addEventListener('click', function (ev) {
   if (a === 'addIrr') { f.irr.push({ desvio: f.nova.desvio, envolvidos: String(f.nova.envolvidosTxt || '').split(/[,;\s]+/).filter(String), foto: f.nova.foto, obs: f.nova.obs || '', solucionadaNaHora: !!f.nova.solucionadaNaHora }); f.nova = null; return desenhar(); }
   if (a === 'tirarIrr') { f.irr.splice(+b.dataset.i, 1); return desenhar(); }
   if (a === 'blitzResp') { f.resp[b.dataset.k] = v; return desenhar(); }
+  if (a === 'anterior') {
+    f.anterior = f.anterior || {};
+    var item = ((S.pacote && S.pacote.anteriores) || []).filter(function (x) { return x.r === b.dataset.r; })[0] || {}, quem = String(item.m || '').split(',').filter(String), antes = f.anterior[b.dataset.r] || {};
+    // Uma pessoa só no item: o vale já nasce no nome dela, e o inspetor troca se precisar.
+    f.anterior[b.dataset.r] = { resultado: v, matricula: antes.matricula || (v === 'vale' && quem.length === 1 ? quem[0] : '') };
+    return desenhar();
+  }
+  if (a === 'valeQuem') { f.anterior[b.dataset.r].matricula = v; return desenhar(); }
+  if (a === 'addIntegrante') { f.integrantesTxt = (String(f.integrantesTxt || '').trim() ? f.integrantesTxt + ', ' : '') + v; return desenhar(); }
   if (a === 'blitzMotivo') { f.motivo[b.dataset.k] = v; return desenhar(); }
   if (a === 'blitzFoto') return pedirFoto(function (id) { f.fotos[b.dataset.k] = id; });
   if (a === 'conf') { f.conf[b.dataset.m] = v === '1'; return desenhar(); }
@@ -602,17 +697,26 @@ document.addEventListener('click', function (ev) {
   if (a === 'salvarLuvas') return concluir({ id: f.id, tipo: 'luvas', fotoRosto: f.rosto, luvas: { classe: f.classe, esquerda: String(f.esquerda).trim(), direita: String(f.direita).trim(), par: String(f.esquerda).trim() + ' / ' + String(f.direita).trim(), inflagem: f.inflagem, visual: f.visual, foto: f.foto || '' } },
     f.inflagem === 'reprovado' || f.visual === 'reprovado' ? 'Par reprovado registrado: ele sai de uso.' : 'Teste de luvas salvo.');
   if (a === 'salvarVeicular' && !String(f.placa).trim() && falta('Digite a placa do veículo.')) return;
-  if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
+  if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: String(f.km || '').replace(/\D/g, '') }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
     itens: f._itens.map(function (it) { return { item: it.replace(/^Lataria /, 'Lataria '), estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) };
     return concluir(reg, reg.retido ? 'VEÍCULO RETIDO: não saia com ele até um superior liberar.' : 'Checklist veicular salvo.'); }
-  if (a === 'salvarSqp') return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, local: f.local, placa: f.placa, irregularidades: f.irr } }, 'Inspeção SQP salva (' + f.irr.length + ' irregularidade(s)).');
+  if (a === 'salvarSqp' && valeSemQuem(f, chavesDoSqp(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
+  if (a === 'salvarSqp') { var antS = anteriorParaEnviar(f, chavesDoSqp(f));
+    return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS } },
+      'Inspeção SQP salva (' + f.irr.length + ' irregularidade(s)' + (antS.length ? ', ' + antS.length + ' da Blitz anterior conferido(s)' : '') + ').'); }
   if (a === 'salvarBlitz' && !String(f.alvoId).trim() && falta('Diga quem ou o que foi inspecionado (matrícula, placa ou prefixo).')) return;
+  if (a === 'salvarBlitz' && valeSemQuem(f, chavesDaBlitz(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
   if (a === 'salvarBlitz') {
+    /* Os envolvidos de cada não conforme: a pessoa inspecionada; na equipe, quem estava presente (como o Controle da Blitz
+       de hoje faz com os integrantes); no veículo, quem conduz. */
+    var placaB = soPlaca(placaDaBlitz(f)), condutor = placaB ? matsDoTexto(f.condutor)[0] || '' : '', presentes = f.alvoTipo === 'equipe' ? matsDoTexto(f.integrantesTxt) : [];
+    var envolvidos = f.alvoTipo === 'pessoa' ? [f.alvoId] : f.alvoTipo === 'equipe' ? presentes : condutor ? [condutor] : [];
     var irr = Object.keys(f.resp).filter(function (k) { return f.resp[k] === 'NC'; }).map(function (k) {
       var p = k.split(SEP_BLITZ), it = (S.pacote.blitz[p[0]] || []).filter(function (x) { return x.item === p[1]; })[0];
-      return it ? { desvio: it.desvio, envolvidos: f.alvoTipo === 'pessoa' ? [f.alvoId] : [], itemBlitz: p[0] + ' · ' + it.item, motivo: f.motivo[k], foto: f.fotos[k] } : null;
-    }).filter(Boolean);
-    return concluir({ id: f.id, tipo: 'blitz', inspecao: { alvo: { tipo: f.alvoTipo, id: f.alvoId }, placa: f.alvoTipo === 'veiculo' ? f.alvoId : '', irregularidades: irr } }, 'Blitz salva (' + irr.length + ' não conforme).');
+      return it ? { desvio: it.desvio, envolvidos: envolvidos.slice(), itemBlitz: p[0] + ' · ' + it.item, motivo: f.motivo[k], foto: f.fotos[k] } : null;
+    }).filter(Boolean), antB = anteriorParaEnviar(f, chavesDaBlitz(f));
+    return concluir({ id: f.id, tipo: 'blitz', inspecao: { alvo: { tipo: f.alvoTipo, id: f.alvoId }, placa: placaB, condutor: condutor, integrantes: presentes, irregularidades: irr, anterior: antB } },
+      'Blitz salva (' + irr.length + ' não conforme' + (antB.length ? ', ' + antB.length + ' da anterior conferido(s)' : '') + ').');
   }
   if (a === 'fotoRelato') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); });
   if (a === 'tirarFotoRelato') { f.fotos.splice(+b.dataset.i, 1); return desenhar(); }
