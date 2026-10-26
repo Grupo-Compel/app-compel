@@ -424,7 +424,30 @@ function campo(id, rotulo, extra, dica) {
   return '<div class="campo"><label for="' + id + '">' + esc(rotulo) + '</label><input id="' + id + '" ' + extra + '>' + (dica ? '<div class="ajuda">' + esc(dica) + '</div>' : '') + '</div>';
 }
 function campoCpf() { return campo('cpf', 'Seu CPF', 'type="tel" inputmode="numeric" autocomplete="username" maxlength="14" placeholder="000.000.000-00"'); }
-function campoSenha(id, rotulo, nova) { return campo(id, rotulo, 'type="password" autocomplete="' + (nova ? 'new-password' : 'current-password') + '"'); }
+/* O botão de ver a senha digitada (pedido do Dalton, 26/10/2026; padrão da Interface, claude/PADRAO_VER_SENHA.md, com
+   as classes n-senha-linha e n-ver-senha da folha do Núcleo).
+   Duas diferenças do padrão, as duas porque o app é feito de outro jeito que o Portal:
+   - não há a lista CAMPOS_DE_SENHA. Todo campo de senha do app nasce desta função, então o campo e o botão saem juntos
+     e não têm como se desencontrar (o defeito que a lista e a conferência do padrão existem para pegar);
+   - não há o esconderTodasAsSenhas. A casca refaz a tela inteira a cada mudança (desenhar), e o campo volta escondido
+     e vazio sozinho. A bateria (T39) confere as duas coisas.
+   O rótulo carrega o estado ("Mostrar"/"Esconder"), sem aria-pressed, como a Interface decidiu (um estado, uma fonte). */
+function campoSenha(id, rotulo, nova) {
+  return '<div class="campo"><label for="' + id + '">' + esc(rotulo) + '</label><div class="n-senha-linha">' +
+    '<input id="' + id + '" type="password" autocomplete="' + (nova ? 'new-password' : 'current-password') + '">' +
+    '<button type="button" class="n-ver-senha" id="ver_' + id + '" data-acao="verSenha" data-campo="' + id + '" aria-label="Mostrar senha">Mostrar</button>' +
+    '</div></div>';
+}
+function alternarVerSenha(id) {
+  var c = $(id), b = $('ver_' + id);
+  if (!c || !b) return;
+  var aVista = c.type !== 'text';
+  c.type = aVista ? 'text' : 'password';
+  b.textContent = aVista ? 'Esconder' : 'Mostrar';
+  b.setAttribute('aria-label', (aVista ? 'Esconder' : 'Mostrar') + ' senha');
+  c.focus();
+  try { c.setSelectionRange(c.value.length, c.value.length); } catch (e) { /* campo que não aceita cursor: só não move */ }
+}
 function botao(acao, texto, ocupado, fantasma, desligado) {
   return '<button type="button" class="btn' + (fantasma ? ' fantasma' : '') + '" data-acao="' + acao + '"' + (desligado ? ' disabled' : '') + '>' + esc(texto) + '</button>';
 }
@@ -613,6 +636,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'ajuda') { E.ajuda = !E.ajuda; return desenhar(); }
   if (a === 'atualizar') return location.reload();
   if (a === 'escolher') { E.escolhida = b.getAttribute('data-chave') || ''; E.erro = ''; desenhar(); var c = $(E.escolhida ? 'senha' : 'cpf'); if (c) c.focus(); return; }
+  if (a === 'verSenha') return alternarVerSenha(b.getAttribute('data-campo'));
   if (a === 'entrarCpf') return entrarComCpf();
   if (a === 'entrarEscolhida') return entrarComoEscolhida();
   if (a === 'criarSenha') return criarSenha();

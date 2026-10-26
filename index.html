@@ -31,6 +31,16 @@
   .app-sinal.off { background: var(--ambar-claro); color: #8A5A00; } .app-sinal.on { background: var(--verde-claro); color: var(--verde); }
   .barra-versao { background: var(--grafite-claro); color: #fff; border: 0; width: 100%; min-height: 48px; font: inherit; font-weight: 600; cursor: pointer; }
   /* A entrada: quem já entrou neste celular, com a inicial no círculo grafite. */
+  /* PROVISÓRIO (26/10/2026): o desenho do botão de ver a senha. Ele é do Núcleo (classes n-senha-linha e n-ver-senha,
+     bloco da Interface 7afacb57…, carta nº 52 dela ao Núcleo) e ainda não chegou à cópia da folha do app
+     (estilo/nucleo.css, de 22/10). Sem isto o botão cai embaixo do campo, pequeno, com o desenho cru do navegador:
+     visto na tela em 26/10. SAI no mesmo commit em que a folha nova do Núcleo entrar, para não haver duas regras
+     com o mesmo nome. Duas classes no seletor, como a Interface fez, para ganhar da ".campo input" da folha. */
+  .campo .n-senha-linha { display: flex; gap: 8px; align-items: stretch; }
+  .campo .n-senha-linha > input { flex: 1 1 auto; min-width: 0; width: auto; }
+  .campo .n-ver-senha { flex: 0 0 auto; min-height: var(--toque); min-width: 44px; padding: 0 14px; border: 1.5px solid var(--linha);
+    border-radius: var(--raio-p); background: var(--superficie); color: var(--tinta); font-family: 'Inter', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer; }
   .app-rotulo { margin: 0 0 8px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-media); }
   .app-pessoas { display: grid; gap: 8px; margin-bottom: 14px; }
   .app-pessoas button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--toque); padding: 8px 12px; border: 1px solid var(--linha); border-radius: var(--raio); background: var(--superficie); font: inherit; color: inherit; text-align: left; cursor: pointer; }

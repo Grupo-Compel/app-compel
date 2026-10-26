@@ -950,6 +950,51 @@ var TESTES = {
     await entrarCpf(a.page, x.cpf, 'senha-da-ana');
     await esperarTexto(a.page, 'precisa de sinal');
     await a.ctx.close();
+  },
+  /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o
+     botão mostra e esconde com o rótulo acompanhando, e a senha não fica à vista quando a tela é refeita. */
+  T39_ver_a_senha_e_ela_nao_fica_a_vista: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    async function todoCampoTemBotao(tela) {
+      var faltam = await p.$$eval('input[type="password"]', function (cs) {
+        return cs.filter(function (c) { var b = document.getElementById('ver_' + c.id); return !b || b.type !== 'button' || b.parentNode !== c.parentNode; })
+          .map(function (c) { return c.id; });
+      });
+      var quantos = await p.$$eval('input[type="password"]', function (cs) { return cs.length; });
+      afirmar(quantos > 0, 'a tela ' + tela + ' devia ter campo de senha');
+      afirmar(!faltam.length, 'campo de senha sem o botão ao lado na tela ' + tela + ': ' + faltam.join(', '));
+    }
+    async function estado(id) {
+      return p.evaluate(function (id) { var c = document.getElementById(id), b = document.getElementById('ver_' + id);
+        return { tipo: c.type, valor: c.value, texto: b.textContent, nome: b.getAttribute('aria-label') }; }, id);
+    }
+    await p.waitForSelector('#senha');
+    await todoCampoTemBotao('de entrada');
+    await p.fill('#senha', 'segredo-123');
+    await p.click('#ver_senha');
+    var e = await estado('senha');
+    afirmar(e.tipo === 'text' && e.valor === 'segredo-123', 'o toque devia mostrar a senha sem apagá-la (tipo ' + e.tipo + ')');
+    afirmar(e.texto === 'Esconder' && e.nome === 'Esconder senha', 'o rótulo devia dizer Esconder, e disse ' + e.texto + ' / ' + e.nome);
+    await p.click('#ver_senha');
+    e = await estado('senha');
+    afirmar(e.tipo === 'password' && e.texto === 'Mostrar' && e.nome === 'Mostrar senha', 'o segundo toque devia esconder de novo');
+    // Mostrada e a tela refeita (a ajuda redesenha): volta escondida.
+    await p.click('#ver_senha');
+    await p.click('[data-acao="ajuda"]');
+    e = await estado('senha');
+    afirmar(e.tipo === 'password' && e.texto === 'Mostrar', 'a senha ficou à vista depois de a tela ser refeita');
+    // Outra tela, com senha e confirmação: cada uma tem o seu botão, e um não mexe no outro.
+    await p.click('[data-acao="irPrimeiro"]');
+    await p.waitForSelector('#senha2');
+    await todoCampoTemBotao('do primeiro acesso');
+    await p.fill('#senha2', 'outra-456');
+    await p.click('#ver_senha2');
+    afirmar((await estado('senha2')).tipo === 'text' && (await estado('senha')).tipo === 'password', 'o botão da confirmação devia mostrar só a confirmação');
+    // Voltando para a entrada, nada fica à vista.
+    await p.click('[data-acao="irEntrar"]');
+    await p.waitForSelector('#senha');
+    afirmar((await estado('senha')).tipo === 'password', 'a senha apareceu à vista ao voltar para a entrada');
+    await a.ctx.close();
   }
 };
 
