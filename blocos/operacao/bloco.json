@@ -1,0 +1,16 @@
+{
+  "nome": "Operação",
+  "dono": "Operação (a pasta veio do campo/ 7v.1, integrada pelo App em 27/10/2026)",
+  "especie": "ambas",
+  "quemVe": ["ENCARREGADO", "VIABILIZADOR", "FECHADOR", "SUPERVISOR", "PROGRAMADOR", "DIGITADOR", "DP", "ALMOXARIFADO", "CONSULTA", "ADMIN"],
+  "servidor": "OPERACAO",
+  "versao": "7v.1-app1",
+  "entrada": "index.html",
+  "arquivos": ["index.html", "app.js", "fila.js", "pdfjs/pdf.min.js", "pdfjs/pdf.worker.min.js"],
+  "cache": "operacao-campo-",
+  "envia": { "etiqueta": "enviar-diarios", "app": "campo", "script": "fila.js" },
+  "atalhos": [
+    { "id": "diario", "nome": "Diário da equipe", "icone": "📋", "perfis": ["ENCARREGADO", "SUPERVISOR", "ADMIN"] }
+  ],
+  "completo": ["VIABILIZADOR", "FECHADOR", "SUPERVISOR", "PROGRAMADOR", "DIGITADOR", "DP", "ALMOXARIFADO", "CONSULTA", "ADMIN"]
+}
