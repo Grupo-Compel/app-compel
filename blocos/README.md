@@ -3,6 +3,9 @@
 Cada pasta aqui é de **uma frente só**, a dona do bloco: `blocos/operacao/` é da Operação, `blocos/seguranca/` da
 Segurança, e assim por diante. A casca (a raiz do repositório) é da frente App Compel.
 
+> **Estado em 27/10/2026 (casca 1.11):** dois blocos no repositório, `seguranca` (0.4.1) e `operacao` (o `campo/` 7v.1 da
+> Operação, integrado pelo App por decisão do Dalton às 20h07). O Início tem o **Acesso rápido** (ver abaixo, `atalhos`).
+>
 > **Estado em 24/10/2026 (casca 1.7):** nenhum bloco entrou ainda; o primeiro a chegar é o da Segurança. A casca já tem tudo o que um bloco usa: o cartão no Início, a
 > tela do celular guardada para abrir sem sinal, a fila de envio com o segundo plano, a tela de Envio e a conferência
 > da declaração. A bateria da casca prova cada parte com um bloco de exemplo (`testes/bloco-exemplo/`), que nunca é
@@ -39,6 +42,8 @@ Sem ela, ou com ela incompleta, a conferência recusa a publicação.
 | `arquivos` | (celular e ambas) tudo o que o celular guarda para a tela abrir sem sinal, com o caminho a partir desta pasta. Todos têm de existir |
 | `cache` | (celular e ambas) o prefixo do cache deste bloco, só dele. A casca guarda o bloco em `<cache><versao>` e apaga só as versões velhas com este prefixo, e só depois de a nova estar inteira guardada |
 | `envia` | (só quem envia) `etiqueta`: o nome do envio em segundo plano, único no app; `app`: o que o servidor do bloco espera no campo `app`; `script`: o arquivo com as funções de envio (tem de estar em `arquivos`) |
+| `atalhos` | (celular e ambas; opcional) os formulários do **Acesso rápido** do Início: `[{ "id", "nome", "icone", "perfis" }]`. `perfis` são os perfis da pessoa **neste módulo** (o que o login devolve da `ACESSOS`); `"*"` vale para todos. O toque abre a `entrada` com o contexto `{ abrir: "<id>" }`, sem sinal: a tela lê pelo `Casca.iniciar().contexto` e vai direto ao formulário |
+| `completo` | (opcional) os perfis que veem o cartão do módulo em **Sistemas completos**. Sem ele, todos veem. Num bloco `ambas` com atalhos, esse cartão abre o sistema do Google (com o token), porque a tela do celular já está nos botões de cima |
 
 **Quem envia publica também `servidor.sha256`:** uma linha só, com o resumo SHA-256 do endereço do servidor do bloco
 (o `url` da `MODULOS`, sem os espaços das pontas). Antes de cada envio, a casca confere o endereço que veio do login
@@ -101,6 +106,7 @@ Carrega, nesta ordem, e começa por `Casca.iniciar('<pasta do bloco>')`:
 | `voltar()` | de volta para quem abriu a tela: o bloco que chamou, ou o Início |
 | `abrirBloco(id, contexto)` | abre a tela do celular de outro bloco levando o contexto. Funciona sem sinal. Devolve `{ erro }` se o contexto for recusado |
 | `sessaoNova(extra)` | (só quem envia) cria a sessão desta pessoa no servidor do bloco, a partir do token do Núcleo. Chamar no toque, com sinal (ver abaixo) |
+| `postar(corpo, ms)` | (só quem envia; casca 1.11) um pedido da **tela** ao servidor do bloco, fora da fila (o "ligar", o pacote, um documento): o endereço do login, conferido pelo resumo, com o `app` e a `versao` do bloco. Recusa com `{ servidorRecusado, msg }` quando o endereço não bate, e com `{ rede, comSinal, msg }` sem resposta. Não leva a sessão: o que precisa dela vai pela fila |
 | `temSessao()` | `{ tem, venceu, valeAte }`: se a sessão desta pessoa no servidor do bloco existe e não venceu. Nunca devolve a sessão |
 | `ajuda(elemento, texto)` | o "Como funciona esta tela", igual ao das telas da casca. Toda tela tem a dela |
 | `abrirSistema()` | (espécie ambas) abre a tela do sistema do bloco com a pessoa entrada. Chamar no toque |
