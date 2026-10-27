@@ -276,10 +276,17 @@ function siglaDe(m) { return String(m.modulo || m.nome || '?').replace(/[^A-Za-z
    O módulo que tem tela do celular neste app (um bloco de espécie celular ou ambas) abre a tela guardada no próprio
    celular, com ou sem sinal. O outro abre a tela do sistema, numa janela nova, com o token pedido no toque. */
 function telaDoCelular(m) { var b = cascaBlocoDoModulo(m.modulo); return b && b.entrada ? b : null; }
+/* O CARTÃO DE BAIXO ABRE O QUÊ (casca 1.11, 27/10/2026). Num bloco das duas espécies que tem acesso rápido, a tela do
+   celular já está nos botões de cima: o cartão de "Sistemas completos" é o sistema inteiro, o do Google, que é o que o
+   Dalton chamou de "módulo completo". Sem acesso rápido, o cartão continua abrindo a tela do celular, como antes. */
+function abreNoCelular(m) {
+  var b = telaDoCelular(m);
+  return b && !(b.especie === 'ambas' && Array.isArray(b.atalhos) && b.atalhos.length) ? b : null;
+}
 function abrirModulo(i) {
   var p = pessoaAtual(), m = p && p.modulos[i];
   if (!m || !m.url || m.liberado === false || !/^https:\/\/\S+$/.test(m.url)) return;
-  var b = telaDoCelular(m);
+  var b = abreNoCelular(m);
   if (b) { location.href = b.entrada; return; }
   if (!comSinal()) return mostrarErro('Sem sinal: as telas do sistema só abrem com sinal.');
   var janela = cascaAbrirJanela();
@@ -616,7 +623,7 @@ function cartaoDoModulo(m, i) {
   // O endereço vem da célula URL da MODULOS como está, só sem os espaços das pontas (carta nº 11 do Núcleo, 21/10/2026).
   // Uma quebra de linha ou um espaço no meio não sai com o trim, e o endereço não abre em lugar nenhum: o cartão diz
   // que a célula está com defeito, em vez de abrir uma página de erro do Google.
-  var breve = !m.url, defeito = !breve && !enderecoBom(m), travado = m.liberado === false, local = !!telaDoCelular(m), semRede = !comSinal() && !local;
+  var breve = !m.url, defeito = !breve && !enderecoBom(m), travado = m.liberado === false, local = !!abreNoCelular(m), semRede = !comSinal() && !local;
   var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : defeito ? 'O endereço deste sistema está com defeito na planilha. Avise a administração.' : semRede ? 'Precisa de sinal para abrir.' : '';
   return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
     (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +

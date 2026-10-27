@@ -60,6 +60,13 @@ function prepararSite() {
     "  document.getElementById('corpo').innerHTML = '<p id=\"pronto\">Outro</p><button type=\"button\" class=\"btn fantasma\" id=\"voltar\">Voltar</button><div id=\"ajuda\"></div>';\n" +
     "  Casca.ajuda(document.getElementById('ajuda'), 'A tela do outro bloco (só na bateria).');\n" +
     "  document.getElementById('voltar').addEventListener('click', function () { Casca.voltar(); });\n});\n");
+  // Um terceiro bloco, das duas espécies e com acesso rápido (T45): o cartão de baixo dele é o sistema do Google.
+  var terceiro = path.join(raiz, 'blocos', 'terceiro'); fs.mkdirSync(terceiro, { recursive: true });
+  fs.writeFileSync(path.join(terceiro, 'bloco.json'), JSON.stringify({ nome: 'Terceiro', dono: 'App Compel (só na bateria)', especie: 'ambas', quemVe: ['SUPERVISOR'],
+    servidor: 'TERCEIRO', versao: '1', entrada: 'index.html', arquivos: ['index.html', 'tela.js'], cache: 'terceiro-bloco-',
+    atalhos: [{ id: 'diario', nome: 'Diário da equipe', perfis: ['*'] }], completo: ['SUPERVISOR'] }));
+  fs.copyFileSync(path.join(outro, 'index.html'), path.join(terceiro, 'index.html'));
+  fs.writeFileSync(path.join(terceiro, 'tela.js'), fs.readFileSync(path.join(outro, 'tela.js'), 'utf8').replace("Casca.iniciar('outro')", "Casca.iniciar('terceiro')"));
   // Uma página vazia do mesmo site, para a bateria preparar o celular antes de o app abrir (T26).
   fs.writeFileSync(path.join(raiz, 'vazio.html'), '<!doctype html><title>vazio</title>');
   var r = require(path.join(REPOSITORIO, 'conferencia', 'indice.js')).montar(raiz);
@@ -1109,6 +1116,23 @@ var TESTES = {
     await entrarCpf(d.page, formatado(w.cpf), 'senha-da-ana'); await esperarTexto(d.page, 'Olá, Ana');
     afirmar(!(await d.page.$('#atalhos')), 'o módulo travado não pode dar atalho');
     await d.ctx.close();
+  },
+  /* O bloco das duas espécies com acesso rápido (casca 1.11): o atalho abre a tela do celular, e o cartão de baixo abre o
+     sistema do Google, com o token, numa janela. O cartão não diz "funciona sem sinal", porque o sistema precisa. */
+  T45_o_cartao_completo_abre_o_sistema: async function () {
+    var M = { modulo: 'TERCEIRO', nome: 'Operação', url: 'https://modulo.teste.invalid/terceiro', perfil: 'SUPERVISOR', liberado: true };
+    var x = loginComAna({ modulos: [M] }), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    afirmar((await texto(p, '#modulos')).indexOf('funciona sem sinal') < 0, 'o cartão do sistema completo não funciona sem sinal');
+    var aguardar = a.ctx.waitForEvent('page');
+    await p.click('#modulos .n-modulo[data-i="0"]');
+    var janela = await aguardar;
+    await janela.waitForURL(/modulo\.teste\.invalid\/terceiro\?t=tok-/);
+    afirmar(/\/index\.html$|\/$/.test(p.url()) && !/blocos/.test(p.url()), 'o app não podia ir para a tela do celular: ' + p.url());
+    await janela.close();
+    await p.click('#atalhos [data-atalho="diario"]');
+    await p.waitForURL(/\/blocos\/terceiro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
+    await a.ctx.close();
   },
   /* A tela do bloco fala com o servidor dela pelo Casca.postar (casca 1.11): o endereço do login, conferido pelo resumo,
      com o app e a versão do bloco. Com o endereço trocado, nada sai. */
