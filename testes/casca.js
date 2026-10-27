@@ -35,6 +35,7 @@ var REPOSITORIO = path.resolve(__dirname, '..');
 var LOGIN = 'https://login.teste.invalid/exec';
 var SERVIDOR_EXEMPLO = 'https://exemplo.teste.invalid/exec';
 var SERVIDOR_OUTRO = 'https://outro.teste.invalid/exec';
+var SERVIDOR_OPERACAO = 'https://operacao.teste.invalid/exec';
 
 /* ---------- a cópia do site, com o bloco de exemplo ---------- */
 function prepararSite() {
@@ -46,6 +47,9 @@ function prepararSite() {
   fs.writeFileSync(path.join(raiz, 'config', 'login.js'), "var ENDERECO_DO_LOGIN = '';\n");
   fs.cpSync(path.join(REPOSITORIO, 'testes', 'bloco-exemplo'), path.join(raiz, 'blocos', 'exemplo'), { recursive: true });
   fs.writeFileSync(path.join(raiz, 'blocos', 'exemplo', 'servidor.sha256'), crypto.createHash('sha256').update(SERVIDOR_EXEMPLO).digest('hex') + '\n');
+  // O bloco da Operação (T46) fala com um servidor imitado: na cópia, o resumo é o do endereço inventado. O arquivo do
+  // repositório, com o resumo do servidor de verdade, não muda.
+  fs.writeFileSync(path.join(raiz, 'blocos', 'operacao', 'servidor.sha256'), crypto.createHash('sha256').update(SERVIDOR_OPERACAO).digest('hex') + '\n');
   // Um segundo bloco, só do celular e sem envio, para o exemplo abrir com contexto (FRONTEIRA §5.4; T38). É a forma do
   // checklist da Segurança aberto pelo diário da Operação, sem o que é de cada um.
   var outro = path.join(raiz, 'blocos', 'outro'); fs.mkdirSync(outro, { recursive: true });
@@ -212,6 +216,12 @@ async function rotearServidores(ctx, S) {
     var resposta = S.responder ? S.responder(corpo) : { ok: true };
     setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify(resposta) }).catch(function () { }); }, S.demora);
   });
+  await ctx.route(SERVIDOR_OPERACAO + '*', function (r) {
+    var corpo = JSON.parse(r.request().postData() || '{}');
+    (S.operacao = S.operacao || []).push(corpo);
+    var resposta = S.responderOperacao ? S.responderOperacao(corpo) : { ok: true };
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify(resposta) }).catch(function () { });
+  });
   await ctx.route(SERVIDOR_OUTRO + '*', function (r) { S.noOutro.push(r.request().postData()); r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
 }
 async function texto(page, sel) { return (await page.textContent(sel || '#corpo')) || ''; }
@@ -236,9 +246,11 @@ async function oQueEstaGuardado(page) {
 function afirmar(cond, msg) { if (!cond) throw new Error(msg); }
 
 /* Uma pessoa com módulos na ordem da ORDEM da MODULOS (que não é a alfabética, de propósito). */
+/* O código PRODUCAO, e não OPERACAO, de propósito (27/10/2026): desde que a Operação é um bloco de verdade no repositório,
+   um módulo OPERACAO aqui mudaria o Início de todo teste (o acesso rápido dela). O bloco é provado no T46. */
 var MODULOS_DA_ANA = [
   { modulo: 'TREINAMENTO', nome: 'Treinamentos', url: 'https://modulo.teste.invalid/treino', perfil: 'ALUNO', liberado: true },
-  { modulo: 'OPERACAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao', perfil: 'ENCARREGADO', liberado: true },
+  { modulo: 'PRODUCAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao', perfil: 'ENCARREGADO', liberado: true },
   { modulo: 'FINANCEIRO', nome: 'Financeiro', url: 'https://modulo.teste.invalid/fin', perfil: 'CONSULTA', liberado: false, motivo: 'Complete seu cadastro para liberar' },
   { modulo: 'GESTAO_A_VISTA', nome: 'Gestão à Vista', url: '', perfil: 'CONSULTA', liberado: true },
   // A célula com uma quebra de linha no meio (carta nº 11 do Núcleo): o trim do Núcleo não a tira.
@@ -1083,7 +1095,7 @@ var TESTES = {
     var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true, grupo: 'Gestão de Segurança' };
     var mods = [
       { modulo: 'TREINAMENTO', nome: 'Treinamentos', url: 'https://modulo.teste.invalid/treino', perfil: 'ALUNO', liberado: true, grupo: 'Gestão de DP/RH' },
-      { modulo: 'OPERACAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao', perfil: 'ENCARREGADO', liberado: true },
+      { modulo: 'PRODUCAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao', perfil: 'ENCARREGADO', liberado: true },
       OUTRO,
       { modulo: 'BENEFICIOS', nome: 'Benefícios', url: 'https://modulo.teste.invalid/bene', perfil: 'CONSULTA', liberado: true, grupo: 'Gestão de DP/RH' }];
     var x = loginComAna({ modulos: mods }), a = await abrir(x.L), p = a.page;
@@ -1152,6 +1164,61 @@ var TESTES = {
     var e = await b.page.evaluate(function () { return Casca.postar({ acao: 'ligar', codigo: '123456' }).then(function () { return 'foi'; }, function (x) { return x; }); });
     afirmar(e && e.servidorRecusado && e.msg && T.noOutro.length === 0 && T.pedidos.length === 0, 'com o endereço que não bate, nada podia sair: ' + JSON.stringify(e) + ' / ' + T.noOutro.length);
     await b.ctx.close();
+  },
+  /* O app de campo da Operação dentro do App Compel (27/10/2026, decisão do Dalton às 20h07): o encarregado toca no acesso
+     rápido, liga o celular à equipe só com o código (o endereço é o do login, conferido pelo resumo), entra na equipe
+     com o token do Núcleo (sessaoDoNucleo, com a chave do ligar), e o diário encerrado sobe pela fila da casca com a
+     sessão dele. Sem sinal, no dia seguinte, a tela abre direto. */
+  T46_o_bloco_da_operacao_na_casca: async function () {
+    var S = novoServidor(), OP = { modulo: 'OPERACAO', nome: 'Operação', url: SERVIDOR_OPERACAO, perfil: 'ENCARREGADO', liberado: true };
+    S.responderOperacao = function (c) {
+      if (c.acao === 'ligar') return { ok: true, token: 'chave-eq', aparelho: 'Celular 7', prefixo: 'CPL-DOU-B210', login: true, base: 'DOU', nome: 'Equipe B210', mat: '' };
+      if (c.acao === 'sessaoDoNucleo') return { ok: true, sessao: 'sop-1', valeAte: Date.now() + 30 * 864e5, mat: '99901', nome: 'Ana Teste', funcoes: ['ENCARREGADO'], prefixos: ['CPL-DOU-B210'], via: 'NUCLEO' };
+      if (c.acao === 'pacote') return { ok: false, erro: 'Sem pacote na bateria.' };
+      if (c.acao === 'lancamento') return { ok: true };
+      return { ok: true };
+    };
+    var x = loginComAna({ modulos: [OP] }), a = await abrir(x.L, { servidor: S }), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    afirmar(!(await p.$('#modulos')), 'o encarregado não vê o sistema completo da Operação');
+    await p.click('#atalhos [data-atalho="diario"]');
+    await p.waitForURL(/\/blocos\/operacao\/index\.html#ctx=/);
+    await p.waitForSelector('#ligCodigo');
+    afirmar(!(await p.$('#ligUrl')), 'o endereço do servidor não se digita: vem do login');
+    await p.fill('#ligCodigo', '123456'); await p.click('[data-acao="ligar"]');
+    // "Ana Teste · 99901" só aparece na aba Hoje, depois de entrar (a tela de Entrar também diz o nome e a equipe).
+    await p.waitForFunction(function () { return /Ana Teste · 99901/.test(document.getElementById('corpo').textContent); }, null, { timeout: 15000 });
+    var lig = S.operacao.filter(function (c) { return c.acao === 'ligar'; }), ses = S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
+    afirmar(lig.length === 1 && lig[0].codigo === '123456' && lig[0].app === 'campo' && lig[0].versao === '7v.1-app1', 'o ligar devia ir ao servidor da Operação com o código, o app "campo" e a versão do bloco: ' + JSON.stringify(lig[0]));
+    afirmar(ses.length === 1 && ses[0].aparelho === 'chave-eq' && /^tok-/.test(ses[0].token), 'a entrada devia ser o sessaoDoNucleo com a chave do ligar e o token do Núcleo: ' + JSON.stringify(ses[0]));
+    afirmar(JSON.stringify(S.operacao).indexOf(x.cpf) < 0, 'nenhum pedido à Operação pode levar o CPF');
+    afirmar((await p.evaluate(function () { return Casca.temSessao(); })).tem, 'a sessão da Operação devia ficar guardada na casca');
+    // Um diário encerrado (plantão, sem foto) sobe pela fila da casca, com a sessão de quem o encerrou.
+    await p.evaluate(function () {
+      return guardarDiario({ id: 'd-teste-1', dia: hojeLocal(), estado: 'encerrado', encerradoEm: new Date().toISOString(), fotos: {}, arquivos: {},
+        form: { prefixo: 'CPL-DOU-B210', matEnc: '99901', nomeEnc: 'Ana Teste', tipoDia: 'PLANTAO', pessoas: [], codigos: [] } });
+    });
+    // A tela manda sozinha ao ligar (enviar('celular ligado')); a trava da casca responde "ocupado" a quem chega junto.
+    var r = { ocupado: true };
+    for (var k = 0; k < 20 && r && r.ocupado; k++) { r = await p.evaluate(function () { return Casca.pedirEnvio(); }); if (r && r.ocupado) await new Promise(function (ok) { setTimeout(ok, 250); }); }
+    var lanc = S.operacao.filter(function (c) { return c.acao === 'lancamento'; });
+    // Subir pelo pedido do teste ou pelo envio que a tela já fazia sozinha dá no mesmo: uma vez, e não duas.
+    afirmar(r && !r.ocupado && !r.erro && lanc.length === 1, 'o diário devia subir uma vez: ' + JSON.stringify(r) + ' / ' + lanc.length);
+    afirmar(lanc[0].sessao === 'sop-1' && lanc[0].token === 'chave-eq' && lanc[0].app === 'campo' && lanc[0].pacote.prefixo === 'CPL-DOU-B210', 'o lançamento devia levar a sessão da casca e a chave do celular: ' + JSON.stringify({ s: lanc[0].sessao, t: lanc[0].token, app: lanc[0].app }));
+    var estado = await p.evaluate(function () { return lerDiario('d-teste-1').then(function (d) { return d.estado; }); });
+    afirmar(estado === 'enviado', 'o diário devia ficar como enviado, e ficou ' + estado);
+    // O voltar leva ao Início do app.
+    await p.click('#voltarApp'); await esperarTexto(p, 'Acesso rápido');
+    // Sem sinal, a tela abre direto, com a pessoa que já entrou nesta equipe, e nada vai ao servidor. O "sem sinal" aqui é o
+    // que o celular diz à página (navigator.onLine), que é o que a tela consulta; a cópia guardada pelo service worker é
+    // provada no T16 e no T21.
+    var antes = S.operacao.length;
+    await a.ctx.addInitScript(function () { Object.defineProperty(Navigator.prototype, 'onLine', { get: function () { return false; } }); });
+    await p.click('#atalhos [data-atalho="diario"]');
+    await p.waitForFunction(function () { var c = document.getElementById('corpo'); return !!c && /Ana Teste · 99901/.test(c.textContent); }, null, { timeout: 15000 });
+    afirmar(!(await p.$('#ligCodigo')) && !(await p.$('[data-acao="entrar"]')), 'sem sinal, quem já entrou não devia ver Ligar nem Entrar');
+    afirmar(S.operacao.length === antes, 'sem sinal, nada podia ir ao servidor');
+    await a.ctx.close();
   },
   /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o
      botão mostra e esconde com o rótulo acompanhando, e a senha não fica à vista quando a tela é refeita. */
