@@ -30,21 +30,6 @@
   .app-sinal::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .app-sinal.off { background: var(--ambar-claro); color: #8A5A00; } .app-sinal.on { background: var(--verde-claro); color: var(--verde); }
   .barra-versao { background: var(--grafite-claro); color: #fff; border: 0; width: 100%; min-height: 48px; font: inherit; font-weight: 600; cursor: pointer; }
-  /* PROVISÓRIO (26/10/2026): o desenho do botão de ver a senha. Ele é do Núcleo (classes n-senha-linha e n-ver-senha,
-     bloco da Interface 7afacb57…, carta nº 52 dela ao Núcleo) e ainda não chegou à cópia da folha do app
-     (estilo/nucleo.css, de 22/10). Sem isto o botão cai embaixo do campo, pequeno, com o desenho cru do navegador
-     (visto na tela em 26/10). SAI no mesmo commit em que a folha nova do Núcleo entrar, para não haver duas regras
-     com o mesmo nome. Duas classes no seletor, como a Interface fez, para ganhar da ".campo input" da folha.
-     O olho fica DENTRO do campo, no canto direito (decisão do Dalton, 26/10/2026, 13h07); o campo ganha folga à
-     direita para o texto não correr por baixo do ícone. O alvo de toque é a altura inteira do campo, por 48px. */
-  .campo .n-senha-linha { position: relative; }
-  .campo .n-senha-linha > input { padding-right: 52px; }
-  .campo .n-ver-senha { position: absolute; top: 0; right: 0; bottom: 0; width: 48px; display: flex; align-items: center;
-    justify-content: center; padding: 0; border: 0; background: none; color: var(--tinta-media); cursor: pointer;
-    border-radius: 0 var(--raio-p) var(--raio-p) 0; }
-  .campo .n-ver-senha svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8;
-    stroke-linecap: round; stroke-linejoin: round; }
-  .campo .n-ver-senha:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -4px; }
   /* O "!" do relato, na barra grafite, e o que a tela do relato e os avisos da pessoa precisam (casca 1.9, 26/10/2026). */
   /* O fundo e o canto são os do .topo button da folha (o mesmo botão da barra do Portal); aqui só o tamanho do "!",
      grande o bastante para ser visto no sol (visto na tela em 26/10/2026: a 14px da folha, ele sumia). */
@@ -56,6 +41,14 @@
   .app-pessoal { border-left: 4px solid var(--vermelho); }
   .app-texto { margin: 6px 0; font-size: 16px; line-height: 1.5; }
   .app-print { margin: 6px 0; }
+  /* Erro ou sugestão (casca 1.10, 27/10/2026): dois botões lado a lado, com o alvo de toque da folha (--toque, 52px).
+     O marcado leva o --vermelho-forte no texto, e não o --vermelho da marca, que reprova como texto (o comentário do
+     :root da folha). Medido pela fórmula de luminância da WCAG em 27/10/2026, sobre os valores da folha: 6,12:1 sobre o
+     --vermelho-claro. O marcado também muda a borda, para não depender só da cor. */
+  .app-tipos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .app-tipo { min-height: var(--toque); padding: 10px 12px; border: 1.5px solid var(--linha); border-radius: var(--raio-p);
+    background: var(--superficie); color: var(--tinta-media); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .app-tipo.app-tipo-marcado { border: 2px solid var(--vermelho-forte); background: var(--vermelho-claro); color: var(--vermelho-forte); }
   /* A entrada: quem já entrou neste celular, com a inicial no círculo grafite. */
   .app-rotulo { margin: 0 0 8px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-media); }
   .app-pessoas { display: grid; gap: 8px; margin-bottom: 14px; }
@@ -124,7 +117,7 @@
 <header id="topo" class="topo oculto">
   <div class="marca-topo"><svg class="marca-svg" role="img" aria-label="Compel"><use href="#marca-horizontal"/></svg><span class="divisor-marca"></span><span class="sub">App</span></div>
   <div class="espaco"></div>
-  <button id="botaoRelato" type="button" class="app-relatar oculto" data-acao="relatar" aria-label="Relatar um problema no app">!</button>
+  <button id="botaoRelato" type="button" class="app-relatar oculto" data-acao="relatar" aria-label="Relatar um problema ou dar uma sugestão">!</button>
   <div class="acoes n-com-codigo"><span id="sinal" class="app-sinal off">Sem sinal</span><span id="codigo" class="n-codigo-tela"></span></div>
 </header>
 <button id="barraVersao" type="button" class="barra-versao oculto" data-acao="atualizar">Versão nova do app instalada. Toque para usar.</button>

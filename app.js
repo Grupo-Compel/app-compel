@@ -42,7 +42,7 @@ var E = {
   ajuda: false,
   ocupado: false,
   envio: {},          // id do bloco -> { pendentes, estado, acordadas, enviando }: o que a tela de Envio mostra
-  relato: null,        // { texto, foto, de }: o relato do "!" sendo escrito; só na memória, nunca vai ao disco
+  relato: null,        // { texto, foto, de, tipo }: o relato do "!" sendo escrito; só na memória, nunca vai ao disco
   relatoLigado: false  // o login já recebe relato (ver buscarAvisos)
 };
 
@@ -432,7 +432,13 @@ function marcarAvisoLido(id) {
    26/10/2026, 20h36), porque a página não pode tirar a foto da própria tela. */
 var TETO_DO_PRINT = 900 * 1024;   // em base64 fica perto de 1,2 MB; o Núcleo recusa acima de 2 MB (carta nº 3 dele ao Suporte)
 var RELATO_MINIMO = 10;            // uma frase: menos que isso não diz à triagem o que aconteceu
-function irRelato() { E.relato = { texto: '', foto: '', de: E.tela }; irPara('relato'); }
+/* ERRO OU SUGESTÃO (pedido do Dalton, 27/10/2026, 15h33; forma fechada pelo Núcleo na carta nº 1 dele ao Suporte, ao
+   Financeiro e ao App, 16h28). "Deu erro" nasce marcado porque o "!" foi feito para o erro, e quem abre com uma ideia
+   troca com um toque. O Núcleo grava ERRO quando o tipo não vem, então o app manda sempre um dos dois, por extenso. */
+var TIPOS_DE_RELATO = { ERRO: { botao: 'Deu erro', pergunta: 'O que aconteceu?', titulo: 'Relatar um problema', enviar: 'Enviar o relato', feito: 'Relato enviado' },
+  SUGESTAO: { botao: 'Tenho uma sugestão', pergunta: 'O que poderia melhorar?', titulo: 'Dar uma sugestão', enviar: 'Enviar a sugestão', feito: 'Sugestão enviada' } };
+function tipoDoRelato(r) { return r && r.tipo === 'SUGESTAO' ? 'SUGESTAO' : 'ERRO'; }
+function irRelato() { E.relato = { texto: '', foto: '', de: E.tela, tipo: 'ERRO' }; irPara('relato'); }
 function anexarPrint(arquivo) {
   if (!arquivo || !E.relato) return;
   E.ocupado = true; desenhar();
@@ -447,7 +453,8 @@ function enviarRelato() {
   var texto = String(r.texto || '').trim();
   if (texto.length < RELATO_MINIMO) return mostrarErro('Escreva pelo menos uma frase para enviar.');
   E.ocupado = true; desenhar();
-  var corpo = { acao: 'enviarRelato', sessao: p.sessao, texto: texto,
+  var tipo = tipoDoRelato(r);
+  var corpo = { acao: 'enviarRelato', sessao: p.sessao, texto: texto, tipo: tipo,
     contexto: { tela: CODIGOS[r.de] || r.de || '', versaoApp: VERSAO_APP, hora: new Date().toISOString(), fuso: fusoDe(p), erros: ultimosErros.slice() } };
   if (r.foto) corpo.foto = r.foto;
   return postarAoLogin(corpo).then(function (x) {
@@ -456,8 +463,14 @@ function enviarRelato() {
     if (!x || x.ok !== true) return mostrarErro((x && x.erro) || 'O login não recebeu o relato. Tente de novo.');
     var de = TELAS_DE_DENTRO.indexOf(r.de) >= 0 && r.de !== 'relato' ? r.de : 'inicio';
     E.relato = null;
-    irPara(de, 'Relato enviado' + (x.id ? ' (nº ' + x.id + ')' : '') + '. Quando for corrigido, o aviso aparece em Avisos.');
-  }, function () { mostrarErro('Sem sinal agora. O relato não foi. Tente de novo quando o sinal voltar.'); });
+    irPara(de, TIPOS_DE_RELATO[tipo].feito + (x.id ? ' (nº ' + x.id + ')' : '') + (tipo === 'SUGESTAO' ? '. Quando for avaliada' : '. Quando for corrigido') + ', o aviso aparece em Avisos.');
+  }, function () {
+    /* COM SINAL, A RESPOSTA QUE NÃO VOLTA NÃO QUER DIZER QUE O RELATO NÃO FOI (achado em 27/10/2026, pela pergunta da
+       carta nº 2 do Núcleo): a espera da casca é de 30 segundos, e o login pode gravar a linha depois que o app desistiu
+       de esperar. Dizer "não foi" leva a pessoa a tocar de novo, e o relato entra duas vezes, com dois números. */
+    mostrarErro(comSinal() ? 'A resposta do login não chegou. O relato pode ter ido assim mesmo: se tocar de novo, ele pode entrar duas vezes.'
+      : 'Sem sinal agora. O relato não foi. Tente de novo quando o sinal voltar.');
+  });
 }
 
 /* O celular guarda só a data do aviso mais novo que a pessoa já viu (FRONTEIRA §2.1): nada do conteúdo fica. */
@@ -484,7 +497,7 @@ var AJUDAS = {
   termo: 'A Compel pede que você leia e aceite este termo antes de abrir os sistemas. O aceite fica registrado com a data, e vale também para o Portal. Se o texto tiver um documento completo, ele abre pelo link. Precisa de sinal.',
   envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
   avisos: 'Em cima, o que é só para você (o problema que você relatou e foi corrigido, por exemplo): "Marcar como lido" tira o aviso daqui. Embaixo, as comunicações da Compel dos últimos 30 dias; as marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
-  relato: 'Algo deu errado no app? Conte com as suas palavras o que você tentou fazer e o que apareceu. A tela, a versão do app e a hora vão junto, sozinhas. Se quiser, anexe um print (tire o print com o botão do celular antes de abrir aqui). Precisa de sinal. Quando o problema for corrigido, o aviso aparece em Avisos.',
+  relato: 'Algo deu errado no app, ou você tem uma ideia para ele? Marque "Deu erro" ou "Tenho uma sugestão" e conte com as suas palavras: no erro, o que você tentou fazer e o que apareceu; na sugestão, o que poderia melhorar. A tela, a versão do app e a hora vão junto, sozinhas. Se quiser, anexe um print (tire o print com o botão do celular antes de abrir aqui). Precisa de sinal. Quando o problema for corrigido, o aviso aparece em Avisos.',
   perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal.'
 };
 function ajuda(tela) {
@@ -623,14 +636,19 @@ function avisosPessoaisHtml() {
   }).join('') + '</div>';
 }
 function telaRelato() {
-  var r = E.relato || (E.relato = { texto: '', foto: '', de: 'inicio' }), falta = String(r.texto).trim().length < RELATO_MINIMO;
-  var h = '<p class="etiqueta n-secao app-sem-margem">Relatar um problema</p>' + mensagens() +
+  var r = E.relato || (E.relato = { texto: '', foto: '', de: 'inicio', tipo: 'ERRO' }), falta = String(r.texto).trim().length < RELATO_MINIMO;
+  var tipo = tipoDoRelato(r), T = TIPOS_DE_RELATO[tipo];
+  // Dois botões grandes, e não uma lista: é um toque com luva, e as duas escolhas ficam à vista ao mesmo tempo.
+  var seletor = '<div class="app-tipos" role="group" aria-label="Erro ou sugestão">' + ['ERRO', 'SUGESTAO'].map(function (k) {
+    return '<button type="button" class="app-tipo' + (k === tipo ? ' app-tipo-marcado' : '') + '" data-acao="tipoRelato" data-tipo="' + k + '" aria-pressed="' + (k === tipo) + '">' + esc(TIPOS_DE_RELATO[k].botao) + '</button>';
+  }).join('') + '</div>';
+  var h = '<p class="etiqueta n-secao app-sem-margem" id="relatoTitulo">' + esc(T.titulo) + '</p>' + mensagens() +
     (comSinal() ? '' : '<div class="aviso atencao" id="relatoSemSinal">Sem sinal: o relato precisa de sinal para ir. O que você escreveu fica aqui enquanto o app estiver aberto.</div>') +
-    '<div class="cartao"><div class="campo"><label for="relatoTexto">O que aconteceu?</label><textarea id="relatoTexto" rows="5" class="app-texto-longo">' + esc(r.texto) + '</textarea>' +
+    '<div class="cartao">' + seletor + '<div class="campo"><label for="relatoTexto">' + esc(T.pergunta) + '</label><textarea id="relatoTexto" rows="5" class="app-texto-longo">' + esc(r.texto) + '</textarea>' +
     '<div class="ajuda">A tela, a versão do app e a hora vão junto, sozinhas.</div></div>' +
     '<div class="campo"><label>Print da tela (se quiser)</label>' + (r.foto ? '<p class="app-print" id="printAnexado">Print anexado ✓ <button type="button" class="link-texto" data-acao="tirarPrint">tirar</button></p>'
       : '<button type="button" class="btn fantasma auto" data-acao="anexarPrint"' + (E.ocupado ? ' disabled' : '') + '>Anexar um print</button>') + '</div>' +
-    botao('enviarRelato', E.ocupado ? 'Enviando…' : 'Enviar o relato', E.ocupado, false, E.ocupado || falta || !comSinal()) +
+    botao('enviarRelato', E.ocupado ? 'Enviando…' : T.enviar, E.ocupado, false, E.ocupado || falta || !comSinal()) +
     '<p class="ajuda' + (falta ? '' : ' oculto') + '" id="relatoFalta">Escreva pelo menos uma frase para enviar.</p>' +
     botao('voltarDoRelato', 'Voltar', false, true) + '</div>';
   return '<div class="conteudo">' + h + ajuda('relato') + '</div>';
@@ -758,6 +776,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'anexarPrint') { var i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = function () { anexarPrint(i.files && i.files[0]); }; return i.click(); }
   if (a === 'tirarPrint') { if (E.relato) E.relato.foto = ''; return desenhar(); }
   if (a === 'enviarRelato') return enviarRelato();
+  if (a === 'tipoRelato') { if (E.relato && !E.ocupado) E.relato.tipo = b.dataset.tipo === 'SUGESTAO' ? 'SUGESTAO' : 'ERRO'; return desenhar(); }
   if (a === 'sair') return sair();
   if (a === 'esquecer') return esquecerNesteCelular();
 });

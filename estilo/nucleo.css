@@ -1,11 +1,14 @@
 /*
-  CÓPIA DO ESTILO DO NÚCLEO, para o App Compel (trocada em 22/10/2026).
+  CÓPIA DO ESTILO DO NÚCLEO, para o App Compel (trocada em 27/10/2026).
 
   O app mora fora do Google e abre sem sinal, então ele não pode chamar o Nucleo.css() como os módulos fazem. Esta é
-  a folha do Núcleo como ele a mandou pelo Dalton em 22/10/2026 (Estilo.html de 81.150 bytes, md5 com CRLF
-  9f9ba41409e161d279738eb95d2fc005, sem CR 2eb8d6c036bf0cc3c49581bf7cd1a20f, conferidos contra a carta nº 13 do
-  Núcleo), com duas trocas só: o @import das fontes saiu (ver o aviso no lugar dele) e as quebras de linha são LF.
-  A cópia anterior era a de 18/10 (45.959 bytes, md5 f8ae7db3…).
+  a folha do Núcleo como ele a pôs na base em 27/10/2026 (claude/NUCLEO_ESTILO_b1372b3a.html, 122.384 bytes em LF,
+  md5 b1372b3afc515eee3662753a817d7243, conferido contra a carta nº 3 do Núcleo ao App e à Segurança), com uma troca
+  só: o @import das fontes saiu (ver o aviso no lugar dele). A cópia anterior era a de 22/10 (Estilo.html de 81.150
+  bytes, md5 sem CR 2eb8d6c036bf0cc3c49581bf7cd1a20f).
+
+  Esta folha já traz o olho da senha (.n-senha-linha, .n-ver-senha) e as listas (.campo select). Por isso a regra
+  provisória do olho saiu do index.html no mesmo commit: duas regras com o mesmo nome em dois arquivos é a família 39.
 
   NÃO EDITE AQUI. Mudança de visual da plataforma é do Núcleo, e chega ao app por carta: esta frente troca a cópia
   inteira e publica. O que é só do app (as abas de baixo, a lista de quem já entrou, a tela de Envio) mora no
@@ -24,7 +27,9 @@
   na base de conhecimento, onde ele e LIDO. Os dois deveriam ser iguais e nada
   aqui garante que sejam -- a copia da base so anda quando alguem a substitui.
 
-  ESTA COPIA FOI TIRADA DO INSTALADO EM 18/10/2026.
+  ESTA FOLHA E A DE 27/10/2026 (montada pelo Nucleo, md5 no `PENDENCIAS_NUCLEO`).
+  A frase que estava aqui dizia 18/10 e envelheceu sem ninguem ver (Operacao
+  nº 24, 26/10): a data do cabecalho tem de mudar a cada montagem.
   A data entra aqui porque a frente de Gestao a Vista descobriu que a copia
   da base estava quatro semanas atras comparando BYTES -- 26.132 contra
   45.602 --, e esse e um jeito caro de responder "de quando e esta copia?".
@@ -378,6 +383,12 @@ h3 { font-size: 18px; }
   h1        { font-size: 32px; }
 }
 
+/* O 1000 DAQUI TEM UM DEPENDENTE (25/10/2026): a regra `.n-portal-corpo >
+   .conteudo`, no bloco da Interface mais abaixo, desfaz este `max-width` com
+   centragem, e so vale do MESMO 1000px para cima. Mudar este numero sem mudar
+   aquele deixa o Portal com a sobra de volta numa faixa de largura, sem nada
+   acusar. Nao da para os dois lerem um valor so: variavel de CSS nao entra em
+   condicao de @media. */
 @media (min-width: 1000px) {
   .conteudo { max-width: 1480px; padding: 0 24px; }
 }
@@ -446,7 +457,12 @@ h3 { font-size: 18px; }
   color: var(--tinta-media);
   margin-bottom: 7px;
 }
-.campo input {
+/* A LISTA (select) USA A MESMA CAIXA DO CAMPO DESDE 26/10/2026, pedido do Dalton
+   ("como padrao"), pela Interface nº 57: um seletor a mais aqui, e nao uma segunda
+   copia da caixa, para as duas nunca divergirem. O resto do desenho da lista (a
+   seta, o travado) esta no fim da folha, na secao "AS LISTAS". */
+.campo input,
+.campo select {
   width: 100%;
   min-height: var(--toque);
   padding: 13px 15px;
@@ -457,7 +473,10 @@ h3 { font-size: 18px; }
   color: var(--tinta);
   background: #fff;
 }
-.campo input:focus {
+/* O foco da lista e o mesmo do campo: sem isto a lista desenhada perderia o
+   contorno do navegador e ficaria sem foco visivel nenhum (26/10/2026). */
+.campo input:focus,
+.campo select:focus {
   outline: none;
   border-color: var(--vermelho);
   box-shadow: 0 0 0 3px var(--vermelho-claro);
@@ -1518,6 +1537,47 @@ h3 { font-size: 18px; }
    "estava certa sobre o #1b1b1b que ela escreveu" vira "sobre o
    var(--grafite) que ela escreveu", que se contradiz. Trocas primeiro,
    comentarios depois. Errei isto na primeira colagem de hoje.
+
+   SEXTA VERSAO, 24/10/2026, noite (carta nº 42 da Interface). Colada pela
+   DIFERENCA contra a versao de 23/10 que a Interface tinha mandado, e nao por
+   cima do bloco: colar por cima desfaria as trocas por token acima.
+     - mudaram tres regras: a `.n-painel-arte` (320 -> 160px), o trio
+       titulo/data/link, e a arte e o titulo no celular (teto de 420px);
+     - nasceram nove classes: `.n-so-celular`, `.n-menu-pe-bloco`,
+       `.n-menu-ajuda`, `.n-menu-ajuda-icone` e as cinco `.n-ajuda-*`;
+     - as cores novas viraram os MESMOS tokens das regras irmas: o hover da
+       ajuda e o do item do menu (`--grafite-claro`), e nao um cinza proprio.
+       O `#3f4449` da resposta da ajuda ficou a mao, como o da `.n-cat`.
+     - nenhuma outra regra desta folha limita a arte (procurado em 24/10), entao
+       o teto de 420px da Interface nao briga com nada daqui.
+
+   SETIMA VERSAO, 25/10/2026, manha (carta nº 45 da Interface). Colada pela
+   diferenca contra a sexta, como ela:
+     - a `.n-portal-corpo > .conteudo` perdeu o limite de largura e a centragem
+       (os 173px entre o menu e a faixa, na tela do Dalton de 24/10, 21h17);
+     - nasceu a `.n-painel-grande` (a faixa cresce quando nada vem abaixo), e o
+       NUCLEO a pos dentro de `@media (min-width: 901px)` -- o motivo e a
+       medicao estao ao lado dela;
+     - nasceram as seis classes dos grupos do menu (`.n-menu-grupo`,
+       `.n-menu-espera`, `.n-menu-seta`, `.n-menu-filho` e as combinacoes), e
+       as quatro cores delas viraram os tokens das regras irmas; os dois
+       comentarios de contraste foram refeitos sobre o --grafite.
+
+   OITAVA VERSAO, 25/10/2026, 09h50 (carta nº 46 da Interface). Pela diferenca
+   contra a setima, tres trechos, nenhuma cor nova:
+     - a `.n-portal-corpo > .conteudo` sem limite de largura so de 1000px para
+       cima (no celular ela tirava 28px de largura e o respiro do fim);
+     - o envelope da `.n-painel-grande` passou a ser da Interface, com o motivo
+       escrito por ela; a nota que o Nucleo tinha posto ao lado saiu;
+     - o comentario do recuo de 42px do filho foi corrigido; o valor ficou.
+
+   NONA VERSAO, 25/10/2026, 10h20 (carta nº 47 da Interface). Um trecho novo:
+   a faixa "A AJUDA EM CIMA DA TELA", o estilo do kit da ajuda
+   (`claude/AJUDA_KIT_estilo.css`), que esta folha ainda nao tinha -- procurado
+   em 25/10: nenhuma `.ajuda-*` antes desta versao, entao nao ha duas copias.
+   As regras do kit conferem uma a uma com o arquivo da base; as diferencas
+   sao as duas do Portal, marcadas no proprio bloco (o "?" por classe, e o
+   link do cartao de login). Nenhuma cor nova: o kit ja usava os tokens.
    ========================================================================= */
 /* ===================================================================== *
  *  MENU LATERAL E PAINEL DE COMUNICACOES  --  Interface, 20/10/2026
@@ -1667,9 +1727,25 @@ h3 { font-size: 18px; }
  * tamanho real depois de baixar, e em 4G ruim isso e a tela pulando. A arte
  * entra INTEIRA (`contain`), nunca recortada: ela carrega texto.
  */
+/*
+ * A ALTURA CAIU DE 320px PARA 160px EM 24/10/2026, a pedido do Dalton olhando
+ * o Portal no ar: "essa faixa nao precisa ocupar esse pedaco todo aqui em
+ * cima... a gente pode de repente cortar ela na metade".
+ *
+ * MEDIDO em 24/10, no prototipo com esta folha: o cartao da faixa passou de
+ * ~358px (320 + 18 de recuo em cima e embaixo + borda) para 194px.
+ *
+ * E A ALTURA NAO ERA O PROBLEMA INTEIRO. A faixa e um Split Screen, e esse
+ * arranjo pede DOIS PESOS IGUAIS -- o texto de uma comunicacao e curto demais
+ * para equilibrar a arte, e e por isso que o lado direito parecia vazio.
+ * Cortar a altura deixa a arte mais ESTREITA (a largura sai da proporcao), o
+ * que da ainda MAIS espaco ao texto. Por isso vem junto o `max-width` do
+ * titulo, tres regras abaixo: o vazio da direita passa a ser de proposito, e
+ * e onde a agenda de tarefas entra quando existir.
+ */
 .n-painel-arte {
   flex: 0 0 auto;
-  height: 320px;
+  height: 160px;
   border-radius: 8px;
   background: #eef0f3;
   overflow: hidden;
@@ -1678,8 +1754,22 @@ h3 { font-size: 18px; }
   justify-content: center;
 }
 
-.n-arte-4x5 { width: 256px; }   /* 320 x 0,8 */
-.n-arte-1x1 { width: 320px; }
+/*
+ * A PROPORCAO VEM DO DADO, E NAO DE UMA LISTA DE DUAS. (22/10/2026)
+ * ===========================================================================
+ * Aqui havia `.n-arte-4x5` (256px) e `.n-arte-1x1` (320px), e a tela escolhia
+ * uma das duas: tudo que nao fosse `1:1` virava `4:5`.
+ *
+ * **O contrato do Nucleo e mais largo que isso** (carta no 28 deles): a coluna
+ * `proporcao` vem sempre como `a:b`, qualquer `a` e `b`. Uma arte `16:9`
+ * entrava numa caixa de 256x320 -- sem distorcer, porque o `object-fit` e
+ * `contain`, mas com duas faixas vazias enormes e a caixa reservando o espaco
+ * errado antes de a imagem chegar, que e a unica razao de a coluna existir.
+ *
+ * Com a largura saindo da altura e da proporcao, nao ha caso especial: 4:5
+ * continua dando 256px, 1:1 continua dando 320, e 16:9 passa a dar 569.
+ */
+.n-arte-livre { width: auto; }
 
 .n-painel-img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
@@ -1718,9 +1808,22 @@ h3 { font-size: 18px; }
   color: var(--vermelho-forte);
 }
 
-.n-painel-titulo { margin: 14px 0 0; font-size: 26px; line-height: 1.22; letter-spacing: -.015em; }
-.n-painel-data   { margin: 7px 0 0; font-size: 13.5px; color: var(--tinta-media); }
-.n-painel-link   { margin-top: 12px; align-self: flex-start; font-size: 14px; }
+/*
+ * 20px E NAO 26px, E A MEDIDA DO TEXTO E LIMITADA -- as duas por causa da
+ * faixa pela metade (24/10/2026).
+ *
+ * O tamanho: titulo de 26px numa caixa de 160px empurra a data e o link para
+ * fora quando o titulo tem duas linhas.
+ *
+ * O `max-width`: com a arte estreita, a coluna de texto passa de 1000px num
+ * monitor de 1440 -- e uma linha de titulo com 1000px de largura nao se le,
+ * se varre. 34 caracteres de medida e o que mantem o titulo em duas linhas
+ * curtas, e o espaco que sobra a direita fica reservado de proposito.
+ */
+.n-painel-titulo { margin: 12px 0 0; font-size: 20px; line-height: 1.25;
+                   letter-spacing: -.015em; max-width: 34ch; }
+.n-painel-data   { margin: 5px 0 0; font-size: 13px; color: var(--tinta-media); }
+.n-painel-link   { margin-top: 10px; align-self: flex-start; font-size: 14px; }
 
 .n-painel-pontos { margin: auto 0 0; padding-top: 18px; display: flex; gap: 7px; align-items: center; }
 
@@ -1811,6 +1914,97 @@ h3 { font-size: 18px; }
    * O conserto que mexe na tela que ja estava certa nao e conserto: e troca.
    */
   align-self: stretch;
+
+  /*
+   * O RECUO E O LIMITE DE LARGURA PASSARAM A SER DAQUI EM 24/10/2026, as 21h17,
+   * quando o Dalton olhou o Portal com a grade fora e disse: "temos espaco
+   * entre o menu lateral e o comeco dos dados".
+   *
+   * **MEDIDO NA FOTO DA TELA DELE** (1919px de largura): o menu acaba em 232 e
+   * o cartao comeca em 405 -- **173px de nada**, e os mesmos 173 do outro lado.
+   * Com a grade embaixo isso nao se via; sem ela, a faixa fica sozinha no meio
+   * de uma area branca.
+   *
+   * **ESTA FRENTE NAO LE O `Estilo.html` DO NUCLEO**, entao nao sabe se os
+   * 173px vinham de recuo ou de um `max-width` com centragem. Por isso a regra
+   * zera os tres de uma vez: qualquer que fosse a causa, ela fica resolvida.
+   * E ela ganha da de la por especificidade (duas classes contra uma), sem
+   * precisar que ninguem mexa no arquivo deles.
+   *
+   * As telas de texto nao perdem medida com isto: o aviso tem `max-width` na
+   * propria linha, e a ajuda tem a `.n-ajuda-corpo` de 68ch.
+   */
+}
+
+/*
+ * E ELA SO VALE DE 1000px PARA CIMA -- corrigido em 25/10/2026, depois de o
+ * Nucleo ler a folha deles e medir (carta no 37, item 3).
+ *
+ * O QUE ELES ACHARAM, e nos nao tinhamos como ver: a `.conteudo` do Nucleo
+ * muda em 1000px. Ate 999 ela e `max-width: 720px; margin: 0 auto;
+ * padding: 20px 16px 56px`; de 1000 para cima, **`max-width: 1480px`** com
+ * margem automatica -- e e SO ISSO que criava a sobra numa tela larga. Abaixo
+ * de 1000 nao ha sobra nenhuma: num telefone de 390px o limite de 720 nunca
+ * pega e a margem automatica nao tem o que centrar.
+ *
+ * **ENTAO A NOSSA REGRA SOLTA ESTAVA PIORANDO O CELULAR**: medido por eles no
+ * Chromium em 25/10, numa janela de 390px, o recuo lateral ia de 16px para
+ * 30px -- **28px de largura perdidos** -- e o respiro de 56px do fim da pagina
+ * sumia. **Nao era querido**, e esta e a resposta ao item 1 do que eles
+ * pediram.
+ *
+ * O CORTE E 1000, E NAO 901, de proposito: e exatamente onde mora a regra
+ * deles que causa a sobra. Abaixo disso a folha do Nucleo ja esta certa, e
+ * mexer seria trocar sem motivo.
+ */
+@media (min-width: 1000px) {
+  .n-portal-corpo > .conteudo {
+    max-width: none;
+    margin: 0;
+    padding: 26px 30px;
+  }
+}
+
+/* ===================================================================== *
+ *  A FAIXA CRESCE QUANDO NAO HA NADA ABAIXO DELA  --  24/10/2026, 21h17
+ *
+ *  O DALTON: "a comunicacao ficou pequena demais, e se eu nao tenho nada
+ *  para mostrar abaixo ela pode ocupar um espaco maior."
+ *
+ *  POR QUE ISTO E UMA CLASSE E NAO UM TAMANHO NOVO: as duas coisas que ele
+ *  pediu sao a MESMA coisa vista em dois momentos. Em 24/10 de tarde ele
+ *  pediu a faixa pela metade **porque a grade estava embaixo dela**; agora a
+ *  grade saiu, e com a coluna vazia a mesma faixa ficou pequena. Um tamanho
+ *  fixo acerta um dos dois casos e erra o outro **no dia em que a agenda e os
+ *  indicadores entrarem** -- e ninguem lembraria de vir aqui desfazer.
+ *
+ *  ENTAO QUEM DECIDE E A TELA, olhando se ha algo visivel depois do painel
+ *  (`ajustarAlturaDoPainel`, no `Script.html`). Hoje, no computador, nao ha --
+ *  e a faixa nasce grande. Quando a agenda entrar, ela encolhe sozinha, sem
+ *  ninguem tocar nesta folha.
+ *
+ *  NO CELULAR A CLASSE NAO FAZ NADA -- E O ENVELOPE ABAIXO E QUE GARANTE ISSO.
+ *
+ *  **ESTE COMENTARIO JA ESTEVE ERRADO, e o erro era de raciocinio.** Ele dizia
+ *  que no celular "a regra do bloco de 900px vem depois desta e ganha". **A
+ *  ordem so desempata regras de MESMO PESO.** Estas tres tem duas classes
+ *  (`.n-painel-grande .n-painel-arte`); as do bloco do celular tem uma
+ *  (`.n-painel-arte`). Entao estas ganhavam la tambem, e a faixa saia grande
+ *  no telefone.
+ *
+ *  **ACHADO E MEDIDO PELO NUCLEO** (carta no 37, item 6), no Chromium, 25/10,
+ *  numa janela de 390px com a classe ligada: a arte 1:1 saia com **292 de
+ *  largura por 360 de altura** -- deformada --, e o titulo com 26px. Com o
+ *  envelope: 292 por 292, titulo 18px. No computador nada muda.
+ *
+ *  O ENVELOPE FICA, e quem mexer nestas regras mantem: sem ele, a correcao
+ *  depende de o `ajustarAlturaDoPainel` nunca ligar a classe num telefone --
+ *  e girar um tablet nao redesenha a tela.
+ * ===================================================================== */
+@media (min-width: 901px) {
+  .n-painel-grande .n-painel-arte  { height: 360px; }
+  .n-painel-grande .n-painel-titulo { font-size: 26px; max-width: 42ch; }
+  .n-painel-grande .n-painel-data   { margin-top: 7px; font-size: 14px; }
 }
 
 /* A espera fica com TODA a altura que sobra, e ai o `justify-content: center`
@@ -1984,6 +2178,379 @@ h3 { font-size: 18px; }
 }
 .n-base-motivo input:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 1px; }
 
+/* ============================================================
+   A CONFIRMACAO DA REATIVACAO, na barra de salvar  (Interface, 23/10/2026)
+   ============================================================
+   SETIMA VERSAO DO BLOCO DA INTERFACE (19.131 bytes, md5
+   2ea07e5092447a2774fa82ca7fe6e6a1, igual ao da carta 41 deles, conferido na
+   forma LF em 23/10/2026; chegou aqui em CRLF e sem a quebra final, como diz o
+   MD5_QUE_NAO_BATE). Conferido por diff contra a sexta, regra a regra, sem os
+   comentarios e com os tokens desta folha trocados de volta pelos hex dela:
+   **so esta secao mudou.** As outras 433 linhas do bloco ja estao acima, com os
+   tokens e os comentarios que o Nucleo corrigiu nas versoes anteriores.
+
+   A barra lista em palavras o que vai acontecer, e desde 23/10 uma dessas
+   linhas e uma PERGUNTA: o acesso marcado estava revogado, e reativar desfaz
+   uma decisao que alguem tomou.
+
+   A caixinha fica NA LINHA do item, e nao no fim da barra: com cinco marcacoes
+   e duas perguntas, uma caixinha solta no rodape nao diz a qual item ela
+   responde -- e responder a pergunta errada aqui reativa a pessoa errada.
+
+   SEM COR PROPRIA, e entao sem token a trocar: a barra inteira ja e o lugar do
+   "ainda nao salvo", e o peso vem do negrito e das MAIUSCULAS que o
+   `frasePara` escreve. */
+.n-adm-reativar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-weight: 600;
+  /* Alvo de toque: a caixinha desenhada tem 13px, e o rotulo inteiro e
+     clicavel porque e um `<label>`. O padding vertical leva a area a 44px sem
+     mexer no desenho -- o mesmo recurso do `.n-painel-ponto`, mais acima nesta folha. */
+  padding: 11px 0;
+  cursor: pointer;
+}
+/* A caixinha nao encolhe quando a linha quebra ao lado dela. */
+.n-adm-reativar input { flex: 0 0 auto; margin: 0; }
+
+/* ===================================================================== *
+ *  A GRADE SAIU DO COMPUTADOR E FICOU NO CELULAR  --  24/10/2026
+ *
+ *  O DALTON TEM RAZAO sobre o computador: "quando a gente colocou o menu
+ *  lateral, a gente ja resolveu o problema". O menu mostra os mesmos modulos,
+ *  na mesma ordem, e escreve o motivo de um modulo bloqueado na linha de
+ *  baixo do item -- exatamente o que o cartao escreve no `.n-motivo`.
+ *
+ *  **MAS NO CELULAR O MENU NAO DIZ A MESMA COISA**, e isso e o achado que
+ *  segurou esta regra em `max-width` em vez de simplesmente apagar a grade:
+ *  abaixo de 900px o menu vira uma fita que rola na horizontal, e a regra
+ *  `.n-menu-abaixo { display: none }`, 30 linhas abaixo nesta folha, **esconde
+ *  a linha onde o motivo esta escrito**. Sem a grade, quem abre pelo telefone
+ *  veria um item apagado e NENHUMA explicacao -- que e a forma exata do
+ *  defeito de 18/09 ("card apagado sem explicacao parece defeito, e vira
+ *  chamado para o RH"), por outro caminho.
+ *
+ *  POR QUE EM CSS E NAO EM JAVASCRIPT: girar um tablet nao pode exigir que a
+ *  tela redesenhe. O servidor continua mandando os cartoes e a tela continua
+ *  desenhando os dois -- quem escolhe o que aparece e a largura.
+ *
+ *  O `semModulos` ("nenhum sistema liberado para voce") FICA DE FORA desta
+ *  classe de proposito. Quem nao tem nenhum modulo tem o menu vazio, e no
+ *  computador essa frase passaria a ser a unica coisa na tela -- apaga-la
+ *  deixaria a pessoa diante de uma area branca sem explicacao nenhuma.
+ * ===================================================================== */
+.n-so-celular { display: none; }
+
+/* ===================================================================== *
+ *  OS GRUPOS DO MENU  --  25/10/2026
+ *
+ *  A FORMA E A SETA, por decisao do Dalton. O grupo e um botao que abre e
+ *  fecha, e os modulos dele entram recuados embaixo.
+ *
+ *  ENQUANTO A COLUNA `GRUPO` NAO EXISTIR, NENHUMA DESTAS REGRAS PEGA: sem
+ *  grupo, a tela nao desenha `.n-menu-grupo` nenhum. Elas podem entrar na
+ *  folha hoje sem mudar um pixel do que esta no ar.
+ * ===================================================================== */
+
+/* O botao do grupo e um item de menu com outra tipografia: o nome em peso
+   normal, para o grupo nao competir com o modulo que a pessoa procura. */
+.n-menu-grupo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  box-sizing: border-box;
+  /* 48px, a mesma regra de toque dos modulos. */
+  min-height: 48px;
+  padding: 9px 18px;
+  border: 0;
+  background: transparent;
+  color: var(--superficie);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.n-menu-grupo:hover:not(:disabled) { background: var(--grafite-claro); }
+.n-menu-grupo:focus-visible { outline: 2px solid var(--superficie); outline-offset: -2px; }
+/* O grupo que nao fecha (tem algo esperando a pessoa) e `disabled`, e sem esta
+   regra ele herdaria o cinza de item bloqueado -- dizendo "voce nao pode"
+   quando a verdade e "isto fica aberto para voce". */
+.n-menu-grupo:disabled { opacity: 1; cursor: default; }
+
+/*
+ * O FILETE VERMELHO DO GRUPO, e esta regra existe por um defeito visto na
+ * imagem renderizada em 25/10/2026: **o grupo marcado nao tinha filete.**
+ * A causa e o `border: 0` do `.n-menu-grupo` oito linhas acima -- ele vem
+ * depois do `.n-menu-resolve` nesta folha e apagava a borda dele. Pintar o
+ * grupo so pelo texto deixava a marca fraca justamente no caso que ela
+ * existe para resolver.
+ */
+.n-menu-grupo.n-menu-resolve { border-left: 3px solid var(--vermelho); padding-left: 15px; }
+
+/*
+ * E A LINHA DE BAIXO DO GRUPO VOLTA AO CINZA. Pelo `.n-menu-resolve
+ * .n-menu-abaixo` ela saia inteira em rosa -- inclusive o "2 bloqueados",
+ * que nao espera ninguem. **Vermelho que pinta tudo nao aponta nada.**
+ * So o trecho que espera a pessoa fica rosa, pelo `.n-menu-espera` abaixo.
+ */
+.n-menu-grupo.n-menu-resolve .n-menu-abaixo { color: #9aa0a6; }
+.n-menu-espera { color: #ff9ca1; }   /* 8,17:1 sobre o --grafite (Nucleo, 21/10/2026); a mesma cor
+   e o mesmo motivo de ficar a mao do `.n-menu-resolve .n-menu-abaixo`, acima. */
+
+/* A seta ocupa a MESMA coluna dos icones dos modulos, para o nome do grupo e o
+   nome do modulo comecarem na mesma vertical. */
+.n-menu-seta {
+  flex: 0 0 22px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1;
+  color: #8e949b;   /* 5,32:1 sobre o --grafite (Nucleo, 21/10/2026): o mesmo cinza
+                       do `.n-menu-rotulo`, e a mesma razao de nao virar token. */
+}
+
+/*
+ * O RECUO DO FILHO E DE 42px, E O NUMERO FICA -- mas o motivo escrito aqui
+ * estava errado, e o Nucleo mediu (carta no 37, item 6, 25/10/2026).
+ *
+ * O COMENTARIO DIZIA que com 42px o nome do modulo cairia **alinhado** com o
+ * nome do grupo. Nao cai, e a conta (18 + 22 + 2) esquecia os 11px de espaco
+ * entre a coluna do icone e o texto. **Medido por eles em 1919px:** o nome do
+ * grupo comeca em 51px e o nome do modulo em 75px.
+ *
+ * **O VALOR CONTINUA SENDO O CERTO, pelo motivo de verdade:** 75 contra 51 da
+ * um degrau de **24px**, que e o que faz a arvore se ler pela indentacao sem
+ * precisar de filete. Alinhar os dois nomes exigiria recuo 18 -- ou seja,
+ * nenhum degrau -- e por o icone do filho embaixo do nome do grupo exigiria
+ * 51, um degrau de 33 que empurra o nome do modulo para perto da borda.
+ *
+ * Fica registrado porque **numero certo com motivo errado passa na revisao e
+ * quebra na primeira mudanca**: quem mexesse no espaco de 11px acharia que
+ * bastava refazer a soma.
+ */
+.n-menu-filho { padding-left: 42px; }
+.n-menu-filho .n-menu-nome { font-weight: 500; }
+
+/* ===================================================================== *
+ *  O PE DO MENU E A AJUDA  --  24/10/2026
+ *
+ *  A AJUDA ENTROU NO PORTAL a pedido do Dalton ("a tela de ajuda a gente
+ *  precisa colocar aqui dentro"), e ela mora no PE do menu por dois motivos:
+ *  ali ela nao disputa espaco com sistema nenhum, e o pe do menu e onde fica
+ *  o que e sempre verdade e nunca e o assunto.
+ *
+ *  O BLOCO EXISTE PORQUE SAO DOIS ELEMENTOS AGORA. Ate hoje o pe era um <p>
+ *  so, com `margin: auto 0 0` empurrando-o para baixo. Com o botao ao lado,
+ *  duas margens `auto` dividiriam o espaco entre os dois e nenhum dos dois
+ *  encostaria no fim. O bloco recebe o `auto` e os filhos zeram.
+ * ===================================================================== */
+.n-menu-pe-bloco { margin: auto 0 0; }
+.n-menu-pe-bloco .n-menu-pe { margin: 0; }
+
+.n-menu-ajuda {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  box-sizing: border-box;
+  /* 48px, a mesma regra de toque dos itens do menu logo acima. */
+  min-height: 48px;
+  padding: 9px 18px;
+  border: 0;
+  background: transparent;
+  color: var(--superficie);
+  text-align: left;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.n-menu-ajuda:hover { background: var(--grafite-claro); }
+.n-menu-ajuda:focus-visible { outline: 2px solid var(--superficie); outline-offset: -2px; }
+/* A interrogacao ocupa a mesma coluna dos icones dos modulos, para o texto
+   dos itens e o da ajuda comecarem na mesma vertical. */
+.n-menu-ajuda-icone {
+  flex: 0 0 22px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* ===================================================================== *
+ *  A AJUDA EM CIMA DA TELA  --  o kit, adotado pelo Portal em 25/10/2026
+ *
+ *  **NUCLEO, LEIAM ISTO ANTES DE COLAR:** este bloco e o
+ *  `claude/AJUDA_KIT_estilo.css`, que o Financeiro, o Treinamentos, o
+ *  Beneficios e a Operacao ja usam. **Se o `Estilo.html` de voces JA tiver uma
+ *  faixa "A AJUDA EM CIMA DA TELA", nao colem este bloco de novo** -- duas
+ *  copias das mesmas classes e a familia 39, e a que ganha depende da ordem
+ *  do arquivo. Nos nao lemos a folha de voces e nao sabemos se ela ja esta la.
+ *
+ *  DUAS COISAS SAO DAQUI E NAO DO KIT, e estao marcadas uma a uma:
+ *  o "?" por CLASSE em vez de `#btnAjuda` (o Portal tem quatro barras de cima,
+ *  e quatro ids iguais acenderiam so o primeiro), e o `.n-ajuda-link` do
+ *  cartao de login.
+ *
+ *  O resto e copia. As variaveis (--vermelho, --superficie...) e o .btn sao de
+ *  voces.
+ * ===================================================================== */
+
+/* O Z-INDEX E 60, E O NUMERO TEM DONO. A barra do topo do Nucleo esta em 40, a
+   faixa vermelha do login em 5, e a janela modal em 50. A ajuda fica acima de
+   todos de proposito: **ela explica a tela, entao precisa estar por cima de
+   tudo que a tela tem** -- inclusive de uma janela aberta. */
+.ajuda-camada { position: fixed; inset: 0; z-index: 60; }
+
+/* O FUNDO ESCURECE, E NAO BLOQUEIA POR COMPLETO. A 55% a tela continua
+   legivel atras -- e ela PRECISA continuar legivel: a explicacao fala do campo
+   que esta atras dela. */
+.ajuda-fundo {
+  position: absolute; inset: 0;
+  background: rgba(20, 22, 26, .55);
+}
+
+/* A MOLDURA NAO ESCURECE O QUE ESTA DENTRO DELA. `box-shadow` com raio zero e
+   um spread enorme pinta TUDO menos o retangulo da moldura. A alternativa
+   seriam quatro divs cercando o alvo, recalculadas juntas a cada rolagem:
+   quatro chances de uma sair de lugar. */
+.ajuda-moldura {
+  position: absolute;
+  border-radius: 8px;
+  border: 2px solid var(--vermelho);
+  box-shadow: 0 0 0 9999px rgba(20, 22, 26, .55);
+  pointer-events: none;
+  transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease;
+}
+.ajuda-moldura.oculto { display: none !important; }
+
+.ajuda-cartao {
+  position: absolute;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  background: var(--superficie);
+  border-radius: var(--raio);
+  box-shadow: 0 8px 30px rgba(15, 31, 46, .28);
+  padding: 18px 18px 14px;
+}
+
+/* O PASSO SEM ALVO FICA NO MEIO. Sao os que dizem o que a tela E, antes de
+   apontar para o primeiro campo -- e nao ha para onde apontar. */
+.ajuda-cartao.ajuda-centro {
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ajuda-fechar {
+  position: absolute; top: 8px; right: 10px;
+  background: none; border: 0; cursor: pointer;
+  font-size: 24px; line-height: 1;
+  color: var(--tinta-fraca);
+  padding: 4px 8px;
+}
+.ajuda-fechar:hover { color: var(--tinta); }
+
+.ajuda-titulo {
+  font-family: 'Josefin Sans', 'Inter', sans-serif;
+  font-weight: 700; font-size: 19px;
+  margin: 0 28px 8px 0;
+  line-height: 1.2;
+}
+.ajuda-texto {
+  font-size: 15px; line-height: 1.55;
+  color: var(--tinta-media);
+  margin-bottom: 14px;
+}
+.ajuda-texto b { color: var(--tinta); font-weight: 700; }
+
+.ajuda-rodape {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--linha);
+  padding-top: 11px;
+}
+.ajuda-conta { font-size: 12px; color: var(--tinta-fraca); }
+.ajuda-botoes { display: flex; gap: 8px; }
+
+/* OS BOTOES DA AJUDA SAO MENORES QUE OS DA TELA. O `.btn` do nucleo tem 52px,
+   que e o alvo de toque de quem usa luva em campo. No cartao de ajuda eles
+   ocupariam metade da altura util, e o texto -- que e o conteudo -- ficaria
+   espremido. Aqui nao ha trabalho a fazer com luva. */
+.ajuda-cartao .btn {
+  min-height: 40px; padding: 9px 16px; font-size: 14.5px;
+}
+
+/*
+ * O "?" DO TOPO -- **E AQUI ESTA A DIFERENCA DO KIT.**
+ *
+ * No kit a regra e `#btnAjuda`. No Portal ela e `.n-ajuda-botao`, porque sao
+ * QUATRO barras de cima (POR-05, POR-08, POR-09, POR-10) e quatro ids iguais
+ * fariam o `getElementById` acender so o primeiro -- os outros tres ficariam
+ * escondidos para sempre, sem erro nenhum aparecer.
+ *
+ * Redondo, para nao parecer mais um botao de acao ao lado do Sair: ele nao faz
+ * nada com o trabalho da pessoa.
+ */
+.n-ajuda-botao {
+  width: 34px; min-height: 34px; height: 34px;
+  padding: 0; border-radius: 50%;
+  font-size: 16px; font-weight: 700; line-height: 1;
+}
+
+/*
+ * O "COMO USAR ESTA TELA?" DO CARTAO DE LOGIN -- tambem daqui, e nao do kit.
+ * Ele e um link e nao um botao de propósito: no cartao de entrada o unico
+ * botao que deve parecer botao e o que faz a pessoa entrar.
+ */
+.n-ajuda-link {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--tinta-media);
+  font: inherit;
+  font-size: 13.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.n-ajuda-link:hover { color: var(--tinta); }
+
+/* NA TELA ESTREITA O CARTAO OCUPA A LARGURA E ANCORA EMBAIXO. Num celular,
+   posicionar o cartao ao lado do campo sobra pouco dos dois lados, e ele acaba
+   cobrindo justamente o campo. Embaixo, fixo, ele nunca cobre o alvo. */
+@media (max-width: 620px) {
+  .ajuda-cartao {
+    left: 12px !important; right: 12px;
+    width: auto;
+    top: auto !important;
+    bottom: 12px;
+  }
+  .ajuda-cartao.ajuda-centro {
+    top: auto !important; left: 12px !important;
+    transform: none;
+  }
+}
+
+/* ---- a tela de ajuda (POR-10) ---- */
+
+/*
+ * A MEDIDA E 68ch, E NAO a largura da coluna. Texto de ajuda e lido inteiro,
+ * e nao varrido como uma tabela -- numa coluna de 1100px a linha fica longa
+ * demais para o olho voltar certo.
+ */
+.n-ajuda-corpo { max-width: 68ch; }
+
+.n-ajuda-bloco { margin: 0 0 4px; }
+.n-ajuda-bloco + .n-ajuda-bloco { border-top: 1px solid var(--linha); padding-top: 14px; margin-top: 14px; }
+.n-ajuda-pergunta { margin: 0; font-size: 15.5px; font-weight: 600; line-height: 1.35; }
+.n-ajuda-resposta { margin: 4px 0 0; font-size: 14.5px; color: #3f4449; }  /* 8,61:1 (Nucleo, 20/10/2026) */
+/* O que a pessoa le ao telefone com quem atende: o destaque e discreto de
+   proposito, porque ela ja esta procurando por ele. */
+.n-ajuda-codigo { font-weight: 700; letter-spacing: .04em; }
+
 @media (max-width: 900px) {
   .n-mod-motivo, .n-bases { margin-left: 0; }
   .n-mod-topo { flex-wrap: wrap; }
@@ -2019,17 +2586,341 @@ h3 { font-size: 18px; }
   }
   .n-menu-rotulo, .n-menu-pe { display: none; }
   .n-menu-mod { width: auto; flex: 0 0 auto; padding: 8px 14px; }
+
+  /*
+   * OS CARTOES VOLTAM AQUI, e este e o unico lugar em que eles aparecem desde
+   * 24/10/2026. Ver a regra `.n-so-celular` no fim deste arquivo: ela explica
+   * por que a grade saiu do computador E por que ela NAO pode sair daqui.
+   */
+  .n-so-celular { display: block; }
+
+
+  /* NA FITA DO CELULAR nao ha coluna, entao nao ha recuo: o filho vira mais um
+     item ao lado dos outros. E o filete do grupo que espera a pessoa vira
+     linha de baixo, pelo mesmo motivo do `.n-menu-resolve` tres linhas abaixo
+     -- borda a esquerda numa fita horizontal fica entre dois itens e parece de
+     qualquer um dos dois. */
+  .n-menu-grupo { width: auto; flex: 0 0 auto; padding: 8px 14px; margin-top: 0; }
+  .n-menu-filho { padding-left: 14px; }
+  .n-menu-grupo.n-menu-resolve { border-left: 0; border-bottom: 3px solid var(--vermelho); padding-left: 14px; }
   .n-menu-abaixo { display: none; }
   .n-menu-resolve { border-left: 0; border-bottom: 3px solid var(--vermelho); padding-left: 14px; }
 
   /* A arte ocupa a largura e a altura sai da proporcao -- o inverso do
      computador, porque no celular quem manda e a largura. */
   .n-painel { flex-direction: column; gap: 14px; }
-  .n-painel-arte { width: 100%; height: auto; aspect-ratio: 4 / 5; }
-  .n-arte-1x1 { aspect-ratio: 1 / 1; }
-  .n-arte-4x5 { width: 100%; }
-  .n-painel-titulo { font-size: 20px; }
+  /* No celular quem manda e a largura, entao a `aspect-ratio` que a tela
+     escreve na linha resolve a altura sozinha -- e o `width: auto` do
+     computador precisa voltar a ser 100%. */
+  /*
+   * O TETO DE 420px E DE 24/10/2026, e saiu de uma medicao, nao de gosto.
+   * Medida a tela com esta folha: numa janela de 900px de largura -- o maior
+   * tamanho em que esta regra vale -- uma arte 1:1 com `width: 100%` ficava
+   * com **822px de altura**. E uma parede: a pessoa rola a tela inteira antes
+   * de chegar ao primeiro sistema. Num telefone de 390px nao aparecia, porque
+   * la a arte da 312px e cabe.
+   *
+   * O TETO E NA LARGURA, E NAO NA ALTURA, de proposito: limitando a altura, a
+   * caixa continuaria com 900px de largura e a arte entraria com duas faixas
+   * cinzas enormes dos lados -- que e exatamente o que a decisao de 22/10
+   * ("a proporcao vem do dado") existe para evitar. Limitando a largura, a
+   * proporcao fica intacta e a altura desce junto.
+   */
+  .n-painel-arte { width: 100%; max-width: 420px; height: auto; }
+  .n-arte-livre { width: 100%; max-width: 420px; }
+  /* No celular a coluna ja e estreita: o limite de medida do computador so
+     atrapalharia, e 18px cabe melhor na largura de um telefone. */
+  .n-painel-titulo { font-size: 18px; max-width: none; }
   .n-painel-pontos { padding-top: 14px; }
   /* Alvo de toque de 44px sem engordar o ponto: a area cresce, o desenho nao. */
   .n-painel-ponto { height: 22px; background-clip: content-box; padding: 6px 0; }
+}
+
+/* Colado pelo Nucleo em 26/10/2026, do bloco da Interface `dabd87ca` (43.847
+   bytes, LF; chegou em CRLF e sem a quebra final, e foi conferido nas duas
+   formas). As linhas 1 a 1009 daquele bloco ja estavam nesta folha desde as
+   montagens anteriores, com as cores trocadas por token; so a parte do olho
+   e nova. */
+/* =======================================================================
+ * VER A SENHA DIGITADA -- pedido do Dalton, 26/10/2026, 08h01 (carta nº 45
+ * do Núcleo). O OLHO DENTRO DO CAMPO é decisão dele das 13h07 do mesmo dia,
+ * olhando o celular: *"coloca como aquele ícone do olho na mesma barra, do
+ * jeito que você fez fica muito feio"*.
+ * =======================================================================
+ *
+ * O DESENHO É O MESMO DO APP COMPEL (casca 1.8.1, carta nº 1 deles de
+ * 26/10), de propósito: são as duas telas de senha da plataforma, e a pessoa
+ * que entra pelo telefone e pelo computador é a mesma. Vive aqui, e não no
+ * Portal, para que o app possa apagar a regra provisória dele e herdar esta.
+ *
+ * O BOTÃO É DE POSIÇÃO ABSOLUTA DENTRO DO CAMPO, e isso muda a conta: o campo
+ * não encolhe mais para o botão caber — ele ganha **recuo de 52px à direita**
+ * para o texto da senha não correr por baixo do olho. Com o botão fora da
+ * linha, a linha deixou de precisar ser flexível.
+ *
+ * AS DUAS CLASSES NA REGRA DO CAMPO CONTINUAM, e pela mesma razão de antes: o
+ * `.campo input` da folha do Núcleo e um `.n-senha-linha > input` pesam igual,
+ * e esta frente NÃO SABE em que ponto da folha este bloco é colado. Com
+ * `.campo .n-senha-linha > input` são duas classes contra uma, e a regra ganha
+ * em qualquer posição. (Lição de 25/10: ordem só desempata regras de mesmo
+ * peso.)
+ */
+.campo .n-senha-linha { position: relative; }
+.campo .n-senha-linha > input { padding-right: 52px; }
+
+/*
+ * 48px de largura e a altura inteira do campo: o primeiro acesso das 800
+ * pessoas é feito no celular, e errar este botão com o dedo apaga o que já foi
+ * digitado quando a mão pega o campo.
+ *
+ * A COR É A `--tinta-media`, e esta frente mudou de posição. Na nossa carta
+ * nº 52 escolhemos a `--tinta` por não ter medido o cinza. O App mediu e a
+ * régua é outra: **ícone pede 3:1, e não 4,5:1** — a `--tinta-media`
+ * (`#5A5C63`) dá **6,68:1 sobre branco** pela conta de luminância relativa da
+ * WCAG, feita por eles em 26/10 sobre os valores da folha, e não medida na
+ * tela. Passa com folga até pela régua de texto.
+ */
+.campo .n-ver-senha {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 48px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border: 0; background: none;
+  color: var(--tinta-media);
+  cursor: pointer;
+  /* `--raio-p`, E NAO `--raio` -- trocado pelo Nucleo ao colar, 26/10/2026.
+     O `.campo input` desta folha arredonda com o `--raio-p` (6px); com o
+     `--raio` (10px) o canto do botao nao acompanha o canto do campo, e o
+     contorno do foco sai com outra curva. O App ja usava o `--raio-p`. */
+  border-radius: 0 var(--raio-p) var(--raio-p) 0;
+}
+.campo .n-ver-senha svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+/* QUEM ESCOLHE O OLHO É O CSS, pela classe `mostrando` que a tela põe no
+   botão. Os dois desenhos estão no HTML; o JS não carrega desenho nenhum. */
+.n-ver-senha .olho-cortado { display: none; }
+.n-ver-senha.mostrando .olho { display: none; }
+.n-ver-senha.mostrando .olho-cortado { display: block; }
+/* O foco por dentro (`-4px`): o botão encosta na borda do campo, e um contorno
+   por fora dele sairia desenhado sobre a borda do próprio campo. */
+.campo .n-ver-senha:focus-visible { outline: 2px solid var(--vermelho-forte); outline-offset: -4px; }
+
+/* Colado pelo Nucleo em 26/10/2026, 14h25, do bloco da Interface `1eba40f4`
+   (51.396 bytes, LF; ele e o `dabd87ca` das 14h mais esta secao, conferido
+   pela impressao). A RESPOSTA A PERGUNTA DE BAIXO: esta folha NAO tem classe
+   de janela modal. O z-index 50 que o comentario do kit chama de "janela
+   modal" e o da `.n-espera`, a cobertura da tela inteira enquanto o Portal
+   prepara a passagem para um modulo. A `.n-janela` e nova e fica, com o mesmo
+   50: as duas nunca aparecem juntas, porque nada dentro da janela abre modulo. */
+
+/* =======================================================================
+ * A JANELA DA PESSOA DE FORA (POR-11) e A TELA DO MAPA VIVO (POR-12)
+ * Construídas em 26/10/2026, a pedido do Dalton ("prepara a tela do mapa
+ * vivo junto a do PJ").
+ * =======================================================================
+ *
+ * ⚠ UMA PERGUNTA AO NÚCLEO, ANTES DE COLAR: **a folha já tem classe de
+ * janela modal?** O comentário do kit da ajuda diz, ao justificar o z-index
+ * 60, que "a janela modal está em 50" — então alguma frente tem uma. Se a
+ * folha já define essa classe, **digam o nome e nós trocamos**: duas classes
+ * para a mesma coisa é como as folhas incham, e foi o que quase aconteceu com
+ * a `.sr` em 26/10. Até a resposta, a `.n-janela` abaixo usa o mesmo 50 que o
+ * comentário documenta, para não passar por cima da ajuda.
+ */
+.n-janela { position: fixed; inset: 0; z-index: 50; }
+.n-janela-fundo { position: absolute; inset: 0; background: rgba(20, 22, 26, .55); }
+.n-janela-caixa {
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto;
+  /* A JANELA ROLA POR DENTRO, e não a página atrás dela: o formulário tem
+     onze campos e no telefone não cabe numa tela. */
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--superficie);
+  border-radius: var(--raio);
+  padding: 24px 22px 28px;
+}
+.n-janela-caixa h2 { margin: 0 0 4px; font-size: 20px; }
+.n-janela-sub { margin: 0 0 18px; color: var(--tinta-media); font-size: 14px; }
+.n-janela-pe { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.n-janela-pe .btn { width: auto; }
+.n-janela-lista { margin-top: 24px; border-top: 1px solid var(--linha); padding-top: 14px; }
+.n-janela-tabela { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.n-janela-tabela th, .n-janela-tabela td {
+  padding: 7px 8px; border-bottom: 1px solid var(--linha); text-align: left; vertical-align: top;
+}
+.n-janela-tabela th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--tinta-media); }
+/* Quem já venceu fica apagado, e não escondido: o administrador precisa ver
+   que a pessoa existe para renovar — gravar o mesmo CPF atualiza a linha. */
+.n-janela-fim td { color: var(--tinta-media); }
+@media (min-width: 601px) {
+  .n-janela-caixa { margin: 40px auto; max-height: calc(100% - 80px); }
+}
+
+/* O MAPA, refeito em 27/10/2026, 08h50, pelo bloco da Interface `092cf46a`
+   (52.855 bytes, LF): sairam as regras que desenhavam o mapa no Portal (a tela
+   descartada pelo Dalton em 26/10, 20h41) e entrou so o quadro onde a pagina
+   da Linha entra inteira. O resto do bloco e igual ao `b9b314f9`, conferido
+   por diff.
+   E DE NOVO EM 27/10/2026, 11h27, pelo bloco `037b3256` (Interface nº 60;
+   54.919 bytes em CRLF, conferido na forma LF): a altura do quadro saiu daqui
+   e passou a ser medida pela tela, e a tela do mapa ocupa a largura inteira
+   (`.n-mapa-corpo .n-mapa-area`). Conferido por diff contra o `092cf46a`: so
+   esta secao mudou. */
+/* -------------------------------------------------------------- o mapa */
+.n-mapa-espera { padding: 48px 0; text-align: center; }
+.n-mapa-espera .n-texto { font-size: 17px; margin-top: 14px; }
+.n-mapa-espera .n-sub { color: var(--tinta-media); font-size: 14px; margin-top: 6px; }
+/* O QUADRO DO MAPA -- 26/10/2026, 21h; tela inteira em 27/10, 09h.
+   A pagina da Linha entra aqui inteira, com a folha dela. **Esta frente nao
+   desenha o mapa:** a tela anterior desenhava, e foi descartada pelo Dalton
+   porque era uma versao menor da pagina que ele ja tinha.
+
+   ⚠ A ALTURA NAO ESTA AQUI, DE PROPOSITO. Ela e medida pelo
+   `ajustarAlturaDoQuadro` a cada abertura e a cada mudanca de janela. O que
+   havia antes era `calc(100vh - 230px)`, e os 230 eram a barra do Portal
+   contados a mao: numero assim envelhece calado no dia em que a barra mudar
+   de altura. **Medir custa uma linha de codigo; errar o numero custa uma
+   faixa vazia que ninguem sabe explicar.** */
+.n-mapa-quadro {
+  width: 100%;
+  border: 0;
+  /* A PAGINA TEM FUNDO PROPRIO, e e isso que o Dalton pediu em 26/10,
+     20h41 ("o fundo branco nao favorece ele"). O cinza aqui e so o que
+     aparece **enquanto** ela carrega. */
+  background: var(--superficie);
+  display: block;
+}
+
+/* A TELA INTEIRA -- pedido do Dalton em 27/10, 08h59: *"nao preciso ver os
+   pedacos em branco, podemos ocupar a tela inteira"*. A coluna `conteudo`
+   das outras telas poe margem dos dois lados e teto de largura; aqui ela
+   so roubava largura do mapa, porque **a pagina de dentro ja tem a margem
+   dela**. Duas classes de proposito (`.n-mapa-corpo .n-mapa-area`): esta
+   frente nao sabe em que ponto da folha do Nucleo o bloco e colado, e
+   empate de peso e decidido pela ordem. */
+.n-mapa-corpo .n-mapa-area {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* O aviso da coluna nova e a unica coisa que sobra fora do quadro, e so
+   aparece quando existe. Sem recuo ele encostaria na borda da janela. */
+.n-mapa-corpo .n-mapa-area > .n-secao { padding: 10px 16px 0; margin: 0; }
+.n-mapa-corpo .n-mapa-area > .aviso,
+.n-mapa-corpo .n-mapa-area > .n-mapa-espera { margin: 16px; }
+
+/* Colado pelo Nucleo em 26/10/2026, 16h40, do bloco da Interface `b9b314f9`
+   (56.686 bytes, LF; e o `1eba40f4` mais esta secao). A troca do seletor que o
+   bloco pede foi feita na regra `.campo input` (secao "campos"), junto com o
+   foco. RESPOSTA AS DUAS PERGUNTAS DE BAIXO: a folha NAO tem token de "campo
+   travado" (o `.btn:disabled` tambem usa cor escrita a mao), entao o preto a 4%
+   fica; e a `--tinta-media` continua `#5A5C63`, 6,68:1 sobre branco. */
+
+/* =====================================================================
+   AS LISTAS (select) GANHAM O MESMO DESENHO DOS CAMPOS -- pedido do
+   Dalton, 26/10/2026, 15h27, olhando a POR-11 no ar: *"preciso que fique
+   como padrão a não utilização de filtros de validação simples... podemos
+   usar um template melhor para os filtros"*.
+   =====================================================================
+
+   O QUE ELE VIU: na mesma tela, "Nome completo" e "Empresa" sao campos
+   desenhados -- largura inteira, canto arredondado, borda da folha -- e
+   "Vinculo" e "Setor" sao a lista crua do navegador: do tamanho do texto,
+   com a setinha de cada sistema operacional. Lado a lado, **parecem de
+   outro programa**, e e a mesma tela.
+
+   ⚠ ESTE BLOCO NAO DESENHA A CAIXA, E ISSO E DE PROPOSITO.
+   A caixa do campo (borda, canto, cor, recuo, altura) e da regra
+   `.campo input` da folha do NUCLEO, que esta frente nao le. Repetir
+   aqui os valores de cabeca faria a lista ficar *quase* igual ao campo
+   -- que e exatamente o defeito que se esta consertando, so que mais
+   dificil de ver. **O pedido ao Nucleo e de UMA LINHA: acrescentar
+   `, .campo select` ao seletor da regra `.campo input` que eles ja tem.**
+   Com isso a lista herda a caixa e **continua herdando no dia em que a
+   caixa mudar** -- duas copias do mesmo desenho divergem na primeira
+   correcao.
+
+   ⚠ OS DOIS PEDACOS SAO UM SO: este bloco tira a aparencia nativa da
+   lista (`appearance: none`), e sem a caixa herdada a lista fica **sem
+   borda nenhuma** -- pior que hoje. **Colar este bloco sem fazer a troca
+   do seletor nao e meia melhora, e um defeito.**
+
+   ALCANCE: `.campo` e classe da plataforma inteira. Esta regra muda as
+   listas do Financeiro, do Treinamentos, dos Beneficios e da Operacao
+   junto com as do Portal -- **e e isso que o Dalton pediu ("como
+   padrao")**. Quem tiver lista que NAO deve mudar, diga: e a hora. */
+
+.campo select {
+  /* A LARGURA INTEIRA E O QUE MAIS SALTA NA FOTO: a lista crua encolhe
+     ate o texto da maior opcao, entao "Setor" fica com um terco da
+     largura do campo logo acima dele, sem razao visivel. */
+  width: 100%;
+  box-sizing: border-box;
+  /* `min-width: 0` pela mesma razao do campo de senha (lido na folha em
+     26/10): dentro de um flex, o tamanho natural do conteudo impede a
+     lista de encolher e ela estoura a coluna no telefone. */
+  min-width: 0;
+  /* A LETRA VEM DO RESTO DA TELA, e nao a do sistema operacional: sem
+     isto a lista escreve em Arial 13px enquanto o campo ao lado escreve
+     na letra da folha, e a diferenca aparece mesmo com a caixa igual.
+     ⚠ `font-family`, E NAO O ATALHO `font: inherit`: medido em 26/10,
+     o atalho arrasta junto a ENTRELINHA do corpo da pagina (1,5), a
+     lista fica **6px mais alta que o campo ao lado** e o defeito volta
+     pela porta dos fundos, menor e mais dificil de ver. O tamanho da
+     letra ja vem da regra herdada. */
+  font-family: inherit;
+  color: inherit;
+  /* TIRA O DESENHO NATIVO -- e por isso este bloco depende da troca do
+     seletor la em cima. */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  /* O recuo da direita abre o lugar da seta; o resto da caixa vem
+     herdado. `padding-right` sozinho nao mexe nos outros tres lados. */
+  padding-right: 42px;
+  cursor: pointer;
+
+  /* A SETA DESENHADA COM DOIS DEGRADES, e nao com uma imagem embutida:
+     imagem embutida (data URI) obriga a escrever a cor em hexadecimal
+     dentro dela, e **cor escrita a mao nao acompanha o token** -- foi
+     assim que o `--vermelho-forte` nos custou uma tarde em 25/10. Com
+     degrade a cor e `var(--tinta-media)` e segue a folha sozinha.
+     Dois quadrados de 5px, cada um com metade pintada na diagonal:
+     juntos formam o "v" apontando para baixo. */
+  background-image:
+    linear-gradient(45deg,  transparent 50%, var(--tinta-media) 50%),
+    linear-gradient(135deg, var(--tinta-media) 50%, transparent 50%);
+  /* 6px E NAO 5: as tres medidas foram renderizadas lado a lado em
+     26/10 e olhadas. A de 5px some ao lado do campo de texto; a de 7px
+     em tinta cheia pesa mais que o proprio texto da lista. */
+  background-position: right 22px center, right 17px center;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat, no-repeat;
+}
+
+/* O IE/Edge velho desenha uma segunda seta por cima da nossa. */
+.campo select::-ms-expand { display: none; }
+
+/* LISTA TRAVADA: a POR-11 trava o "Setor" quando a lista de setores nao
+   chegou, e **travado precisa parecer travado** -- sem isto a lista fica
+   igual a uma que funciona e a pessoa clica nela ate desistir.
+   A seta sai: seta e promessa de que ha o que abrir. */
+.campo select:disabled {
+  background-image: none;
+  /* ⚠ CINZA ESCRITO A MAO, E NAO UM TOKEN, de proposito: esta frente nao
+     leu nenhum token de "campo travado" na folha, e inventar o nome de um
+     seria o erro do `--vermelho-forte` outra vez. Preto a 4% escurece
+     qualquer fundo claro sem decidir a cor dele. **Se o Nucleo ja tiver um
+     token para isto, ele entra aqui e esta linha sai.** */
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--tinta-media);
+  cursor: not-allowed;
+  opacity: 1;   /* o Safari do iPhone apaga a letra ate ficar ilegivel */
 }

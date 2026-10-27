@@ -178,8 +178,10 @@ async function abrir(L, op) {
   if (L) {
     await ctx.route('**/config/login.js', function (r) { r.fulfill({ contentType: 'text/javascript', body: "var ENDERECO_DO_LOGIN = '" + LOGIN + "';" }); });
     await ctx.route(LOGIN + '*', function (r) {
-      var corpo = JSON.parse(r.request().postData() || '{}');
-      r.fulfill({ contentType: 'application/json', body: JSON.stringify(L.atender(corpo)) });
+      var corpo = JSON.parse(r.request().postData() || '{}'), resposta = L.atender(corpo);
+      // O relato gravado e a resposta perdida no caminho (casca 1.10): o login atende, e o app não recebe nada.
+      if (L.cortarRelato && corpo.acao === 'enviarRelato') return r.abort('failed');
+      r.fulfill({ contentType: 'application/json', body: JSON.stringify(resposta) });
     });
     await ctx.route('https://modulo.teste.invalid/**', function (r) { r.fulfill({ contentType: 'text/html', body: '<p>módulo</p>' }); });
   }
@@ -1004,6 +1006,8 @@ var TESTES = {
     await p.click('#botaoRelato'); await p.waitForSelector('#relatoTexto');
     afirmar((await texto(p, '#codigo')) === 'APP-10', 'o código da tela do relato');
     afirmar(await p.isDisabled('[data-acao="enviarRelato"]'), 'sem texto, o envio devia estar apagado');
+    afirmar((await p.getAttribute('[data-tipo="ERRO"]', 'aria-pressed')) === 'true' && (await p.getAttribute('[data-tipo="SUGESTAO"]', 'aria-pressed')) === 'false',
+      '"Deu erro" devia nascer marcado');
     await p.fill('#relatoTexto', 'curto');
     afirmar(await p.isDisabled('[data-acao="enviarRelato"]'), 'com menos de uma frase, o envio devia continuar apagado');
     await p.fill('#relatoTexto', 'O cartão da Segurança não abriu.');
@@ -1024,11 +1028,42 @@ var TESTES = {
     await esperarTexto(p, 'nº R-7');
     var r = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }).pop(), txt = JSON.stringify(r);
     afirmar(r.texto === 'O cartão da Segurança não abriu.' && r.sessao, 'o relato devia levar o texto e a sessão');
+    afirmar(r.tipo === 'ERRO', 'sem mexer no seletor, o relato devia ir como ERRO, e foi ' + r.tipo);
     afirmar(r.contexto && r.contexto.tela === 'APP-07', 'a tela do contexto devia ser a de onde a pessoa veio (APP-07), e veio ' + (r.contexto && r.contexto.tela));
     afirmar(r.contexto.versaoApp && r.contexto.fuso === 'America/Campo_Grande' && /^\d{4}-\d{2}-\d{2}T/.test(r.contexto.hora) && Array.isArray(r.contexto.erros), 'o contexto devia ter versão, fuso, hora e erros');
     afirmar(/^data:image\/jpeg;base64,/.test(r.foto || '') && r.foto.length < 2000000, 'o print devia ir reduzido, em JPEG e abaixo de 2 MB');
     afirmar(txt.indexOf(x.cpf) < 0 && txt.indexOf(formatado(x.cpf)) < 0, 'o relato não pode levar CPF');
     afirmar((await texto(p, '#codigo')) === 'APP-07', 'depois de enviar, devia voltar à tela de onde veio');
+    await a.ctx.close();
+  },
+  /* Erro ou sugestão (casca 1.10, pedido do Dalton de 27/10/2026, 15h33): "Tenho uma sugestão" troca a pergunta, o
+     texto escrito fica, e o pedido leva tipo SUGESTAO. E, com sinal, a resposta que não volta não pode dizer "não foi":
+     o login pode ter gravado, e quem lê "não foi" toca de novo e duplica o relato (carta nº 2 do Núcleo ao App). */
+  T42_erro_ou_sugestao_e_a_resposta_que_nao_volta: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    x.L.avisosDaPessoa = [];
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana');
+    await esperarTexto(p, 'Olá, Ana');
+    await p.waitForFunction(function () { return !document.getElementById('botaoRelato').classList.contains('oculto'); });
+    await p.click('#botaoRelato'); await p.waitForSelector('#relatoTexto');
+    afirmar((await texto(p, 'label[for="relatoTexto"]')) === 'O que aconteceu?', 'no erro, a pergunta devia ser "O que aconteceu?"');
+    await p.fill('#relatoTexto', 'Podia mostrar a placa em letra maior.');
+    await p.click('[data-tipo="SUGESTAO"]');
+    await p.waitForFunction(function () { var l = document.querySelector('label[for="relatoTexto"]'); return l && l.textContent === 'O que poderia melhorar?'; });
+    afirmar((await p.getAttribute('[data-tipo="SUGESTAO"]', 'aria-pressed')) === 'true', 'a sugestão devia ficar marcada');
+    afirmar((await p.inputValue('#relatoTexto')) === 'Podia mostrar a placa em letra maior.', 'o texto se perdeu ao trocar para sugestão');
+    afirmar((await texto(p, '[data-acao="enviarRelato"]')) === 'Enviar a sugestão', 'o botão devia dizer "Enviar a sugestão"');
+    x.L.cortarRelato = true;
+    await p.click('[data-acao="enviarRelato"]');
+    await esperarTexto(p, 'pode ter ido');
+    afirmar((await texto(p, 'body')).indexOf('não foi') < 0, 'com sinal e sem resposta, o app não pode dizer que o relato não foi');
+    afirmar((await texto(p, '#codigo')) === 'APP-10', 'sem resposta, devia ficar na tela do relato');
+    x.L.cortarRelato = false;
+    await p.click('[data-acao="enviarRelato"]');
+    await esperarTexto(p, 'Sugestão enviada (nº R-7)');
+    var r = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }).pop();
+    afirmar(r.tipo === 'SUGESTAO' && r.texto === 'Podia mostrar a placa em letra maior.', 'a sugestão devia ir com tipo SUGESTAO, e foi ' + r.tipo);
+    afirmar((await texto(p, 'body')).indexOf('Quando for avaliada') >= 0, 'a sugestão é avaliada, e não corrigida');
     await a.ctx.close();
   },
   /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o
