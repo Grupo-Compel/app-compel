@@ -493,7 +493,7 @@ var AJUDAS = {
   primeiro: 'Primeira vez no app ou no Portal: digite o CPF, o seu e-mail e crie a senha. O e-mail é para onde vai uma senha nova se um dia você esquecer a sua. Precisa de sinal.',
   trocar: 'Você entrou com uma senha temporária. Crie agora a sua senha, que vale também para o Portal.',
   esqueci: 'Digite o CPF. O sistema manda uma senha temporária para o e-mail cadastrado. Entre com ela, e o app pede para você criar a sua.',
-  inicio: 'Aqui estão os sistemas que você pode abrir. Toque num deles para abrir, já com você entrado. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
+  inicio: 'Em cima, o Acesso rápido: os formulários que você faz no dia a dia (checklist, relato, diário…). Cada botão abre direto o formulário, no próprio celular, mesmo sem sinal; o que você preencher vai quando houver sinal. Embaixo, os sistemas completos que você pode abrir, já com você entrado, agrupados por área. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
   termo: 'A Compel pede que você leia e aceite este termo antes de abrir os sistemas. O aceite fica registrado com a data, e vale também para o Portal. Se o texto tiver um documento completo, ele abre pelo link. Precisa de sinal.',
   envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
   avisos: 'Em cima, o que é só para você (o problema que você relatou e foi corrigido, por exemplo): "Marcar como lido" tira o aviso daqui. Embaixo, as comunicações da Compel dos últimos 30 dias; as marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
@@ -587,24 +587,78 @@ function telaEsqueci() {
     botao('esqueciSenha', E.ocupado ? 'Pedindo…' : 'Mandar uma senha nova para o meu e-mail', E.ocupado, false, E.ocupado || !enderecoDoLogin()) + botao('irEntrar', 'Voltar', false, true));
 }
 
+/* O INÍCIO EM DUAS PARTES (decisão do Dalton, 27/10/2026, 20h07; desenho em DESENHO_ACESSO_RAPIDO_NO_APP_27-10.md).
+   Em cima, o ACESSO RÁPIDO: um botão por formulário que a pessoa pode fazer, venha do bloco que vier, abrindo direto o
+   formulário, no celular e sem sinal ("se eu quiser ver acesso rápido, eu caio direto já nos checklists, nos
+   formulários que aquela função ou aquela pessoa pode ter"). Embaixo, os SISTEMAS COMPLETOS, agrupados pela coluna
+   GRUPO da MODULOS, como no menu do Portal.
+   Quem vê cada atalho é o bloco que declara (bloco.json, `atalhos`), pelo perfil da pessoa naquele módulo, que é o que
+   o login devolve da ACESSOS. O cartão do sistema completo de um bloco aparece só para os perfis do `completo` dele.
+   Quem só tem acesso rápido não vê a parte de baixo (Dalton: "ele vê só o que precisa ver"). */
+function perfilNaLista(lista, perfil) {
+  var p = String(perfil || '').trim().toUpperCase();
+  return (lista || []).some(function (x) { x = String(x).trim().toUpperCase(); return x === '*' || (p !== '' && x === p); });
+}
+function enderecoBom(m) { return !!m.url && /^https:\/\/\S+$/.test(m.url); }
+function atalhosDe(p) {
+  var l = [];
+  (p.modulos || []).forEach(function (m) {
+    // Módulo travado ou com o endereço com defeito não dá atalho: o formulário abriria e não teria para onde mandar.
+    if (m.liberado === false || !enderecoBom(m)) return;
+    var b = telaDoCelular(m);
+    if (!b || !Array.isArray(b.atalhos)) return;
+    b.atalhos.forEach(function (a) { if (perfilNaLista(a.perfis, m.perfil)) l.push({ bloco: b, atalho: a, modulo: m }); });
+  });
+  return l;
+}
+function vaiAosCompletos(m) { var b = telaDoCelular(m); return !b || !Array.isArray(b.completo) || perfilNaLista(b.completo, m.perfil); }
+function cartaoDoModulo(m, i) {
+  // O endereço vem da célula URL da MODULOS como está, só sem os espaços das pontas (carta nº 11 do Núcleo, 21/10/2026).
+  // Uma quebra de linha ou um espaço no meio não sai com o trim, e o endereço não abre em lugar nenhum: o cartão diz
+  // que a célula está com defeito, em vez de abrir uma página de erro do Google.
+  var breve = !m.url, defeito = !breve && !enderecoBom(m), travado = m.liberado === false, local = !!telaDoCelular(m), semRede = !comSinal() && !local;
+  var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : defeito ? 'O endereço deste sistema está com defeito na planilha. Avise a administração.' : semRede ? 'Precisa de sinal para abrir.' : '';
+  return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
+    (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
+    (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : local ? '<span class="n-perfil app-local">funciona sem sinal</span>' : '') + '</button>';
+}
 function telaInicio() {
   var p = pessoaAtual(), mods = p.modulos || [];
   var h = '<p class="n-saudacao">Olá, ' + esc(primeiroNome(p.nome)) + '.</p>' + mensagens();
   var n = quantosNovos();
   if (n) h += '<div class="aviso info" id="avisoNovo">' + (n === 1 ? 'Há 1 aviso novo.' : 'Há ' + n + ' avisos novos.') + ' <a href="#" data-aba="avisos">Ver</a></div>';
-  h += '<p class="etiqueta n-secao">Seus sistemas</p>';
-  if (!mods.length) h += '<div class="vazio" id="semModulos">Nenhum sistema liberado para você ainda.<br>Fale com o seu supervisor.</div>';
-  else h += '<div class="n-grade" id="modulos">' + mods.map(function (m, i) {
-    // O endereço vem da célula URL da MODULOS como está, só sem os espaços das pontas (carta nº 11 do Núcleo, 21/10/2026).
-    // Uma quebra de linha ou um espaço no meio não sai com o trim, e o endereço não abre em lugar nenhum: o cartão diz
-    // que a célula está com defeito, em vez de abrir uma página de erro do Google.
-    var breve = !m.url, defeito = !breve && !/^https:\/\/\S+$/.test(m.url), travado = m.liberado === false, local = !!telaDoCelular(m), semRede = !comSinal() && !local;
-    var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : defeito ? 'O endereço deste sistema está com defeito na planilha. Avise a administração.' : semRede ? 'Precisa de sinal para abrir.' : '';
-    return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
-      (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
-      (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : local ? '<span class="n-perfil app-local">funciona sem sinal</span>' : '') + '</button>';
+  var atalhos = atalhosDe(p);
+  if (atalhos.length) h += '<p class="etiqueta n-secao">Acesso rápido</p><div class="app-atalhos" id="atalhos">' + atalhos.map(function (x) {
+    return '<button type="button" class="app-atalho" data-acao="atalho" data-bloco="' + esc(x.bloco.id) + '" data-atalho="' + esc(x.atalho.id) + '"' + (E.ocupado ? ' disabled' : '') + '>' +
+      (x.atalho.icone ? '<span class="app-atalho-icone" aria-hidden="true">' + esc(x.atalho.icone) + '</span>' : '') +
+      '<span class="app-atalho-nome">' + esc(x.atalho.nome) + '</span><span class="app-atalho-de">' + esc(x.modulo.nome || x.bloco.nome) + '</span></button>';
   }).join('') + '</div>';
+  var completos = [];
+  mods.forEach(function (m, i) { if (vaiAosCompletos(m)) completos.push({ m: m, i: i }); });
+  if (completos.length) {
+    // Os soltos vêm antes dos grupos, como no menu do Portal: embaixo do último grupo eles pareceriam estar dentro dele.
+    // A ordem dentro de cada parte é a do login (a coluna ORDEM): a casca não ordena nada (carta nº 9 do Núcleo).
+    var soltos = completos.filter(function (x) { return !String(x.m.grupo || '').trim(); }), grupos = [], porGrupo = {};
+    completos.forEach(function (x) {
+      var g = String(x.m.grupo || '').trim();
+      if (!g) return;
+      if (!porGrupo[g]) { porGrupo[g] = []; grupos.push(g); }
+      porGrupo[g].push(x);
+    });
+    var grade = function (l) { return '<div class="n-grade">' + l.map(function (x) { return cartaoDoModulo(x.m, x.i); }).join('') + '</div>'; };
+    h += '<p class="etiqueta n-secao">' + (atalhos.length ? 'Sistemas completos' : 'Seus sistemas') + '</p><div id="modulos">' +
+      (soltos.length ? grade(soltos) : '') +
+      grupos.map(function (g) { return '<p class="etiqueta app-grupo">' + esc(g) + '</p>' + grade(porGrupo[g]); }).join('') + '</div>';
+  } else if (!atalhos.length) h += '<div class="vazio" id="semModulos">Nenhum sistema liberado para você ainda.<br>Fale com o seu supervisor.</div>';
   return '<div class="conteudo">' + h + ajuda('inicio') + '</div>';
+}
+/* O atalho abre a tela do bloco direto no formulário: o contexto { abrir: id } vai no fragmento, que nunca sai do
+   celular, e funciona sem sinal (o mesmo caminho do Casca.abrirBloco, desde a casca 1.7). Sem `de=`, de propósito: o
+   `de` só aceita um bloco, e sem ele o voltar do bloco já traz para o Início. */
+function abrirAtalho(id, atalho) {
+  var b = cascaBloco(id);
+  if (!b || !b.entrada || !Array.isArray(b.atalhos) || !b.atalhos.some(function (a) { return a.id === atalho; })) return;
+  location.href = b.entrada + '#ctx=' + cascaB64Url(JSON.stringify({ abrir: atalho }));
 }
 function telaAvisos() {
   var p = pessoaAtual(), h = '<p class="etiqueta n-secao app-sem-margem">Avisos</p>' + mensagens();
@@ -768,6 +822,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'irEsqueci') return irPara('esqueci');
   if (a === 'irEntrar') { E.memoria = null; return irPara('entrar'); }
   if (a === 'abrirModulo') return abrirModulo(+b.getAttribute('data-i'));
+  if (a === 'atalho') return abrirAtalho(b.getAttribute('data-bloco'), b.getAttribute('data-atalho'));
   if (a === 'aceitarTermo') return aceitarTermo();
   if (a === 'enviarBloco') return enviarBloco(b.getAttribute('data-bloco'), 'Enviar agora');
   if (a === 'marcarLido') return marcarAvisoLido(b.getAttribute('data-id'));

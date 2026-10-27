@@ -35,7 +35,10 @@ var ENDERECO_PLANILHA = 'https://docs.' + 'google.com/spreadsheets/d/' + '1'.rep
 // O bloco bom tem a tela do celular e envia (21/10/2026): a declaração inteira, com os arquivos, o cache e o envio.
 var DECLARACAO_BOA = { nome: 'Operação', dono: 'Operação', especie: 'ambas', quemVe: ['ENCARREGADO', 'CAMPO'], servidor: 'OPERACAO', versao: '5g-1',
   entrada: 'index.html', arquivos: ['index.html', 'fila.js'], cache: 'operacao-campo-',
-  envia: { etiqueta: 'enviar-diarios', app: 'campo', script: 'fila.js' } };
+  envia: { etiqueta: 'enviar-diarios', app: 'campo', script: 'fila.js' },
+  // O acesso rápido bem declarado tem de passar (casca 1.11, 27/10/2026).
+  atalhos: [{ id: 'diario', nome: 'Diário da equipe', icone: '📋', perfis: ['ENCARREGADO'] }, { id: 'viabilidade', nome: 'Viabilidade', perfis: ['VIABILIZADOR', 'SUPERVISOR'] }],
+  completo: ['SUPERVISOR', 'ADMIN'] };
 var BLOCO_BOM = JSON.stringify(DECLARACAO_BOA);
 // A declaração boa com uma mudança: { campo: valor } troca, { campo: undefined } tira.
 function declaracao(mudar) { var d = JSON.parse(BLOCO_BOM); Object.keys(mudar).forEach(function (k) { if (mudar[k] === undefined) delete d[k]; else d[k] = mudar[k]; }); return JSON.stringify(d); }
@@ -98,6 +101,13 @@ var casos = [
   { nome: 'resumo que não é SHA-256', arquivos: com({ 'blocos/operacao/servidor.sha256': 'abc\n' }), regras: [4] },
   { nome: 'envio sem o app que o servidor espera', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ envia: { etiqueta: 'enviar-diarios', script: 'fila.js' } }) }), regras: [4] },
   { nome: 'arquivo de envio fora da lista', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ envia: { etiqueta: 'enviar-diarios', app: 'campo', script: 'envio.js' } }), 'blocos/operacao/envio.js': '//' }), regras: [4] },
+  // O acesso rápido (casca 1.11, 27/10/2026): o atalho precisa do id que a tela recebe, do nome do botão e de quem o vê.
+  { nome: 'atalho sem id', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ atalhos: [{ nome: 'Diário', perfis: ['ENCARREGADO'] }] }) }), regras: [4] },
+  { nome: 'atalho sem perfis', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ atalhos: [{ id: 'diario', nome: 'Diário' }] }) }), regras: [4] },
+  { nome: 'atalho sem nome', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ atalhos: [{ id: 'diario', nome: ' ', perfis: ['*'] }] }) }), regras: [4] },
+  { nome: 'dois atalhos com o mesmo id', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ atalhos: [{ id: 'diario', nome: 'Diário', perfis: ['*'] }, { id: 'diario', nome: 'Outro', perfis: ['*'] }] }) }), regras: [4] },
+  { nome: 'completo que não é lista', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ completo: 'ADMIN' }) }), regras: [4] },
+  { nome: 'atalho num bloco de sistema', arquivos: com({ 'blocos/dp/bloco.json': JSON.stringify({ nome: 'DP', dono: 'DP', especie: 'sistema', quemVe: ['TODOS'], servidor: 'DP', versao: '1', atalhos: [{ id: 'ferias', nome: 'Férias', perfis: ['*'] }] }) }), regras: [4] },
   { nome: 'bloco de sistema que envia', arquivos: com({ 'blocos/dp/bloco.json': JSON.stringify({ nome: 'DP', dono: 'DP', especie: 'sistema', quemVe: ['TODOS'], servidor: 'DP', versao: '1', envia: { etiqueta: 'enviar-dp', app: 'dp', script: 'x.js' } }) }), regras: [4] }
 ];
 

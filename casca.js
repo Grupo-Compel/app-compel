@@ -310,6 +310,22 @@ var Casca = (function () {
         return tentar(1);
       });
     },
+    /* Um pedido da TELA do bloco ao servidor dele, fora da fila: o "ligar" do celular, o pacote do dia, o documento da
+       obra (o bloco da Operação, 27/10/2026; o FRONTEIRA §5.5 deixava este serviço para quando a Operação entrasse).
+       É o mesmo postar do envio: o endereço que veio do login, conferido pelo resumo do bloco antes de sair, com o `app`
+       e a `versao` do bloco.json, o relógio e o fuso. Com o resumo errado, nada sai, e a promessa é recusada com
+       { servidorRecusado, enderecoMudou, msg }; sem rede, com { rede, comSinal, msg }, como o postar do envio. A
+       sessão da pessoa NÃO vai sozinha: o pedido que precisa dela é do envio, pelo ctx.sessaoDe. */
+    postar: function (corpo, ms) {
+      exigir();
+      var b = estado.bloco;
+      if (!b.envia) return Promise.reject({ msg: 'Este bloco não tem servidor.' });
+      if (!corpo || typeof corpo !== 'object') return Promise.reject({ msg: 'O pedido é um objeto.' });
+      return cascaServidorDe(b).then(function (s) {
+        if (!s.ok) throw { servidorRecusado: !!s.enderecoMudou, enderecoMudou: !!s.enderecoMudou, semEndereco: !!s.semEndereco, msg: s.erro };
+        return cascaPostar(s.url, corpo, { app: b.envia.app, versao: b.versao, ms: ms });
+      });
+    },
     /* O banco do bloco, com os ajudantes da casca. O nome é do bloco; a casca nunca o apaga. */
     banco: function (nome, versao, lojas) { return cascaBanco(nome, versao, lojas); },
     /* Quem fez e em nome de quem (D20). Sem `emNomeDe`, é a própria pessoa. */

@@ -183,6 +183,33 @@ function lerBlocos(raiz) {
       }
     }
 
+    /* O ACESSO RÁPIDO (decisão do Dalton, 27/10/2026, 20h07): o Início do app mostra em cima um botão por formulário
+       que a pessoa pode fazer, de qualquer bloco, e embaixo os sistemas completos. O bloco declara os formulários dele
+       (`atalhos`) e quem vê cada um pelo PERFIL da pessoa naquele módulo, que é o que o login devolve da ACESSOS; "*"
+       vale para todo perfil. `completo` diz quais perfis veem o cartão do sistema inteiro embaixo; sem ele, todos veem,
+       como antes. O id do atalho é o que a tela do bloco recebe no contexto ({ abrir: id }) para abrir direto nele. */
+    var atalhos = [];
+    if (d.atalhos !== undefined) {
+      if (!celular) anotar(rel, 'só a tela do celular tem acesso rápido (espécie celular ou ambas)');
+      if (!Array.isArray(d.atalhos)) anotar(rel, '"atalhos" é uma lista de formulários');
+      else {
+        var idsDosAtalhos = {};
+        d.atalhos.forEach(function (a, i) {
+          var onde = 'o atalho ' + (i + 1);
+          if (!a || typeof a !== 'object' || Array.isArray(a)) return anotar(rel, onde + ' não é um objeto');
+          if (!FORMA_DO_ID.test(String(a.id || ''))) anotar(rel, onde + ': o "id" é de letras minúsculas, algarismos e hífen (é ele que a tela recebe para abrir o formulário)');
+          else if (idsDosAtalhos[a.id]) anotar(rel, onde + ': o id "' + a.id + '" se repete');
+          else idsDosAtalhos[a.id] = true;
+          if (typeof a.nome !== 'string' || !a.nome.trim()) anotar(rel, onde + ': falta o "nome" que aparece no botão');
+          if (!Array.isArray(a.perfis) || !a.perfis.length || a.perfis.some(function (p) { return typeof p !== 'string' || !p.trim(); }))
+            anotar(rel, onde + ': "perfis" diz quem vê o botão (os perfis do módulo na ACESSOS, ou "*" para todos)');
+          atalhos.push({ id: a.id, nome: a.nome, icone: typeof a.icone === 'string' ? a.icone : '', perfis: a.perfis });
+        });
+      }
+    }
+    if (d.completo !== undefined && (!Array.isArray(d.completo) || d.completo.some(function (p) { return typeof p !== 'string' || !p.trim(); })))
+      anotar(rel, '"completo" é a lista dos perfis que veem o sistema completo no Início');
+
     var envia = null;
     if (d.envia !== undefined) {
       var v = d.envia || {};
@@ -202,7 +229,7 @@ function lerBlocos(raiz) {
     blocos.push({ id: id, nome: d.nome, icone: d.icone || '', servidor: d.servidor, especie: d.especie, quemVe: d.quemVe, versao: String(d.versao),
                   entrada: celular ? base + d.entrada : '', arquivos: celular ? arquivos.map(function (a) { return base + a; }) : [],
                   cache: celular ? d.cache : '', envia: envia ? { etiqueta: envia.etiqueta, app: envia.app, script: envia.script } : null,
-                  resumo: envia ? envia.resumo : '' });
+                  resumo: envia ? envia.resumo : '', atalhos: atalhos, completo: Array.isArray(d.completo) ? d.completo : null });
   });
   return { blocos: blocos, achados: achados };
 }

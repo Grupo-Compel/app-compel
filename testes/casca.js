@@ -50,7 +50,10 @@ function prepararSite() {
   // checklist da Segurança aberto pelo diário da Operação, sem o que é de cada um.
   var outro = path.join(raiz, 'blocos', 'outro'); fs.mkdirSync(outro, { recursive: true });
   fs.writeFileSync(path.join(outro, 'bloco.json'), JSON.stringify({ nome: 'Outro', dono: 'App Compel (só na bateria)', especie: 'celular', quemVe: ['ELETRICISTA'],
-    servidor: 'OUTRO', versao: '1', entrada: 'index.html', arquivos: ['index.html', 'tela.js'], cache: 'outro-bloco-' }));
+    servidor: 'OUTRO', versao: '1', entrada: 'index.html', arquivos: ['index.html', 'tela.js'], cache: 'outro-bloco-',
+    // O acesso rápido (T43): um formulário de todos, um só do inspetor, e o sistema completo só para o inspetor.
+    atalhos: [{ id: 'epi', nome: 'Checklist EPI/EPC', icone: '🦺', perfis: ['*'] }, { id: 'sqp', nome: 'Inspeção SQP', perfis: ['inspetor'] }],
+    completo: ['INSPETOR'] }));
   fs.writeFileSync(path.join(outro, 'index.html'), fs.readFileSync(path.join(raiz, 'blocos', 'exemplo', 'index.html'), 'utf8')
     .replace('<title>Exemplo', '<title>Outro').replace('<script src="envio.js"></script>\n', ''));
   fs.writeFileSync(path.join(outro, 'tela.js'), "'use strict';\nCasca.iniciar('outro').then(function (r) {\n  window.INICIO_DO_BLOCO = r;\n" +
@@ -1065,6 +1068,66 @@ var TESTES = {
     afirmar(r.tipo === 'SUGESTAO' && r.texto === 'Podia mostrar a placa em letra maior.', 'a sugestão devia ir com tipo SUGESTAO, e foi ' + r.tipo);
     afirmar((await texto(p, 'body')).indexOf('Quando for avaliada') >= 0, 'a sugestão é avaliada, e não corrigida');
     await a.ctx.close();
+  },
+  /* O Início em duas partes (casca 1.11, decisão do Dalton de 27/10/2026, 20h07): em cima o acesso rápido, pelo perfil da
+     pessoa em cada módulo, abrindo o bloco direto no formulário; embaixo os sistemas completos, os soltos antes e os
+     outros pelo grupo da MODULOS. Quem só tem acesso rápido não vê a parte de baixo. */
+  T43_acesso_rapido_e_sistemas_completos_por_perfil: async function () {
+    var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true, grupo: 'Gestão de Segurança' };
+    var mods = [
+      { modulo: 'TREINAMENTO', nome: 'Treinamentos', url: 'https://modulo.teste.invalid/treino', perfil: 'ALUNO', liberado: true, grupo: 'Gestão de DP/RH' },
+      { modulo: 'OPERACAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao', perfil: 'ENCARREGADO', liberado: true },
+      OUTRO,
+      { modulo: 'BENEFICIOS', nome: 'Benefícios', url: 'https://modulo.teste.invalid/bene', perfil: 'CONSULTA', liberado: true, grupo: 'Gestão de DP/RH' }];
+    var x = loginComAna({ modulos: mods }), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    var nomes = await p.$$eval('#atalhos .app-atalho .app-atalho-nome', function (bs) { return bs.map(function (b) { return b.textContent; }); });
+    afirmar(nomes.join('|') === 'Checklist EPI/EPC', 'o eletricista devia ver só o checklist de todos, e viu ' + nomes.join('|'));
+    var partes = await p.$$eval('#modulos .app-grupo, #modulos .n-modulo .n-nome', function (es) { return es.map(function (e) { return e.textContent; }); });
+    afirmar(partes.join('|') === 'Operação|Gestão de DP/RH|Treinamentos|Benefícios', 'os completos: os soltos primeiro, depois cada grupo com os dele, sem a Segurança do eletricista; veio ' + partes.join('|'));
+    afirmar((await texto(p)).indexOf('Sistemas completos') >= 0, 'com acesso rápido, a parte de baixo se chama Sistemas completos');
+    await p.click('#atalhos [data-atalho="epi"]');
+    await p.waitForURL(/\/blocos\/outro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
+    var r = await p.evaluate(function () { return window.INICIO_DO_BLOCO; });
+    afirmar(r.contexto && r.contexto.abrir === 'epi' && r.de === null, 'o bloco devia abrir no formulário pedido: ' + JSON.stringify(r && { contexto: r.contexto, de: r.de }));
+    await p.click('#voltar'); await esperarTexto(p, 'Acesso rápido');
+    afirmar((await texto(p, '#codigo')) === 'APP-05', 'o voltar do bloco devia trazer ao Início');
+    await a.ctx.close();
+    // O inspetor vê o formulário dele e o sistema completo; quem só tem a Segurança, sem ser inspetor, não vê parte de baixo.
+    var y = loginComAna({ modulos: [Object.assign({}, OUTRO, { perfil: 'Inspetor' })] }), b = await abrir(y.L);
+    await entrarCpf(b.page, formatado(y.cpf), 'senha-da-ana'); await esperarTexto(b.page, 'Olá, Ana');
+    nomes = await b.page.$$eval('#atalhos .app-atalho-nome', function (bs) { return bs.map(function (e) { return e.textContent; }); });
+    afirmar(nomes.join('|') === 'Checklist EPI/EPC|Inspeção SQP', 'o inspetor devia ver os dois formulários, e viu ' + nomes.join('|'));
+    afirmar((await b.page.$$('#modulos .n-modulo')).length === 1, 'o inspetor devia ver o sistema completo da Segurança');
+    await b.ctx.close();
+    var z = loginComAna({ modulos: [OUTRO] }), c = await abrir(z.L);
+    await entrarCpf(c.page, formatado(z.cpf), 'senha-da-ana'); await esperarTexto(c.page, 'Acesso rápido');
+    afirmar(!(await c.page.$('#modulos')) && !(await c.page.$('#semModulos')), 'quem só tem acesso rápido não vê a parte de baixo, nem a frase de "nenhum sistema"');
+    // Módulo travado não dá atalho: o formulário não teria para onde mandar.
+    await c.ctx.close();
+    var w = loginComAna({ modulos: [Object.assign({}, OUTRO, { liberado: false, motivo: 'Complete o cadastro' }), mods[1]] }), d = await abrir(w.L);
+    await entrarCpf(d.page, formatado(w.cpf), 'senha-da-ana'); await esperarTexto(d.page, 'Olá, Ana');
+    afirmar(!(await d.page.$('#atalhos')), 'o módulo travado não pode dar atalho');
+    await d.ctx.close();
+  },
+  /* A tela do bloco fala com o servidor dela pelo Casca.postar (casca 1.11): o endereço do login, conferido pelo resumo,
+     com o app e a versão do bloco. Com o endereço trocado, nada sai. */
+  T44_o_postar_da_tela_do_bloco: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S });
+    S.responder = function (c) { return c.acao === 'ligar' ? { ok: true, token: 'chave-1' } : { ok: true }; };
+    await entrarNoExemplo(a, x);
+    var r = await a.page.evaluate(function () { return Casca.postar({ acao: 'ligar', codigo: '123456' }); });
+    var q = S.pedidos.filter(function (c) { return c.acao === 'ligar'; });
+    afirmar(r.ok === true && r.token === 'chave-1', 'a tela devia receber a resposta do servidor: ' + JSON.stringify(r));
+    afirmar(q.length === 1 && q[0].codigo === '123456' && q[0].app === 'exemplo' && q[0].versao === '1' && q[0].relogio && q[0].fuso !== undefined,
+      'o pedido devia levar o app, a versão, o relógio e o fuso: ' + JSON.stringify(q[0]));
+    afirmar(JSON.stringify(q[0]).indexOf(x.cpf) < 0 && JSON.stringify(q[0]).indexOf('sess-') < 0 && q[0].sessao === undefined, 'o postar não leva CPF nem sessão');
+    await a.ctx.close();
+    var T = novoServidor(), y = anaComExemplo(SERVIDOR_OUTRO), b = await abrir(y.L, { servidor: T });
+    await entrarNoExemplo(b, y);
+    var e = await b.page.evaluate(function () { return Casca.postar({ acao: 'ligar', codigo: '123456' }).then(function () { return 'foi'; }, function (x) { return x; }); });
+    afirmar(e && e.servidorRecusado && e.msg && T.noOutro.length === 0 && T.pedidos.length === 0, 'com o endereço que não bate, nada podia sair: ' + JSON.stringify(e) + ' / ' + T.noOutro.length);
+    await b.ctx.close();
   },
   /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o
      botão mostra e esconde com o rótulo acompanhando, e a senha não fica à vista quando a tela é refeita. */
