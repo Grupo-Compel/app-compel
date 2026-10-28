@@ -445,7 +445,11 @@ var RELATO_MINIMO = 10;            // uma frase: menos que isso não diz à tria
 var TIPOS_DE_RELATO = { ERRO: { botao: 'Deu erro', pergunta: 'O que aconteceu?', titulo: 'Relatar um problema', enviar: 'Enviar o relato', feito: 'Relato enviado' },
   SUGESTAO: { botao: 'Tenho uma sugestão', pergunta: 'O que poderia melhorar?', titulo: 'Dar uma sugestão', enviar: 'Enviar a sugestão', feito: 'Sugestão enviada' } };
 function tipoDoRelato(r) { return r && r.tipo === 'SUGESTAO' ? 'SUGESTAO' : 'ERRO'; }
-function irRelato() { E.relato = { texto: '', foto: '', de: E.tela, tipo: 'ERRO' }; irPara('relato'); }
+/* A CHAVE CONTRA RELATO REPETIDO (combinada com o Núcleo, carta nº 1 dele ao App, ao Suporte e ao Financeiro, 28/10/2026).
+   Nasce uma vez por relato e vai igual em todo toque de "Enviar": se a resposta não voltar e a pessoa tocar de novo, o
+   Núcleo devolve o mesmo número, sem linha nova. De 8 a 40 letras, números ou "-", como o Núcleo aceita. */
+function novaChaveDeRelato() { return 'APP-' + Date.now().toString(36) + '-' + sorteio(6); }
+function irRelato() { E.relato = { texto: '', foto: '', de: E.tela, tipo: 'ERRO', chave: novaChaveDeRelato() }; irPara('relato'); }
 function anexarPrint(arquivo) {
   if (!arquivo || !E.relato) return;
   E.ocupado = true; desenhar();
@@ -461,7 +465,8 @@ function enviarRelato() {
   if (texto.length < RELATO_MINIMO) return mostrarErro('Escreva pelo menos uma frase para enviar.');
   E.ocupado = true; desenhar();
   var tipo = tipoDoRelato(r);
-  var corpo = { acao: 'enviarRelato', sessao: p.sessao, texto: texto, tipo: tipo,
+  if (!r.chave) r.chave = novaChaveDeRelato();
+  var corpo = { acao: 'enviarRelato', sessao: p.sessao, texto: texto, tipo: tipo, chave: r.chave,
     contexto: { tela: CODIGOS[r.de] || r.de || '', versaoApp: VERSAO_APP, hora: new Date().toISOString(), fuso: fusoDe(p), erros: ultimosErros.slice() } };
   if (r.foto) corpo.foto = r.foto;
   return postarAoLogin(corpo).then(function (x) {
@@ -602,9 +607,13 @@ function telaEsqueci() {
    Quem vê cada atalho é o bloco que declara (bloco.json, `atalhos`), pelo perfil da pessoa naquele módulo, que é o que
    o login devolve da ACESSOS. O cartão do sistema completo de um bloco aparece só para os perfis do `completo` dele.
    Quem só tem acesso rápido não vê a parte de baixo (Dalton: "ele vê só o que precisa ver"). */
+/* A célula PERFIL da ACESSOS pode trazer dois perfis separados por vírgula ("VIABILIZADOR,FECHADOR"): o Núcleo a devolve
+   como está escrita, e separar aqui é a leitura segura (carta nº 1 do Núcleo ao App, ao Suporte e ao Financeiro,
+   28/10/2026). Quem tem um perfil só não muda nada. */
+function perfisDaCelula(perfil) { return String(perfil || '').split(',').map(function (x) { return x.trim().toUpperCase(); }).filter(String); }
 function perfilNaLista(lista, perfil) {
-  var p = String(perfil || '').trim().toUpperCase();
-  return (lista || []).some(function (x) { x = String(x).trim().toUpperCase(); return x === '*' || (p !== '' && x === p); });
+  var meus = perfisDaCelula(perfil);
+  return (lista || []).some(function (x) { x = String(x).trim().toUpperCase(); return x === '*' || meus.indexOf(x) >= 0; });
 }
 function enderecoBom(m) { return !!m.url && /^https:\/\/\S+$/.test(m.url); }
 function atalhosDe(p) {

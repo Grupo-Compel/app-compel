@@ -1051,6 +1051,7 @@ var TESTES = {
     var r = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }).pop(), txt = JSON.stringify(r);
     afirmar(r.texto === 'O cartão da Segurança não abriu.' && r.sessao, 'o relato devia levar o texto e a sessão');
     afirmar(r.tipo === 'ERRO', 'sem mexer no seletor, o relato devia ir como ERRO, e foi ' + r.tipo);
+    afirmar(/^[A-Za-z0-9_-]{8,40}$/.test(r.chave || ''), 'o relato devia levar a chave contra repetição, no formato do Núcleo: ' + r.chave);
     afirmar(r.contexto && r.contexto.tela === 'APP-07', 'a tela do contexto devia ser a de onde a pessoa veio (APP-07), e veio ' + (r.contexto && r.contexto.tela));
     afirmar(r.contexto.versaoApp && r.contexto.fuso === 'America/Campo_Grande' && /^\d{4}-\d{2}-\d{2}T/.test(r.contexto.hora) && Array.isArray(r.contexto.erros), 'o contexto devia ter versão, fuso, hora e erros');
     afirmar(/^data:image\/jpeg;base64,/.test(r.foto || '') && r.foto.length < 2000000, 'o print devia ir reduzido, em JPEG e abaixo de 2 MB');
@@ -1083,7 +1084,9 @@ var TESTES = {
     x.L.cortarRelato = false;
     await p.click('[data-acao="enviarRelato"]');
     await esperarTexto(p, 'Sugestão enviada (nº R-7)');
-    var r = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }).pop();
+    var os2 = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }), r = os2[os2.length - 1];
+    // A resposta perdida e o segundo toque: o mesmo relato, com a mesma chave, para o Núcleo devolver o mesmo número.
+    afirmar(os2.length === 2 && os2[0].chave && os2[0].chave === os2[1].chave, 'os dois toques do mesmo relato deviam levar a mesma chave: ' + JSON.stringify(os2.map(function (q) { return q.chave; })));
     afirmar(r.tipo === 'SUGESTAO' && r.texto === 'Podia mostrar a placa em letra maior.', 'a sugestão devia ir com tipo SUGESTAO, e foi ' + r.tipo);
     afirmar((await texto(p, 'body')).indexOf('Quando for avaliada') >= 0, 'a sugestão é avaliada, e não corrigida');
     await a.ctx.close();
@@ -1113,7 +1116,8 @@ var TESTES = {
     afirmar((await texto(p, '#codigo')) === 'APP-05', 'o voltar do bloco devia trazer ao Início');
     await a.ctx.close();
     // O inspetor vê o formulário dele e o sistema completo; quem só tem a Segurança, sem ser inspetor, não vê parte de baixo.
-    var y = loginComAna({ modulos: [Object.assign({}, OUTRO, { perfil: 'Inspetor' })] }), b = await abrir(y.L);
+    // Dois perfis na mesma célula (carta nº 1 do Núcleo de 28/10): o app separa pela vírgula.
+    var y = loginComAna({ modulos: [Object.assign({}, OUTRO, { perfil: 'ELETRICISTA, Inspetor' })] }), b = await abrir(y.L);
     await entrarCpf(b.page, formatado(y.cpf), 'senha-da-ana'); await esperarTexto(b.page, 'Olá, Ana');
     nomes = await b.page.$$eval('#atalhos .app-atalho-nome', function (bs) { return bs.map(function (e) { return e.textContent; }); });
     afirmar(nomes.join('|') === 'Checklist EPI/EPC|Inspeção SQP', 'o inspetor devia ver os dois formulários, e viu ' + nomes.join('|'));
