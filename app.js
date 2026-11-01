@@ -467,7 +467,10 @@ function enviarRelato() {
   var tipo = tipoDoRelato(r);
   if (!r.chave) r.chave = novaChaveDeRelato();
   var corpo = { acao: 'enviarRelato', sessao: p.sessao, texto: texto, tipo: tipo, chave: r.chave,
-    contexto: { tela: CODIGOS[r.de] || r.de || '', versaoApp: VERSAO_APP, hora: new Date().toISOString(), fuso: fusoDe(p), erros: ultimosErros.slice() } };
+    /* O `foto` do contexto diz se o app levou o print, e de que tamanho (28/10/2026): o APP#0001 chegou "sem foto" na
+       RELATOS, e sem isto não havia como saber, olhando a linha, se o print ficou no celular ou no caminho. */
+    contexto: { tela: CODIGOS[r.de] || r.de || '', versaoApp: VERSAO_APP, hora: new Date().toISOString(), fuso: fusoDe(p), erros: ultimosErros.slice(),
+                foto: r.foto ? 'anexada, ' + Math.round(r.foto.length * 3 / 4 / 1024) + ' KB' : 'sem' } };
   if (r.foto) corpo.foto = r.foto;
   return postarAoLogin(corpo).then(function (x) {
     if (x && x.pedirCpf) return exigirEntrada(true, x.erro || 'Entre de novo com o seu CPF.');
@@ -480,7 +483,9 @@ function enviarRelato() {
     /* COM SINAL, A RESPOSTA QUE NÃO VOLTA NÃO QUER DIZER QUE O RELATO NÃO FOI (achado em 27/10/2026, pela pergunta da
        carta nº 2 do Núcleo): a espera da casca é de 30 segundos, e o login pode gravar a linha depois que o app desistiu
        de esperar. Dizer "não foi" leva a pessoa a tocar de novo, e o relato entra duas vezes, com dois números. */
-    mostrarErro(comSinal() ? 'A resposta do login não chegou. O relato pode ter ido assim mesmo: se tocar de novo, ele pode entrar duas vezes.'
+    /* Desde a entrega 39 do Núcleo, salva pelo Dalton (31/10/2026), o relato leva a `chave` e o segundo toque devolve o
+       mesmo número: tocar de novo passou a ser seguro, e a frase diz isso. */
+    mostrarErro(comSinal() ? 'A resposta do login não chegou. Toque de novo em Enviar: se o relato já tinha chegado, ele não entra duas vezes.'
       : 'Sem sinal agora. O relato não foi. Tente de novo quando o sinal voltar.');
   });
 }
@@ -617,13 +622,15 @@ function perfilNaLista(lista, perfil) {
 }
 function enderecoBom(m) { return !!m.url && /^https:\/\/\S+$/.test(m.url); }
 function atalhosDe(p) {
-  var l = [];
+  var l = [], porBloco = E.atalhosDaPessoa || {}, mat = cascaMatricula(p.matricula);
   (p.modulos || []).forEach(function (m) {
     // Módulo travado ou com o endereço com defeito não dá atalho: o formulário abriria e não teria para onde mandar.
     if (m.liberado === false || !enderecoBom(m)) return;
     var b = telaDoCelular(m);
     if (!b || !Array.isArray(b.atalhos)) return;
-    b.atalhos.forEach(function (a) { if (perfilNaLista(a.perfis, m.perfil)) l.push({ bloco: b, atalho: a, modulo: m }); });
+    // A lista que o bloco mandou para esta pessoa, quando ele mandou (Casca.atalhosDaPessoa); senão, o padrão do bloco.json.
+    var dele = porBloco[b.id] && Array.isArray(porBloco[b.id][mat]) ? porBloco[b.id][mat] : null;
+    b.atalhos.forEach(function (a) { if (dele ? dele.indexOf(a.id) >= 0 : perfilNaLista(a.perfis, m.perfil)) l.push({ bloco: b, atalho: a, modulo: m }); });
   });
   return l;
 }
@@ -889,8 +896,8 @@ function registrarServiceWorker() {
 
 /* ---------- abrir ---------- */
 function iniciar() {
-  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual')]).then(function (v) {
-    E.aparelho = v[0]; E.pessoas = v[1] || {}; E.atual = v[2] || null;
+  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos')]).then(function (v) {
+    E.aparelho = v[0]; E.pessoas = v[1] || {}; E.atual = v[2] || null; E.atalhosDaPessoa = v[3] || {};
     if (!E.aparelho) { E.aparelho = { id: sorteio(16), chave: sorteio(16) }; return gravarKv('aparelho', E.aparelho); }
   }).then(function () {
     if (E.atual && !E.pessoas[E.atual.chave]) E.atual = null;

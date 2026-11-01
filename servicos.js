@@ -14,7 +14,7 @@
  */
 'use strict';
 
-var VERSAO_APP = '1.12 (28/10/2026)';
+var VERSAO_APP = '1.12.1 (31/10/2026)';
 var CASCA_BANCO = 'app-compel-casca';    // o banco da casca; o de cada bloco é do bloco, e a casca nunca o apaga
 var FUSO_PADRAO = 'America/Sao_Paulo';   // pessoa sem base cai aqui (carta nº 9 do Núcleo): é o fuso que termina o dia primeiro
 var CASCA_ESPERA_DO_ENVIO_MS = 90000;    // o mesmo do campo/: o Apps Script frio com foto passa de 30 s em rede fraca
@@ -213,6 +213,18 @@ function cascaGuardarSessaoDoBloco(id, matricula, sessao, validaAte) {
     return cascaGravar('sessoes:' + id, s);
   });
 }
+/* OS ATALHOS DE CADA PESSOA, DITOS PELO BLOCO (casca 1.12.1; proposta da Operação na carta nº 12 dela ao App, 28/10/2026).
+   O `perfis` do bloco.json é o padrão, para o Início mostrar o botão sem sinal. Quando o bloco recebe do servidor dele
+   a permissão de verdade da pessoa (na Operação, a aba PERFIS, que o Dalton edita), ele diz à casca quais dos atalhos
+   DECLARADOS ela pode usar, e o Início passa a seguir a lista dele para essa pessoa. Um SIM trocado por NÃO na planilha
+   chega ao Início sem ninguém mexer no bloco.json. Guardado por bloco e por matrícula, nunca por CPF. */
+function cascaGuardarAtalhosDaPessoa(id, matricula, ids) {
+  return cascaLer('atalhos').then(function (a) {
+    a = a || {}; a[id] = a[id] || {}; a[id][cascaMatricula(matricula)] = ids;
+    return cascaGravar('atalhos', a);
+  });
+}
+
 /* "Tirar meus dados deste celular" leva junto a sessão da pessoa em cada bloco. O banco do bloco fica: um registro
    feito e ainda não enviado mora lá, e não é da casca apagá-lo (§5.5, cuidado 2). */
 function cascaEsquecerSessoes(matricula) {

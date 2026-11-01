@@ -1055,6 +1055,7 @@ var TESTES = {
     afirmar(r.contexto && r.contexto.tela === 'APP-07', 'a tela do contexto devia ser a de onde a pessoa veio (APP-07), e veio ' + (r.contexto && r.contexto.tela));
     afirmar(r.contexto.versaoApp && r.contexto.fuso === 'America/Campo_Grande' && /^\d{4}-\d{2}-\d{2}T/.test(r.contexto.hora) && Array.isArray(r.contexto.erros), 'o contexto devia ter versão, fuso, hora e erros');
     afirmar(/^data:image\/jpeg;base64,/.test(r.foto || '') && r.foto.length < 2000000, 'o print devia ir reduzido, em JPEG e abaixo de 2 MB');
+    afirmar(/^anexada, \d+ KB$/.test(r.contexto.foto || ''), 'o contexto devia dizer que o print foi anexado, e de que tamanho: ' + r.contexto.foto);
     afirmar(txt.indexOf(x.cpf) < 0 && txt.indexOf(formatado(x.cpf)) < 0, 'o relato não pode levar CPF');
     afirmar((await texto(p, '#codigo')) === 'APP-07', 'depois de enviar, devia voltar à tela de onde veio');
     await a.ctx.close();
@@ -1078,7 +1079,7 @@ var TESTES = {
     afirmar((await texto(p, '[data-acao="enviarRelato"]')) === 'Enviar a sugestão', 'o botão devia dizer "Enviar a sugestão"');
     x.L.cortarRelato = true;
     await p.click('[data-acao="enviarRelato"]');
-    await esperarTexto(p, 'pode ter ido');
+    await esperarTexto(p, 'Toque de novo em Enviar');
     afirmar((await texto(p, 'body')).indexOf('não foi') < 0, 'com sinal e sem resposta, o app não pode dizer que o relato não foi');
     afirmar((await texto(p, '#codigo')) === 'APP-10', 'sem resposta, devia ficar na tela do relato');
     x.L.cortarRelato = false;
@@ -1087,6 +1088,7 @@ var TESTES = {
     var os2 = x.L.pedidos.filter(function (q) { return q.acao === 'enviarRelato'; }), r = os2[os2.length - 1];
     // A resposta perdida e o segundo toque: o mesmo relato, com a mesma chave, para o Núcleo devolver o mesmo número.
     afirmar(os2.length === 2 && os2[0].chave && os2[0].chave === os2[1].chave, 'os dois toques do mesmo relato deviam levar a mesma chave: ' + JSON.stringify(os2.map(function (q) { return q.chave; })));
+    afirmar(r.contexto && r.contexto.foto === 'sem', 'sem print, o contexto devia dizer "sem": ' + (r.contexto && r.contexto.foto));
     afirmar(r.tipo === 'SUGESTAO' && r.texto === 'Podia mostrar a placa em letra maior.', 'a sugestão devia ir com tipo SUGESTAO, e foi ' + r.tipo);
     afirmar((await texto(p, 'body')).indexOf('Quando for avaliada') >= 0, 'a sugestão é avaliada, e não corrigida');
     await a.ctx.close();
@@ -1222,6 +1224,21 @@ var TESTES = {
     await p.waitForFunction(function () { var c = document.getElementById('corpo'); return !!c && /Ana Teste · 99901/.test(c.textContent); }, null, { timeout: 15000 });
     afirmar(!(await p.$('#ligCodigo')) && !(await p.$('[data-acao="entrar"]')), 'sem sinal, quem já entrou não devia ver Ligar nem Entrar');
     afirmar(S.operacao.length === antes, 'sem sinal, nada podia ir ao servidor');
+    await a.ctx.close();
+  },
+  /* Os atalhos ditos pelo bloco (casca 1.12.1, proposta da Operação nº 12): com a permissão de verdade vinda do servidor
+     dele, o bloco diz quais dos atalhos declarados a pessoa usa, e o Início segue essa lista, e não o padrão do bloco.json.
+     Id que o bloco.json não declara não vira botão. */
+  T47_os_atalhos_ditos_pelo_bloco: async function () {
+    var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true };
+    var x = loginComAna({ modulos: [OUTRO] }), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    await p.click('#atalhos [data-atalho="epi"]'); await p.waitForSelector('#pronto');
+    var r = await p.evaluate(function () { return Casca.atalhosDaPessoa(['sqp', 'nao-existe', 'sqp']); });
+    afirmar(r.ok && r.atalhos.join('|') === 'sqp', 'só o atalho declarado entra, uma vez: ' + JSON.stringify(r));
+    await p.click('#voltar'); await esperarTexto(p, 'Acesso rápido');
+    var nomes = await p.$$eval('#atalhos .app-atalho-nome', function (bs) { return bs.map(function (e) { return e.textContent; }); });
+    afirmar(nomes.join('|') === 'Inspeção SQP', 'o Início devia seguir a lista do bloco para esta pessoa, e mostrou ' + nomes.join('|'));
     await a.ctx.close();
   },
   /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o

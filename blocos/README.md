@@ -106,6 +106,7 @@ Carrega, nesta ordem, e começa por `Casca.iniciar('<pasta do bloco>')`:
 | `voltar()` | de volta para quem abriu a tela: o bloco que chamou, ou o Início |
 | `abrirBloco(id, contexto)` | abre a tela do celular de outro bloco levando o contexto. Funciona sem sinal. Devolve `{ erro }` se o contexto for recusado |
 | `sessaoNova(extra)` | (só quem envia) cria a sessão desta pessoa no servidor do bloco, a partir do token do Núcleo. Chamar no toque, com sinal (ver abaixo) |
+| `atalhosDaPessoa(ids)` | (casca 1.12.1) quais dos `atalhos` **declarados** esta pessoa usa, pela permissão que o servidor do bloco mandou (na Operação, a aba PERFIS). O Início passa a seguir esta lista para essa pessoa, no lugar do `perfis` do bloco.json, que fica como padrão para o botão aparecer antes do primeiro pacote. Id não declarado é ignorado |
 | `postar(corpo, ms)` | (só quem envia; casca 1.11) um pedido da **tela** ao servidor do bloco, fora da fila (o "ligar", o pacote, um documento): o endereço do login, conferido pelo resumo, com o `app` e a `versao` do bloco. Recusa com `{ servidorRecusado, msg }` quando o endereço não bate, e com `{ rede, comSinal, msg }` sem resposta. Não leva a sessão: o que precisa dela vai pela fila |
 | `temSessao()` | `{ tem, venceu, valeAte }`: se a sessão desta pessoa no servidor do bloco existe e não venceu. Nunca devolve a sessão |
 | `ajuda(elemento, texto)` | o "Como funciona esta tela", igual ao das telas da casca. Toda tela tem a dela |

@@ -326,6 +326,16 @@ var Casca = (function () {
         return cascaPostar(s.url, corpo, { app: b.envia.app, versao: b.versao, ms: ms });
       });
     },
+    /* Quais dos atalhos DECLARADOS no bloco.json esta pessoa pode usar, pela permissão que o servidor do bloco mandou
+       (casca 1.12.1; ver cascaGuardarAtalhosDaPessoa). Id que o bloco.json não declara é ignorado: o botão do Início
+       só nasce da declaração. Sem esta chamada, vale o `perfis` do bloco.json. */
+    atalhosDaPessoa: function (ids) {
+      exigir();
+      if (!Array.isArray(ids)) return Promise.resolve({ ok: false, erro: 'A lista dos atalhos é uma lista de ids.' });
+      var declarados = (estado.bloco.atalhos || []).map(function (a) { return a.id; });
+      var l = ids.filter(function (x, i) { return declarados.indexOf(x) >= 0 && ids.indexOf(x) === i; });
+      return cascaGuardarAtalhosDaPessoa(estado.id, estado.pessoa.matricula, l).then(function () { return { ok: true, atalhos: l }; });
+    },
     /* O banco do bloco, com os ajudantes da casca. O nome é do bloco; a casca nunca o apaga. */
     banco: function (nome, versao, lojas) { return cascaBanco(nome, versao, lojas); },
     /* Quem fez e em nome de quem (D20). Sem `emNomeDe`, é a própria pessoa. */
