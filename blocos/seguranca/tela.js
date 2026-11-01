@@ -40,7 +40,10 @@ var INSPECIONA = ['INSPETOR', 'SUPERVISOR', 'COORDENADOR', 'GERENTE', 'ADMIN'], 
 Casca.iniciar('seguranca').then(function (r) {
   S.pessoa = r.pessoa;
   S.contexto = lerContexto(r.contexto);
+  var abrir = telaDoAtalho(r.contexto);
   return segGravarConfig('ultimaMatricula', r.pessoa.matricula).then(carregarLocal).then(recuperarRascunho).then(function () {
+    // O formulário pela metade vence o atalho: quem voltou da câmera continua onde estava.
+    if (abrir && !S.recuperado && podeAbrir(abrir)) S.tela = abrir;
     desenhar();
     /* Quando o sinal volta, a casca já manda a fila sozinha; a tela pede de novo para saber o resultado e mostrar o
        contador certo (a casca não avisa a tela quando termina um envio). E a cada 20 s a tela relê o banco do bloco: o
@@ -61,7 +64,40 @@ function carregarLocal() {
   return Promise.all([segConfig('pacote'), SEG_BANCO.listar('registros'), segConfig('sessao:' + S.pessoa.matricula)]).then(function (v) {
     S.pacote = v[0] || null; S.registros = v[1] || [];
     if (!marcaValida(v[2])) S.sessaoOk = false;
+    avisarAtalhos();
   });
+}
+
+/* ---------- o Acesso rápido do app (casca 1.11 e 1.12.1; App nº 7, 27/10/2026) ----------
+   O Início do app mostra um botão por formulário declarado em `atalhos` no bloco.json; o toque abre esta tela com o
+   contexto { abrir: '<id>' }, sem sinal. Só ids conhecidos passam: o contexto vem de um link, e um id inventado não pode
+   virar uma tela que não existe. Os de quem inspeciona só abrem para quem inspeciona; sem o pacote ainda, vale o início.
+   O bloco.json dá o padrão por perfil; depois do pacote, o bloco diz à casca quais a pessoa usa DE VERDADE pela função
+   dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
+var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'sqp', 'blitz', 'dds'];
+function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
+function podeAbrir(t) {
+  if (t === 'sqp' || t === 'blitz') return !!S.pacote && ehDe(INSPECIONA);
+  if (t === 'dds') return !!S.pacote && ehDe(INSPECIONA.concat(['ENCARREGADO']));
+  return true;
+}
+function atalhosDestaPessoa() {
+  if (!S.pacote) return null;
+  var e = S.pacote.exigencias || { epi: true, luvas: 'NAO', veicular: false }, l = ['inicio', 'incidente'];
+  if (e.epi) l.push('epi');
+  if (e.luvas === 'DIARIO' || e.luvas === 'SEMANAL') l.push('luvas');
+  if (e.veicular) l.push('veicular');
+  if (ehDe(INSPECIONA)) l.push('sqp', 'blitz');
+  if (ehDe(INSPECIONA.concat(['ENCARREGADO']))) l.push('dds');
+  return l;
+}
+function avisarAtalhos() {
+  var l = atalhosDestaPessoa();
+  if (!l || typeof Casca.atalhosDaPessoa !== 'function') return;
+  var k = l.join(',');
+  if (S._atalhosAvisados === k) return;
+  S._atalhosAvisados = k;
+  try { Casca.atalhosDaPessoa(l); } catch (e) { S._atalhosAvisados = ''; } /* casca sem a função: vale o padrão do bloco.json */
 }
 
 /* A sessão no servidor do módulo. Quem a cria é a CASCA (1.7): ela confere o endereço, pede o token do Núcleo e o posta
@@ -115,6 +151,9 @@ function exigencias(funcao, matricula) {
      a função). Função vazia de OUTRA pessoa não pode virar a função de quem está no celular — o ajudante herdaria o
      teste de luvas do encarregado de linha viva, ou o perderia. Sem a função, vale o mínimo de todo mundo, o EPI/EPC,
      até o pacote trazer a função pela matrícula (funcaoDe, quando o Treinamentos/Núcleo der a fonte). */
+  /* A lista por matrícula do Treinamentos (01/11/2026) vence a função escrita: ela já casou a pessoa com a função. */
+  var porMat = (p.exigePorMatricula || {})[String(matricula || '').replace(/^0+(?=\d)/, '')];
+  if (!euMesmo && porMat) return porMat;
   if (!funcao && !euMesmo) funcao = (p.funcaoDe || {})[String(matricula)] || '';
   if (!funcao && !euMesmo) return { epi: true, luvas: 'NAO', veicular: false, semFuncao: true };
   if (euMesmo && (!funcao || funcao === p.pessoa.funcao)) return p.exigencias;
@@ -138,8 +177,9 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', relato: 'Relatar acidente ou quase acidente' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
 var AJUDAS = {
+  incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, o par sai de uso: tire a foto e avise o almoxarifado.',
@@ -163,7 +203,7 @@ function desenhar() {
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
   else if (S.msg) avisos += '<div class="aviso erro">' + h(S.msg) + '</div>';
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
-  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato })[t]();
+  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
   Casca.ajuda($('ajuda'), AJUDAS[t]);
   // Volta ao topo só quando a TELA muda: o redesenho de 20 em 20 s não pode jogar para cima quem está rolando a lista.
@@ -211,6 +251,7 @@ function telaInicio() {
   /* Para todo mundo, e no alto (26/10/2026): o relato não depende da função nem do perfil, e quem precisa dele está com
      pressa. Escondido no fim da lista, ele pareceria coisa só do técnico. */
   html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou quase acidente</button>';
+  html += '<button type="button" class="btn secundario" data-acao="abrir" data-tela="incidente">Incidente rápido: onde, o quê e a foto</button>';
   if (ehDe(INSPECIONA)) {
     var p = S.pacote, meta = p.meta || { sqp: 0 }, mes = hoje().slice(0, 7);
     var sqpMes = (p.feitasNoMes && p.feitasNoMes.sqp || 0) + S.registros.filter(function (r) { return r.tipo === 'sqp' && r.estado !== 'enviado' && r.dia.slice(0, 7) === mes; }).length;
@@ -319,7 +360,10 @@ function telaVeicular() {
   var tipos = S.pacote ? Object.keys(S.pacote.veiculos) : [], crit = (S.pacote ? S.pacote.criticosVeiculo : []).map(normalizar);
   /* O km é opcional (proposto pelo Frota, carta nº 1 ao Frota, §4; entregue em 26/10/2026): o servidor já tinha a coluna
      KM. Obrigatório, ele travaria o checklist de quem está com o painel apagado ou sem ver o hodômetro. */
-  var html = '<div class="cartao"><div class="campo"><label>Placa</label><input data-campo="placa" value="' + h(f.placa) + '" placeholder="ABC1D23" autocapitalize="characters"></div>' +
+  // O tipo do checklist vem da placa, quando ela está no cadastro da Frota; a pessoa pode trocar.
+  var daFrota = placaDaFrota(f.placa);
+  if (!f.tipoV && daFrota && daFrota.tipo && S.pacote && S.pacote.veiculos[daFrota.tipo]) f.tipoV = daFrota.tipo;
+  var html = listaDePlacas() + '<div class="cartao"><div class="campo"><label>Placa</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" placeholder="ABC1D23" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
     '<div class="campo"><label>Km do hodômetro (se puder ver)</label><input data-campo="km" inputmode="numeric" value="' + h(f.km || '') + '"></div><b>Tipo do veículo</b><div class="seg-chips">' +
     tipos.map(function (t) { return '<button type="button" class="chip' + (f.tipoV === t ? ' ativo' : '') + '" data-acao="campo" data-c="tipoV" data-v="' + h(t) + '">' + h(t) + '</button>'; }).join('') + '</div></div>';
   if (!S.pacote) return html + '<div class="aviso atencao">Os itens de cada tipo de veículo chegam com o pacote. Abra com sinal uma vez.</div>';
@@ -346,7 +390,7 @@ function telaVeicular() {
 /* ---------- SQP ---------- */
 function telaSqp() {
   var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', irr: [], busca: '', nova: null, anterior: {} };
-  var html = '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div>' + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" value="' + h(f.placa) + '"></div>' +
+  var html = listaDePlacas() + '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div>' + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
     campoCondutor(f, f.placa) + '</div>' + painelAnterior(f, chavesDoSqp(f));
   html += '<h2 class="seg-h2">Irregularidades (' + f.irr.length + ')</h2>' + f.irr.map(function (x, i) {
     var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
@@ -406,6 +450,20 @@ function formIrregularidade(f) {
    placa). A lista vem no pacote, e a conferência funciona sem sinal. */
 function chaveDoPrefixo(t) { return normalizar(String(t || '').split(' - ')[0]).replace(/[^a-z0-9]/g, ''); }
 function soPlaca(p) { return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+/* AS PLACAS DA FROTA (01/11/2026): a lista vem no pacote, só as do estado da pessoa quando o servidor sabe a UF da base.
+   O campo continua aceitando qualquer placa digitada: carro novo ou alugado pode não estar no cadastro da Frota. */
+function placasDoPacote() { return (S.pacote && S.pacote.placas) || []; }
+function placaDaFrota(p) { var x = soPlaca(p); return x ? placasDoPacote().filter(function (q) { return q.placa === x; })[0] : null; }
+function listaDePlacas() {
+  var l = placasDoPacote(); if (!l.length) return '';
+  return '<datalist id="segPlacas">' + l.map(function (q) { return '<option value="' + h(q.placa) + '">' + h([q.tipo || q.modelo, q.base, q.parado ? 'parado' : ''].filter(String).join(' · ')) + '</option>'; }).join('') + '</datalist>';
+}
+function sobreAPlaca(p) {
+  var x = soPlaca(p); if (x.length < 7 || !placasDoPacote().length) return '';
+  var q = placaDaFrota(x);
+  return q ? '<p class="seg-sub">' + h([q.tipo || q.modelo, q.modelo && q.tipo ? q.modelo : '', q.base, q.parado ? 'parado no cadastro da Frota' : ''].filter(String).join(' · ')) + '</p>'
+    : '<p class="seg-sub">Esta placa não está no cadastro da Frota. Confira; se estiver certa, pode seguir.</p>';
+}
 function matsDoTexto(t) { return String(t || '').split(/[^0-9]+/).map(function (m) { return m.replace(/^0+(?=\d)/, ''); }).filter(String); }
 /* "B203" acha "CPL-NAN-B203" pelo fim. Menos de três letras não compara: "B2" acharia meia base. */
 function mesmoPrefixo(a, b) { if (a.length < 3 || b.length < 3) return false; return a.length >= b.length ? a.slice(-b.length) === b : b.slice(-a.length) === a; }
@@ -480,11 +538,11 @@ function telaBlitz() {
   var equipe = (S.contexto && S.contexto.equipe) || [];
   /* Na Blitz da equipe, a placa e quem estava presente. O Controle da Blitz de hoje não tem a placa em 1.071 das 1.111
      linhas de equipe (contado em 24/10/2026), mesmo com item do caminhão; sem ela, o material não volta à placa. */
-  var daEquipe = f.alvoTipo !== 'equipe' ? '' : '<div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" value="' + h(f.placa) + '" autocapitalize="characters"></div>' +
+  var daEquipe = f.alvoTipo !== 'equipe' ? '' : '<div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
     '<div class="campo"><label>Matrículas de quem está presente (separadas por vírgula)</label><input data-campo="integrantesTxt" inputmode="numeric" value="' + h(f.integrantesTxt) + '"></div>' +
     (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addIntegrante" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '');
-  var html = '<div class="cartao"><div class="seg-tres">' + [['pessoa', 'Pessoa'], ['veiculo', 'Veículo'], ['equipe', 'Equipe']].map(function (x) { return '<button type="button" class="chip' + (f.alvoTipo === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="alvoTipo" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-    '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa', equipe: 'Prefixo da equipe' }[f.alvoTipo] + '</label><input data-campo="alvoId" value="' + h(f.alvoId) + '"></div>' + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
+  var html = listaDePlacas() + '<div class="cartao"><div class="seg-tres">' + [['pessoa', 'Pessoa'], ['veiculo', 'Veículo'], ['equipe', 'Equipe']].map(function (x) { return '<button type="button" class="chip' + (f.alvoTipo === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="alvoTipo" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa', equipe: 'Prefixo da equipe' }[f.alvoTipo] + '</label><input data-campo="alvoId"' + (f.alvoTipo === 'veiculo' ? ' list="segPlacas" autocapitalize="characters"' : '') + ' value="' + h(f.alvoId) + '"></div>' + (f.alvoTipo === 'veiculo' ? sobreAPlaca(f.alvoId) : '') + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
     painelAnterior(f, chavesDaBlitz(f)) +
     '<div class="seg-chips">' + cats.map(function (c) { var n = S.pacote.blitz[c].filter(function (it) { return f.resp[chaveBlitz(c, it.item)]; }).length; return '<button type="button" class="chip' + (f.cat === c ? ' ativo' : '') + '" data-acao="campo" data-c="cat" data-v="' + h(c) + '">' + h(c) + ' <b>' + n + '/' + S.pacote.blitz[c].length + '</b></button>'; }).join('') + '</div>';
   (S.pacote.blitz[f.cat] || []).forEach(function (it, i) {
@@ -596,6 +654,31 @@ function telaRelato() {
     (faltam.length ? '<p class="seg-sub seg-falta">Para enviar, falta ' + faltam.join(', ') + '.</p>' : '<p class="seg-sub">Vai para a engenharia de segurança, com o seu nome. Sem sinal, sobe sozinho depois.</p>');
 }
 
+/* ---------- o incidente rápido (decisão do Dalton, 27/10/2026, 20h07; App nº 7) ----------
+   Para quem é de campo, só três coisas: onde aconteceu, o que aconteceu e a foto (o exemplo dele: bater numa cerca). É
+   diferente do relato do técnico de segurança, que pergunta quem se machucou, o dia e a hora: aqui o dia e a hora são os
+   de agora, e ninguém se machucou (quem se machucou usa o relato de acidente, que pede o socorro primeiro). No servidor
+   ele entra como os outros relatos, com a situação "Relatado no celular", para o técnico completar.
+   O VÍDEO: o Dalton decidiu que não há limite de duração (01/11, carta ao App nº 8). Hoje a casca só tira foto (App nº 8,
+   01/11): o vídeo entra nesta tela quando a casca guardar e mandar vídeo. */
+function oQueFaltaNoIncidente(f) {
+  var l = [];
+  if (!String(f.local || '').trim()) l.push('dizer onde foi');
+  if (String(f.descricao || '').trim().length < 10) l.push('contar o que aconteceu (uma frase, pelo menos)');
+  return l;
+}
+function telaIncidente() {
+  var f = S.form = S.form || { id: novoId('inc'), tipo: 'incidente', local: '', descricao: '', fotos: [] };
+  var html = '<div class="cartao"><div class="campo"><label>Onde foi (endereço, poste, trecho ou a base)</label><input data-campo="local" value="' + h(f.local) + '"></div>' +
+    '<div class="campo"><label>O que aconteceu</label><textarea data-campo="descricao" rows="4" class="seg-texto" placeholder="Ex.: o caminhão encostou na cerca ao manobrar">' + h(f.descricao) + '</textarea></div></div>';
+  html += '<div class="cartao"><b>Fotos (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">Do lugar e do que foi danificado.</p>' +
+    f.fotos.map(function (id, i) { return '<span class="chip seg-ok">Foto ' + (i + 1) + ' ✓ <button type="button" class="link-texto" data-acao="tirarFotoRelato" data-i="' + i + '">tirar</button></span>'; }).join(' ') +
+    (f.fotos.length < FOTOS_POR_RELATO ? '<button type="button" class="btn secundario auto" data-acao="fotoRelato">Tirar foto</button>' : '') + '</div>';
+  var faltam = oQueFaltaNoIncidente(f);
+  return html + '<button type="button" class="btn" data-acao="salvarIncidente"' + (faltam.length ? ' disabled' : '') + '>Enviar</button>' +
+    (faltam.length ? '<p class="seg-sub seg-falta">Para enviar, falta ' + faltam.join(', ') + '.</p>' : '<p class="seg-sub">Vai para a engenharia de segurança, com o seu nome, a hora de agora e a sua base. Sem sinal, sobe sozinho depois.</p>');
+}
+
 /* ---------- equipe do dia (porta da Operação) ---------- */
 function telaEquipe() {
   var eq = (S.contexto && S.contexto.equipe) || [];
@@ -632,7 +715,8 @@ document.addEventListener('input', function (ev) {
   if (t.dataset.campo) {
     f[t.dataset.campo] = t.value;
     // No relato, o botão de enviar depende do que se digita: redesenha mantendo o cursor onde estava.
-    if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
+    if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo)) ||
+      (f.tipo === 'incidente' && /^(descricao|local)$/.test(t.dataset.campo)) || (f.tipo === 'veicular' && t.dataset.campo === 'placa')) redesenharMantendoFoco(t);
     // A Blitz anterior e a sugestão do condutor aparecem enquanto se digita o prefixo, a placa ou quem está presente.
     else if ((f.tipo === 'blitz' && /^(alvoId|placa|integrantesTxt|encarregadoBusca)$/.test(t.dataset.campo)) || (f.tipo === 'sqp' && /^(equipe|placa|encarregadoBusca)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
   }
@@ -720,6 +804,11 @@ document.addEventListener('click', function (ev) {
   }
   if (a === 'fotoRelato') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); });
   if (a === 'tirarFotoRelato') { f.fotos.splice(+b.dataset.i, 1); return desenhar(); }
+  if (a === 'salvarIncidente') {
+    if (oQueFaltaNoIncidente(f).length && falta('Para enviar, falta ' + oQueFaltaNoIncidente(f).join(', ') + '.')) return;
+    return concluir({ id: f.id, tipo: 'relato', relato: { tipo: 'incidente', data: hoje(), hora: agoraHHMM(), local: String(f.local).trim(), ferido: 'ninguem',
+      feridoMatricula: '', feridoNome: '', descricao: String(f.descricao).trim(), naHora: '', fotos: f.fotos.slice() } }, 'Incidente salvo. Um técnico de segurança vai completar.');
+  }
   if (a === 'salvarRelato') {
     if (oQueFaltaNoRelato(f).length && falta('Para enviar, falta ' + oQueFaltaNoRelato(f).join(', ') + '.')) return;
     var fer = f.tipoRelato === 'lesao' || f.tipoRelato === 'transito' ? f.ferido || 'ninguem' : 'ninguem';
