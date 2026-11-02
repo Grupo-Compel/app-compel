@@ -390,9 +390,15 @@ function desenharSeLogado() { if (telaLogada()) desenhar(); }
 /* ---------- Avisos ---------- */
 function avisosDaJanela(lista, p) {
   var hoje = diaNoFuso(new Date(), fusoDe(p));
-  return (lista || []).filter(function (a) { var d = String(a.data || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) && diasEntre(d, hoje) >= 0 && diasEntre(d, hoje) < DIAS_DOS_AVISOS; })
+  return (lista || []).filter(function (a) { var d = String(a.data || '').slice(0, 10); return !(a && a.fixa === true) && /^\d{4}-\d{2}-\d{2}$/.test(d) && diasEntre(d, hoje) >= 0 && diasEntre(d, hoje) < DIAS_DOS_AVISOS; })
     .sort(function (a, b) { return String(b.data).localeCompare(String(a.data)); });
 }
+/* As comunicações FIXAS (casca 1.13.0; carta nº 24 do Núcleo e nossa nº 25, 01/11/2026): arte que fica o ano todo, sem
+   data. O Núcleo manda `fixa: true` e `data: ''`; a ordem entre elas é a da lista que ele mandou (hoje, a ordem
+   alfabética do id). Ficam fora do "novo", do contador do "!" e do corte de 30 dias: sem data não há o que comparar,
+   e uma arte permanente que acendesse o "!" a cada abertura ensinaria a pessoa a ignorar o "!". Item sem título é
+   ignorado, como no resto. */
+function avisosFixas(lista) { return (lista || []).filter(function (a) { return a && a.fixa === true && a.titulo; }); }
 /* Os avisos da pessoa (o relato corrigido, a pendência, o aviso geral), no campo avisosDaPessoa da ação avisos (cartas
    nº 18 e 19 com o Núcleo, 25/10/2026). O recorte dos 3 dias e o "já lido" são do Núcleo: o app mostra o que vier, e
    só põe "Marcar como lido" onde vier marcavel: true. Item sem id ou sem texto é ignorado. */
@@ -410,7 +416,7 @@ function buscarAvisos() {
     if (r && r.pedirCpf) return exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.');
     if (r && r.entrarDeNovo) return exigirEntrada(false, senhaMudou(r.erro));
     if (!r || r.ok !== true) { E.avisos = { erro: (r && r.erro) || 'O login não mandou os avisos.' }; return desenhar(); }
-    E.avisos = { lista: avisosDaJanela(r.comunicacoes, p), pessoais: avisosDaPessoa(r.avisosDaPessoa) };
+    E.avisos = { lista: avisosDaJanela(r.comunicacoes, p), fixas: avisosFixas(r.comunicacoes), pessoais: avisosDaPessoa(r.avisosDaPessoa) };
     /* O "!" acende quando o login passa a mandar os avisos da pessoa: o Núcleo os entrega junto com a RELATOS, onde o
        relato é gravado (carta nº 19 dele, 25/10/2026). Antes disso, o "!" levaria a uma ação que o login não tem. */
     E.relatoLigado = Array.isArray(r.avisosDaPessoa);
@@ -688,20 +694,28 @@ function telaAvisos() {
   if (!comSinal()) h += '<div class="aviso atencao">Sem sinal: os avisos aparecem quando o celular tiver sinal.</div>';
   else if (!E.avisos) h += '<div class="carregando">Buscando os avisos…</div>';
   else if (E.avisos.erro) h += '<div class="aviso atencao">' + esc(E.avisos.erro) + '</div>';
-  else if (E.avisos.pessoais && E.avisos.pessoais.length && !E.avisos.lista.length) h += avisosPessoaisHtml();
-  else if (!E.avisos.lista.length) h += '<div class="vazio" id="semAvisos">Nenhum aviso nos últimos ' + DIAS_DOS_AVISOS + ' dias.</div>';
-  else h += avisosPessoaisHtml() + '<div id="listaAvisos">' + E.avisos.lista.map(function (a) {
-    var novo = String(a.data).slice(0, 10) > String(E.avisosNovosAntes !== undefined ? E.avisosNovosAntes : p.vistoAvisos || '');
-    /* A `proporcao` sai das medidas da imagem desde 22/10/2026 (carta nº 15 do Núcleo), e pode vir com decimal
-       ("1.91:1"). Ela só reserva o espaço antes de a arte chegar; o `object-fit: contain` não deixa deformar. O
-       `arte: ''` (a linha vem sem imagem em vez de sumir) desenha o cartão sem a imagem. */
-    var prop = /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(String(a.proporcao || '')) ? String(a.proporcao).replace(':', ' / ') : '4 / 5';
-    return '<div class="cartao aviso-item"><div class="app-linha">' + (a.categoria ? '<span class="app-cat">' + esc(a.categoria) + '</span>' : '') + (novo ? '<span class="app-novo">novo</span>' : '') + '</div>' +
-      '<b class="app-titulo">' + esc(a.titulo) + '</b><span class="app-data">' + esc(brDe(a.data)) + '</span>' +
-      (a.arte ? '<img src="' + esc(a.arte) + '" alt="' + esc(a.titulo) + '" loading="lazy" style="aspect-ratio:' + prop + '">' : '') +
-      (a.link ? '<a class="link-texto" href="' + esc(a.link) + '" target="_blank" rel="noopener">Abrir</a>' : '') + '</div>';
-  }).join('') + '</div>';
+  else if (!E.avisos.lista.length && !(E.avisos.fixas || []).length && !(E.avisos.pessoais && E.avisos.pessoais.length)) h += '<div class="vazio" id="semAvisos">Nenhum aviso nos últimos ' + DIAS_DOS_AVISOS + ' dias.</div>';
+  else {
+    /* Só com fixas (ou só com avisos da pessoa) a tela mostra o que há, sem a frase de "nenhum aviso": a frase seria
+       falsa, porque a pessoa está vendo avisos. */
+    h += avisosPessoaisHtml();
+    if (E.avisos.lista.length) h += '<div id="listaAvisos">' + E.avisos.lista.map(function (a) {
+      return cartaoDeAviso(a, String(a.data).slice(0, 10) > String(E.avisosNovosAntes !== undefined ? E.avisosNovosAntes : p.vistoAvisos || ''), false);
+    }).join('') + '</div>';
+    if ((E.avisos.fixas || []).length) h += '<div id="listaFixas">' + E.avisos.fixas.map(function (a) { return cartaoDeAviso(a, false, true); }).join('') + '</div>';
+  }
   return '<div class="conteudo">' + h + ajuda('avisos') + '</div>';
+}
+function cartaoDeAviso(a, novo, fixa) {
+  /* A `proporcao` sai das medidas da imagem desde 22/10/2026 (carta nº 15 do Núcleo), e pode vir com decimal
+     ("1.91:1"). Ela só reserva o espaço antes de a arte chegar; o `object-fit: contain` não deixa deformar. O
+     `arte: ''` (a linha vem sem imagem em vez de sumir) desenha o cartão sem a imagem. A fixa não leva data na tela:
+     ela não tem. */
+  var prop = /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(String(a.proporcao || '')) ? String(a.proporcao).replace(':', ' / ') : '4 / 5';
+  return '<div class="cartao aviso-item' + (fixa ? ' app-fixa' : '') + '"><div class="app-linha">' + (a.categoria ? '<span class="app-cat">' + esc(a.categoria) + '</span>' : '') + (novo ? '<span class="app-novo">novo</span>' : '') + '</div>' +
+    '<b class="app-titulo">' + esc(a.titulo) + '</b>' + (fixa ? '' : '<span class="app-data">' + esc(brDe(a.data)) + '</span>') +
+    (a.arte ? '<img src="' + esc(a.arte) + '" alt="' + esc(a.titulo) + '" loading="lazy" style="aspect-ratio:' + prop + '">' : '') +
+    (a.link ? '<a class="link-texto" href="' + esc(a.link) + '" target="_blank" rel="noopener">Abrir</a>' : '') + '</div>';
 }
 function avisosPessoaisHtml() {
   var l = E.avisos && E.avisos.pessoais || [];

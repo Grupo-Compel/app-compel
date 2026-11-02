@@ -1243,6 +1243,43 @@ var TESTES = {
   },
   /* O botão de ver a senha (pedido do Dalton, 26/10/2026). Todo campo de senha das telas de entrada tem o seu botão, o
      botão mostra e esconde com o rótulo acompanhando, e a senha não fica à vista quando a tela é refeita. */
+  /* As comunicações fixas (casca 1.13.0; cartas nº 24 e 25 do Núcleo/App, 01/11/2026): arte permanente, sem data. Vêm
+     depois das datadas, na ordem em que o Núcleo mandou, sem data na tela e fora do "novo" e do contador do "!". */
+  T48_as_comunicacoes_fixas: async function () {
+    var x = loginComAna({ fuso: 'America/Sao_Paulo' });
+    x.L.comunicacoes = [
+      { id: 'f2', titulo: 'Fixa Z', data: '', fixa: true, categoria: 'Fixa', arte: '' },
+      { id: 'a', titulo: 'Aviso de hoje', data: '2026-10-21', fixa: false },
+      { id: 'f1', titulo: 'Fixa A', data: '', fixa: true, arte: '' },
+      { id: 'sem', titulo: '', data: '', fixa: true },
+      // Se um dia a fixa vier com data, ela continua fixa: não entra no "!" nem na lista com data.
+      { id: 'fd', titulo: 'Fixa com data', data: '2026-10-20', fixa: true }
+    ];
+    var a = await abrir(x.L, { relogio: '2026-10-21T10:00:00-03:00' });
+    await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
+    await esperarTexto(a.page, 'Há 1 aviso novo');
+    afirmar((await texto(a.page, '#bolinha')) === '1', 'a fixa não conta no "!"; só o aviso com data');
+    await a.page.click('[data-aba="avisos"]'); await a.page.waitForSelector('#listaFixas');
+    var datados = await a.page.$$eval('#listaAvisos .app-titulo', function (l) { return l.map(function (b) { return b.textContent; }); });
+    afirmar(datados.join('|') === 'Aviso de hoje', 'a fixa não podia entrar na lista com data; veio ' + datados.join('|'));
+    var fixas = await a.page.$$eval('#listaFixas .app-titulo', function (l) { return l.map(function (b) { return b.textContent; }); });
+    afirmar(fixas.join('|') === 'Fixa Z|Fixa A|Fixa com data', 'as fixas na ordem que o Núcleo mandou, e a sem título ignorada; veio ' + fixas.join('|'));
+    afirmar((await a.page.$$('#listaFixas .app-data, #listaFixas .app-novo')).length === 0, 'a fixa não leva data nem selo "novo"');
+    var depois = await a.page.evaluate(function () { return !!(document.querySelector('#listaAvisos').compareDocumentPosition(document.querySelector('#listaFixas')) & 4); });
+    afirmar(depois, 'as fixas ficam depois das comunicações com data');
+    await a.page.click('[data-aba="inicio"]');
+    afirmar(await a.page.isHidden('#bolinha'), 'depois de ver, a bolinha some; a fixa não a acende de novo');
+    await a.ctx.close();
+    // Só fixas: a tela mostra as fixas, e não a frase de que não há avisos.
+    var y = loginComAna({ fuso: 'America/Sao_Paulo' });
+    y.L.comunicacoes = [{ id: 'f1', titulo: 'Fixa A', data: '', fixa: true, arte: '' }];
+    var b = await abrir(y.L, { relogio: '2026-10-21T10:00:00-03:00' });
+    await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await esperarTexto(b.page, 'Olá, Ana');
+    await b.page.click('[data-aba="avisos"]'); await b.page.waitForSelector('#listaFixas');
+    afirmar(!(await b.page.$('#semAvisos')), 'com fixa a frase "Nenhum aviso" seria falsa');
+    afirmar(await b.page.isHidden('#bolinha'), 'só com fixa não há "!"');
+    await b.ctx.close();
+  },
   T39_ver_a_senha_e_ela_nao_fica_a_vista: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;
     async function todoCampoTemBotao(tela) {
