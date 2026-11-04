@@ -11,7 +11,7 @@
  * que nasce aqui: o servidor não grava duas vezes o mesmo ID.
  */
 'use strict';
-var S = { tela: 'inicio', pessoa: null, pacote: null, sessaoOk: false, msg: '', form: null, alvo: null, contexto: null, registros: [], lido: null };
+var S = { tela: 'inicio', pessoa: null, pacote: null, sessaoOk: false, msg: '', form: null, alvo: null, contexto: null, registros: [], lido: null, baseDia: '' };
 
 function $(id) { return document.getElementById(id); }
 /* Escapa também as aspas: o texto entra em atributos (data-m, data-k, value). O textContent→innerHTML não escapa
@@ -61,8 +61,11 @@ Casca.iniciar('seguranca').then(function (r) {
    S.sessaoOk (a marca sumiu ou venceu); quem liga é o garantirSessao, que confere também a casca. */
 function marcaValida(m) { return !!(m && m.valeAte && m.valeAte > new Date().toISOString()); }
 function carregarLocal() {
-  return Promise.all([segConfig('pacote'), SEG_BANCO.listar('registros'), segConfig('sessao:' + S.pessoa.matricula)]).then(function (v) {
+  return Promise.all([segConfig('pacote'), SEG_BANCO.listar('registros'), segConfig('sessao:' + S.pessoa.matricula), segConfig('baseDia:' + S.pessoa.matricula)]).then(function (v) {
     S.pacote = v[0] || null; S.registros = v[1] || [];
+    /* A base escolhida vale só no dia em que foi escolhida: amanhã a pessoa pode estar em outra, e gravar na base de ontem
+       em silêncio é o erro que o campo existe para evitar. */
+    S.baseDia = v[3] && v[3].dia === hoje() && baseValida(v[3].base) ? v[3].base : '';
     if (!marcaValida(v[2])) S.sessaoOk = false;
     avisarAtalhos();
   });
@@ -247,7 +250,7 @@ function recuperarRascunho() {
 /* ---------- início ---------- */
 function telaInicio() {
   var eu = S.pessoa, dev = devidosHoje(eu.matricula), feitos = dev.filter(function (t) { return feitoHoje(t, eu.matricula); }).length;
-  var html = '<p class="n-saudacao">Olá, ' + h(eu.nome.split(' ')[0]) + '.</p>';
+  var html = '<p class="n-saudacao">Olá, ' + h(eu.nome.split(' ')[0]) + '.</p>' + seletorDeBase();
   /* Para todo mundo, e no alto (26/10/2026): o relato não depende da função nem do perfil, e quem precisa dele está com
      pressa. Escondido no fim da lista, ele pareceria coisa só do técnico. */
   html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou quase acidente</button>';
@@ -275,8 +278,34 @@ function anel(n, de) {
 
 /* ---------- o carimbo e a gravação ---------- */
 function carimboDoAlvo() { return S.alvo ? Casca.carimbo({ matricula: S.alvo.matricula, nome: S.alvo.nome }) : Casca.carimbo(); }
-function baseDoRegistro() { return (S.contexto && S.contexto.base) || (S.pacote && S.pacote.pessoa.bases && S.pacote.pessoa.bases[0] !== '*' && S.pacote.pessoa.bases[0]) || (S.pessoa.bases && S.pessoa.bases[0] && (S.pessoa.bases[0].id || S.pessoa.bases[0])) || ''; }
+/* A BASE DE HOJE (04/11/2026; pedido do Dalton: "um campo de base no início, para quem tem mais de uma no acesso; o que a
+   pessoa seleciona já filtra os prefixos, e depois as placas aparecem só daquele estado, as pessoas inspecionadas só
+   daquela base"). Antes o registro ia sempre para a primeira base do acesso, certa ou errada. A lista vem no pacote
+   (basesDeTrabalho: id e UF). Com uma base só, não há o que escolher e ela vale sozinha. A base do contexto (a Operação
+   abriu a tela com a equipe do dia) continua mandando. */
+function basesDeTrabalho() { return (S.pacote && S.pacote.basesDeTrabalho) || []; }
+function baseValida(b) { return !!b && basesDeTrabalho().some(function (x) { return x.id === b; }); }
+function baseEscolhida() {
+  if (S.contexto && S.contexto.base) return String(S.contexto.base).toUpperCase();
+  var l = basesDeTrabalho();
+  if (l.length === 1) return l[0].id;
+  return baseValida(S.baseDia) ? S.baseDia : '';
+}
+function faltaEscolherBase() { return !(S.contexto && S.contexto.base) && basesDeTrabalho().length > 1 && !baseValida(S.baseDia); }
+function ufDaBase(b) { var x = basesDeTrabalho().filter(function (y) { return y.id === b; })[0]; return x ? x.uf : ''; }
+/* A Operação ainda grava algumas bases com a sigla dela (SGO, PPO, VHA; PADRAO_DAS_BASES §2, 17/10/2026). Se a conferência
+   da formação pela sigla do Núcleo não achar ninguém, a lista inteira aparece, em vez de uma base inteira vazia e calada. */
+var SIGLAS_DA_OPERACAO = { SG: ['SGO'], PP: ['PPO'], VIL: ['VHA'] };
+function mesmaBase(x, b) { return x === b || (SIGLAS_DA_OPERACAO[b] || []).indexOf(x) >= 0; }
+function seletorDeBase() {
+  var l = basesDeTrabalho(); if (l.length < 2 || (S.contexto && S.contexto.base)) return '';
+  var falta = faltaEscolherBase();
+  return '<div class="cartao' + (falta ? ' seg-falta-base' : '') + '"><b>Base de hoje</b><p class="seg-sub">' + (falta ? 'Escolha a base em que você está hoje: ela define as placas, as equipes e a base onde a inspeção será gravada.' : 'As placas, as equipes e a gravação seguem esta base.') + '</p><div class="seg-chips">' +
+    l.map(function (x) { return '<button type="button" class="chip' + (S.baseDia === x.id ? ' ativo' : '') + '" data-acao="escolherBase" data-v="' + h(x.id) + '">' + h(x.id) + (x.uf ? ' · ' + h(x.uf) : '') + '</button>'; }).join('') + '</div></div>';
+}
+function baseDoRegistro() { return baseEscolhida() || (S.contexto && S.contexto.base) || (S.pacote && S.pacote.pessoa.bases && S.pacote.pessoa.bases[0] !== '*' && S.pacote.pessoa.bases[0]) || (S.pessoa.bases && S.pessoa.bases[0] && (S.pessoa.bases[0].id || S.pessoa.bases[0])) || ''; }
 function gravar(reg) {
+  if (faltaEscolherBase()) { S.msg = 'Escolha a base de hoje no início antes de gravar.'; S.tela = 'inicio'; S.form = null; desenhar(); return Promise.resolve(false); }
   reg.dia = hoje(); reg.base = String(baseDoRegistro() || '').toUpperCase(); reg.carimbo = carimboDoAlvo();
   // O botão já fica apagado sem o rosto; a conferência aqui é a segunda trava, para nenhum caminho gravar sem ele.
   if (S.alvo && !reg.fotoRosto) { S.msg = 'Falta a foto do seu rosto.'; desenhar(); return Promise.resolve(false); }
@@ -390,7 +419,7 @@ function telaVeicular() {
 /* ---------- SQP ---------- */
 function telaSqp() {
   var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', irr: [], busca: '', nova: null, anterior: {} };
-  var html = listaDePlacas() + '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div>' + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
+  var html = seletorDeBase() + listaDePlacas() + '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div>' + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
     campoCondutor(f, f.placa) + '</div>' + painelAnterior(f, chavesDoSqp(f));
   html += '<h2 class="seg-h2">Irregularidades (' + f.irr.length + ')</h2>' + f.irr.map(function (x, i) {
     var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
@@ -452,7 +481,11 @@ function chaveDoPrefixo(t) { return normalizar(String(t || '').split(' - ')[0]).
 function soPlaca(p) { return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 /* AS PLACAS DA FROTA (01/11/2026): a lista vem no pacote, só as do estado da pessoa quando o servidor sabe a UF da base.
    O campo continua aceitando qualquer placa digitada: carro novo ou alugado pode não estar no cadastro da Frota. */
-function placasDoPacote() { return (S.pacote && S.pacote.placas) || []; }
+function placasDoPacote() {
+  var l = (S.pacote && S.pacote.placas) || [], uf = ufDaBase(baseEscolhida());
+  /* A placa sem UF fica: o cadastro da Frota não sabe de onde ela é. */
+  return uf ? l.filter(function (q) { return !q.uf || q.uf === uf; }) : l;
+}
 function placaDaFrota(p) { var x = soPlaca(p); return x ? placasDoPacote().filter(function (q) { return q.placa === x; })[0] : null; }
 function listaDePlacas() {
   var l = placasDoPacote(); if (!l.length) return '';
@@ -469,7 +502,8 @@ function matsDoTexto(t) { return String(t || '').split(/[^0-9]+/).map(function (
 function mesmoPrefixo(a, b) { if (a.length < 3 || b.length < 3) return false; return a.length >= b.length ? a.slice(-b.length) === b : b.slice(-a.length) === a; }
 function diaBr(d) { var p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : String(d || ''); }
 function anterioresDa(c) {
-  var l = (S.pacote && S.pacote.anteriores) || [], p = chaveDoPrefixo(c.prefixo), pl = soPlaca(c.placa), ms = c.mats || [];
+  var b = baseEscolhida(), l = ((S.pacote && S.pacote.anteriores) || []).filter(function (a) { return !b || !a.b || mesmaBase(String(a.b).toUpperCase(), b); });
+  var p = chaveDoPrefixo(c.prefixo), pl = soPlaca(c.placa), ms = c.mats || [];
   if (!p && !pl && !ms.length) return [];
   return l.filter(function (a) {
     var am = String(a.m || '').split(',').filter(String);
@@ -513,7 +547,12 @@ function campoCondutor(f, placa) {
    prefixo mostra os parecidos enquanto se digita, e o encarregado acha o prefixo pelo nome ou pela matrícula. Botões, e
    não a lista própria do navegador (datalist): a tela se redesenha a cada letra para mostrar a Blitz anterior, e o
    redesenho fecharia a lista do navegador debaixo do dedo. */
-function formacao() { return (S.pacote && S.pacote.formacao) || []; }
+function formacao() {
+  var l = (S.pacote && S.pacote.formacao) || [], b = baseEscolhida();
+  if (!b) return l;
+  var da = l.filter(function (x) { return mesmaBase(String(x.b || '').toUpperCase(), b); });
+  return da.length ? da : l;
+}
 function campoDoEncarregado(f, alvo) {
   if (!formacao().length) return '';
   var q = normalizar(f.encarregadoBusca), soNum = q.replace(/\D/g, '');
@@ -741,6 +780,7 @@ document.addEventListener('click', function (ev) {
   var a = b.dataset.acao, f = S.form, v = b.dataset.v;
   if (a === 'voltarApp') return Casca.voltar();
   if (a === 'inicio') return ir(S.alvo ? 'equipe' : 'inicio');
+  if (a === 'escolherBase') { S.baseDia = v; S.msg = ''; return segGravarConfig('baseDia:' + S.pessoa.matricula, { dia: hoje(), base: v }).then(desenhar); }
   if (a === 'abrir') return ir(b.dataset.tela);
   if (a === 'equipe') return ir('equipe');
   if (a === 'fila') return ir('fila');
