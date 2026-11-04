@@ -139,6 +139,7 @@ function novoLogin() {
         if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, entrarDeNovo: false, erro: 'Este celular foi desligado. Entre com o CPF.' };
         if (L.senhaMudou[corpo.sessao]) return { ok: false, entrarDeNovo: true, pedirCpf: false, erro: 'Sua senha mudou. Entre de novo com a senha nova.' };
         var termos = (L.termos || (L.termo ? [L.termo] : [])).filter(function (t) { return !L.aceitos[p.cpf + '|' + t.id]; });
+        if (corpo.acao === 'avisos' && L.avisosFalham) return { ok: false, erro: 'fora do ar' };
         if (corpo.acao === 'avisos') { var resp = { ok: true, comunicacoes: L.comunicacoes || [] }; if (L.avisosDaPessoa !== undefined) resp.avisosDaPessoa = L.avisosDaPessoa; return resp; }
         if (corpo.acao === 'aceitarTermo') {
           var t = termos.filter(function (u) { return u.id === corpo.id && u.versao === corpo.versao; })[0];
@@ -1245,6 +1246,24 @@ var TESTES = {
      botão mostra e esconde com o rótulo acompanhando, e a senha não fica à vista quando a tela é refeita. */
   /* As comunicações fixas (casca 1.13.0; cartas nº 24 e 25 do Núcleo/App, 01/11/2026): arte permanente, sem data. Vêm
      depois das datadas, na ordem em que o Núcleo mandou, sem data na tela e fora do "novo" e do contador do "!". */
+  /* O "!" lembrado e a faixa padrão nas telas dos blocos (casca 1.13.1, 04/11/2026). Sem sinal, a chamada de avisos não
+     volta; o "!" tem de aparecer só pelo que o aparelho guardou. */
+  T49_o_ponto_de_exclamacao_lembrado_e_a_faixa_nos_blocos: async function () {
+    var x = anaComExemplo(); x.L.avisosDaPessoa = [];
+    var a = await abrir(x.L, { servidor: novoServidor() }), p = a.page;
+    await entrarNoExemplo(a, x);
+    await a.page.waitForSelector('#casca-barra');
+    afirmar((await texto(p, '#casca-barra .cb-voltar')).indexOf('Voltar') >= 0, 'a faixa devia ter o Voltar');
+    await p.waitForFunction(function () { return document.querySelector('#casca-barra .cb-rel').style.display !== 'none'; });
+    await p.click('#casca-barra .cb-rel');
+    await p.waitForSelector('#relatoTexto');
+    // Voltando ao app e sem sinal: o "!" tem de estar lá sem esperar o servidor.
+    await p.goto(base + '/'); await p.waitForSelector('#botaoRelato');
+    x.L.avisosFalham = true;
+    await p.reload(); await esperarTexto(p, 'Olá, Ana');
+    afirmar(!(await p.$eval('#botaoRelato', function (b) { return b.classList.contains('oculto'); })), 'sem sinal, o "!" devia aparecer pelo que o aparelho guardou');
+    await a.ctx.close();
+  },
   T48_as_comunicacoes_fixas: async function () {
     var x = loginComAna({ fuso: 'America/Sao_Paulo' });
     x.L.comunicacoes = [

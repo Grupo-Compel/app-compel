@@ -216,6 +216,31 @@ function cascaAjuda(elemento, texto) {
 var Casca = (function () {
   var estado = { id: '', bloco: null, guardada: null, pessoa: null, de: null };
   function raiz() { var p = location.pathname, i = p.indexOf('/blocos/'); return i >= 0 ? p.slice(0, i + 1) : './'; }
+/* A faixa padrão do app nas telas dos blocos (04/11/2026, pedido do Dalton): o nome Compel, o "!" do relato, o sinal e o
+   "‹ Voltar" ficam em cima em toda tela, e os botões de voltar do corpo da tela podem subir para cá. Só o app mexe na
+   faixa; o bloco escolhe o destino do "Voltar" com Casca.barra({ voltar: fn, rotulo: 'Voltar ao diário' }). */
+var cascaBarra = { voltar: null, rotulo: 'Voltar', relato: false };
+function cascaDesenharBarra() {
+  var el = document.getElementById('casca-barra');
+  if (!el) {
+    var st = document.createElement('style');
+    st.textContent = '#casca-barra{position:sticky;top:0;z-index:1000;display:flex;align-items:center;gap:10px;background:#231F20;color:#fff;padding:8px 12px;min-height:48px;font:600 15px Inter,system-ui,sans-serif}' +
+      '#casca-barra button{font:inherit;color:#fff;background:#3A3639;border:0;border-radius:8px;min-height:40px;padding:0 12px;cursor:pointer}' +
+      '#casca-barra .cb-marca{flex:1;letter-spacing:.04em}#casca-barra .cb-rel{width:44px;padding:0;font-size:22px;font-weight:700}' +
+      '#casca-barra .cb-sinal{font-size:12px;padding:3px 9px;border-radius:12px;background:#FFF1D6;color:#8A5A00;white-space:nowrap}#casca-barra .cb-sinal.on{background:#DDF3E4;color:#1B7F3B}';
+    document.head.appendChild(st);
+    el = document.createElement('header'); el.id = 'casca-barra';
+    el.innerHTML = '<button type="button" class="cb-voltar"></button><span class="cb-marca">COMPEL · App</span>' +
+      '<button type="button" class="cb-rel" aria-label="Relatar um problema ou dar uma sugestão">!</button><span class="cb-sinal"></span>';
+    document.body.insertBefore(el, document.body.firstChild);
+    el.querySelector('.cb-voltar').addEventListener('click', function () { if (cascaBarra.voltar) cascaBarra.voltar(); else Casca.voltar(); });
+    el.querySelector('.cb-rel').addEventListener('click', function () { location.href = raiz() + '#relatar'; });
+    var atual = function () { var n = el.querySelector('.cb-sinal'); var on = navigator.onLine !== false; n.textContent = on ? 'Com sinal' : 'Sem sinal'; n.className = 'cb-sinal' + (on ? ' on' : ''); };
+    window.addEventListener('online', atual); window.addEventListener('offline', atual); atual();
+  }
+  el.querySelector('.cb-voltar').textContent = '‹ ' + cascaBarra.rotulo;
+  el.querySelector('.cb-rel').style.display = cascaBarra.relato ? '' : 'none';
+}
   function exigir() { if (!estado.pessoa) throw new Error('Casca.iniciar ainda não terminou'); }
   // O que a tela do bloco recebe de volta de um servidor: nunca a sessão nem o token, que ficam com a casca.
   function semSegredos(r) { var c = Object.assign({}, r || {}); delete c.sessao; delete c.token; return c; }
@@ -231,6 +256,8 @@ var Casca = (function () {
       return cascaPessoaDoDia().then(function (p) {
         if (!p || !estado.bloco) { location.replace(raiz()); return new Promise(function () { }); }
         estado.guardada = p; estado.pessoa = cascaPessoaParaBloco(p);
+        cascaLer('relatoLigado').then(function (v) { cascaBarra.relato = v === true; cascaDesenharBarra(); }, function () { });
+        cascaDesenharBarra();
         var c = cascaContextoDaPagina(); estado.de = c.de;
         // A tela do bloco é onde a equipe passa o dia: o sinal que volta com ela aberta manda o que espera, sem depender
         // do Android acordar o app (no iPhone, ele não acorda).
@@ -239,6 +266,8 @@ var Casca = (function () {
                  contexto: c.contexto, de: c.de };
       });
     },
+    /* Ajusta o "Voltar" da faixa: { voltar: função, rotulo: 'Voltar ao diário' }. Sem isso, volta para quem abriu. */
+    barra: function (o) { o = o || {}; if (typeof o.voltar === 'function') cascaBarra.voltar = o.voltar; if (o.rotulo) cascaBarra.rotulo = String(o.rotulo).slice(0, 40); cascaDesenharBarra(); },
     pessoa: function () { exigir(); return JSON.parse(JSON.stringify(estado.pessoa)); },
     sinal: function () { return navigator.onLine !== false; },
     aoMudarOSinal: function (fn) { window.addEventListener('online', function () { fn(true); }); window.addEventListener('offline', function () { fn(false); }); },

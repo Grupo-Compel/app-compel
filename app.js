@@ -257,7 +257,7 @@ function esqueciSenha() {
 
 /* Sair: a próxima pessoa entra. O que esta pessoa deixou guardado (o verificador, a sessão) continua, para ela entrar
    sem sinal amanhã e para a fila dos blocos subir com a sessão dela (FRONTEIRA §2.1). */
-function sair() { E.atual = null; E.escolhida = null; E.erro = ''; E.ok = ''; E.avisos = null; E.relato = null; E.relatoLigado = false; return gravarAtual().then(function () { irPara('entrar'); }); }
+function sair() { E.atual = null; E.escolhida = null; E.erro = ''; E.ok = ''; E.avisos = null; E.relato = null; return gravarAtual().then(function () { irPara('entrar'); }); }
 /* Tirar a pessoa deste celular: o verificador e a sessão saem. Não desliga nada no Núcleo (a sessão vence sozinha em
    30 dias sem contato, ou é cortada pelo administrador). */
 function esquecerNesteCelular() {
@@ -420,6 +420,8 @@ function buscarAvisos() {
     /* O "!" acende quando o login passa a mandar os avisos da pessoa: o Núcleo os entrega junto com a RELATOS, onde o
        relato é gravado (carta nº 19 dele, 25/10/2026). Antes disso, o "!" levaria a uma ação que o login não tem. */
     E.relatoLigado = Array.isArray(r.avisosDaPessoa);
+    // Lembrado no aparelho (04/11/2026): sem isso o "!" só voltava depois da chamada de avisos a cada atualização da página.
+    gravarKv('relatoLigado', E.relatoLigado).catch(function () {});
     if (E.tela === 'avisos') marcarAvisosVistos();
     desenhar();
   }, function (e) { E.avisos = { erro: e && e.msg || 'Sem sinal agora.' }; desenhar(); });
@@ -910,7 +912,8 @@ function registrarServiceWorker() {
 
 /* ---------- abrir ---------- */
 function iniciar() {
-  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos')]).then(function (v) {
+  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos'), lerKv('relatoLigado')]).then(function (v) {
+    E.relatoLigado = v[4] === true;
     E.aparelho = v[0]; E.pessoas = v[1] || {}; E.atual = v[2] || null; E.atalhosDaPessoa = v[3] || {};
     if (!E.aparelho) { E.aparelho = { id: sorteio(16), chave: sorteio(16) }; return gravarKv('aparelho', E.aparelho); }
   }).then(function () {
@@ -918,6 +921,8 @@ function iniciar() {
     var chaves = Object.keys(E.pessoas);
     E.escolhida = chaves.length === 1 ? chaves[0] : null;
     irPara(E.atual && entradaValeHoje() ? 'inicio' : 'entrar');
+    // O "!" da faixa das telas dos blocos chega aqui por #relatar (04/11/2026).
+    if (location.hash === '#relatar') { try { history.replaceState(null, '', location.pathname); } catch (e) { } if (E.atual && E.relatoLigado) irRelato(); }
     return carregarEnvioDosBlocos().then(lerEnvio).then(function () { return enviarOQueEspera('ao abrir'); });
   }, function () {
     $('corpo').innerHTML = '<div class="conteudo"><div class="aviso erro">Este navegador não deixou o app guardar dados (modo anônimo?). Abra o app instalado ou o navegador normal.</div></div>';
