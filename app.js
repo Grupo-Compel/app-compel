@@ -37,6 +37,7 @@ var E = {
   atual: null,         // { chave, dia }: quem está no celular e o dia (no fuso dela) em que entrou
   escolhida: null,     // na tela de entrada: a pessoa tocada na lista de "já entraram neste celular"
   erro: '', ok: '',
+  matriculaOk: null,   // matrícula já conferida de quem vai criar a senha (some ao entrar ou voltar)
   pendente: null,      // o pedido de entrada que espera a matrícula (com a senha, só na memória)
   memoria: null,       // { cpf?, chave?, senha }: só durante a troca de senha obrigatória; nunca vai ao disco
   avisos: null,        // { lista, quando } | { erro }
@@ -173,12 +174,21 @@ function entrarSemSinal(chave, senha, motivo) {
 
 /* O que fazer com a resposta do login, venha ela do "entrar", do primeiro acesso ou da troca de senha. */
 function tratarResposta(r, chave, senha, credencial, corpo) {
-  /* O passo da matrícula (casca 1.14.0, 04/11/2026; Núcleo, `EXIGIR_MATRICULA_NO_LOGIN`): o login devolve
-     { etapa: 'MATRICULA' } sem o nome, antes de pedir a senha. Vale com ok verdadeiro ou falso, porque o formato exato da
-     resposta do roteador ainda espera a carta do Núcleo. O pedido volta com a matrícula junto. Se já tinha ido com
-     ela e o login pede de novo, a matrícula não confere: sem esse corte o app ficaria num laço. */
-  if (r && r.etapa === 'MATRICULA' && corpo) {
-    if (corpo.matricula) return mostrarErro(r.erro || 'A matrícula não confere. Confira o número e tente de novo.');
+  /* O passo da matrícula (casca 1.14.0 → 1.14.1, 05/11/2026). O contrato fechado pelo Núcleo (carta nº 26, 04/11): sem a
+     matrícula onde ela é exigida o login devolve { ok:false, pedirMatricula:true } SEM gastar tentativa; matrícula errada
+     devolve { ok:false, erro, restantes } e gasta uma; matrícula certa de quem ainda não tem senha devolve
+     { semSenha:true, pedirMatricula:true }. A forma antiga { etapa:'MATRICULA' } continua aceita por tolerância (era o
+     palpite da 1.14.0, antes da carta). Se o pedido já tinha ido com a matrícula e o login pede de novo, ela não
+     confere: sem esse corte o app ficaria num laço. */
+  var pede = r && corpo && (r.pedirMatricula === true || r.etapa === 'MATRICULA');
+  if (pede && r.semSenha && corpo.matricula) {
+    // A matrícula está certa, mas a pessoa ainda não tem senha: segue para criar a dela, levando a matrícula junto.
+    E.matriculaOk = { cpf: corpo.cpf || (credencial && credencial.cpf) || '', matricula: corpo.matricula };
+    E.pendente = null; E.tela = 'primeiro';
+    return mostrarErro('Você ainda não tem senha. Crie a sua aqui.');
+  }
+  if (pede) {
+    if (corpo.matricula) return mostrarErro('A matrícula não confere. Confira o número e tente de novo.');
     E.pendente = { corpo: corpo, chave: chave, senha: senha, credencial: credencial };
     E.tela = 'matricula'; E.erro = ''; E.ocupado = false;
     return desenhar();
@@ -194,7 +204,7 @@ function tratarResposta(r, chave, senha, credencial, corpo) {
     E.tela = 'trocar'; E.erro = ''; E.ocupado = false;
     return desenhar();
   }
-  return guardarEntrada(chave, r, senha).then(function () { E.memoria = null; E.pendente = null; irPara('inicio', ''); });
+  return guardarEntrada(chave, r, senha).then(function () { E.memoria = null; E.pendente = null; E.matriculaOk = null; irPara('inicio', ''); });
 }
 
 function entrarComCpf() {
@@ -236,6 +246,8 @@ function criarSenha() {
   E.ocupado = true; E.erro = ''; desenhar();
   return chaveDoCpf(cpf).then(function (chave) {
     var corpo = { acao: 'criarSenha', cpf: cpf, email: email, senha: s1, aparelho: dadosDoAparelho() };
+    // Só vale para o mesmo CPF: trocar o CPF na tela não pode levar a matrícula de outra pessoa.
+    if (E.matriculaOk && E.matriculaOk.cpf === cpf) corpo.matricula = E.matriculaOk.matricula;
     return postarAoLogin(corpo)
       .then(function (r) { return tratarResposta(r, chave, s1, { cpf: cpf }, corpo); },
             function (e) { mostrarErro(e && e.semEndereco ? 'O app ainda não está ligado ao login.' : 'Não consegui falar com o login. Tente com sinal melhor.'); });
@@ -891,7 +903,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'irPrimeiro') return irPara('primeiro');
   if (a === 'irEsqueci') return irPara('esqueci');
   if (a === 'enviarMatricula') return enviarMatricula();
-  if (a === 'irEntrar') { E.memoria = null; E.pendente = null; return irPara('entrar'); }
+  if (a === 'irEntrar') { E.memoria = null; E.pendente = null; E.matriculaOk = null; return irPara('entrar'); }
   if (a === 'abrirModulo') return abrirModulo(+b.getAttribute('data-i'));
   if (a === 'atalho') return abrirAtalho(b.getAttribute('data-bloco'), b.getAttribute('data-atalho'));
   if (a === 'aceitarTermo') return aceitarTermo();

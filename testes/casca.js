@@ -119,9 +119,13 @@ function novoLogin() {
         if (!p) return corpo.sessao ? { ok: false, pedirCpf: true, erro: 'Entre com o CPF.' } : { ok: false, erro: 'CPF ou senha não conferem.' };
         // A chave do Núcleo (EXIGIR_MATRICULA_NO_LOGIN): pede a matrícula antes da senha e a confere no servidor (T50).
         if (L.exigeMatricula && p.matricula) {
-          if (!corpo.matricula) return { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf || L.sessoes[corpo.sessao] };
-          if (L.laco) return { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf };
-          if (corpo.matricula !== p.matricula) return { ok: false, erro: 'A matrícula não confere.' };
+          // O contrato da carta nº 26 do Núcleo (04/11/2026): sem matrícula → pedirMatricula, sem gastar tentativa;
+          // errada → erro comum; certa mas sem senha → semSenha + pedirMatricula. `formaAntiga` mantém o palpite da 1.14.0.
+          var pedir = L.formaAntiga ? { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf } : { ok: false, pedirMatricula: true, erro: 'Informe a sua matrícula.' };
+          if (!corpo.matricula) return pedir;
+          if (L.laco) return pedir;
+          if (corpo.matricula !== p.matricula) return { ok: false, erro: 'A matrícula não confere.', restantes: 2 };
+          if (!p.senha) return { ok: false, semSenha: true, pedirMatricula: true, erro: 'Você ainda não tem senha.' };
         }
         if (!p.senha) return { ok: false, semSenha: true, erro: 'Você ainda não tem senha.' };
         if (p.senha !== corpo.senha) return { ok: false, erro: 'CPF ou senha não conferem.' };
@@ -130,8 +134,8 @@ function novoLogin() {
         if (!p) return { ok: false, erro: 'CPF não encontrado.' };
         if (p.senha) return { ok: false, erro: 'Você já tem senha.' };
         if (L.exigeMatricula && p.matricula) {
-          if (!corpo.matricula) return { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf };
-          if (corpo.matricula !== p.matricula) return { ok: false, erro: 'A matrícula não confere.' };
+          if (!corpo.matricula) return { ok: false, pedirMatricula: true, erro: 'Informe a sua matrícula.' };
+          if (corpo.matricula !== p.matricula) return { ok: false, erro: 'A matrícula não confere.', restantes: 2 };
         }
         p.senha = corpo.senha; p.email = corpo.email; return L.resposta(p);
       case 'trocarSenha':
@@ -1307,6 +1311,32 @@ var TESTES = {
     await entrarCpf(c.page, z.cpf, 'senha-da-ana'); await esperarTexto(c.page, 'Olá, Ana');
     afirmar(z.L.pedidos.every(function (q) { return !('matricula' in q); }), 'com a chave desligada o pedido não leva matrícula');
     await c.ctx.close();
+  },
+  /* Quem tem matrícula e ainda não tem senha (carta nº 26 do Núcleo, 05/11/2026): a matrícula certa volta
+     semSenha + pedirMatricula; o app leva para criar a senha e manda a matrícula junto no criarSenha. E a forma antiga
+     (etapa MATRICULA) continua aceita. */
+  T51_matricula_de_quem_nao_tem_senha: async function () {
+    var x = loginComAna(); x.L.exigeMatricula = true; x.L.pessoas[x.cpf].senha = '';
+    var a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, x.cpf, 'qualquer');
+    await p.waitForSelector('#matricula');
+    await p.fill('#matricula', '99901'); await p.click('[data-acao="enviarMatricula"]');
+    await esperarTexto(p, 'ainda não tem senha');
+    afirmar(!!(await p.$('#senha2')), 'sem senha, a tela de criar a senha');
+    await p.fill('#cpf', x.cpf); await p.fill('#email', 'ana@exemplo.com');
+    await p.fill('#senha', 'senha-nova-1'); await p.fill('#senha2', 'senha-nova-1');
+    await p.click('[data-acao="criarSenha"]'); await esperarTexto(p, 'Olá, Ana');
+    var cr = x.L.pedidos.filter(function (q) { return q.acao === 'criarSenha'; });
+    afirmar(cr.length === 1 && cr[0].matricula === '99901', 'o criarSenha leva a matrícula já conferida: ' + JSON.stringify(cr.map(function (q) { return q.matricula; })));
+    afirmar((await p.evaluate(function () { return E.matriculaOk; })) === null, 'a matrícula conferida não fica na memória depois');
+    await a.ctx.close();
+    // A forma antiga da resposta continua aceita.
+    var y = loginComAna(); y.L.exigeMatricula = true; y.L.formaAntiga = true;
+    var b = await abrir(y.L);
+    await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await b.page.waitForSelector('#matricula');
+    await b.page.fill('#matricula', '99901'); await b.page.click('[data-acao="enviarMatricula"]');
+    await esperarTexto(b.page, 'Olá, Ana');
+    await b.ctx.close();
   },
   T48_as_comunicacoes_fixas: async function () {
     var x = loginComAna({ fuso: 'America/Sao_Paulo' });
