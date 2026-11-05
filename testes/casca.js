@@ -117,12 +117,22 @@ function novoLogin() {
     switch (corpo.acao) {
       case 'entrar':
         if (!p) return corpo.sessao ? { ok: false, pedirCpf: true, erro: 'Entre com o CPF.' } : { ok: false, erro: 'CPF ou senha não conferem.' };
+        // A chave do Núcleo (EXIGIR_MATRICULA_NO_LOGIN): pede a matrícula antes da senha e a confere no servidor (T50).
+        if (L.exigeMatricula && p.matricula) {
+          if (!corpo.matricula) return { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf || L.sessoes[corpo.sessao] };
+          if (L.laco) return { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf };
+          if (corpo.matricula !== p.matricula) return { ok: false, erro: 'A matrícula não confere.' };
+        }
         if (!p.senha) return { ok: false, semSenha: true, erro: 'Você ainda não tem senha.' };
         if (p.senha !== corpo.senha) return { ok: false, erro: 'CPF ou senha não conferem.' };
         return L.resposta(p);
       case 'criarSenha':
         if (!p) return { ok: false, erro: 'CPF não encontrado.' };
         if (p.senha) return { ok: false, erro: 'Você já tem senha.' };
+        if (L.exigeMatricula && p.matricula) {
+          if (!corpo.matricula) return { ok: true, etapa: 'MATRICULA', cpf: corpo.cpf };
+          if (corpo.matricula !== p.matricula) return { ok: false, erro: 'A matrícula não confere.' };
+        }
         p.senha = corpo.senha; p.email = corpo.email; return L.resposta(p);
       case 'trocarSenha':
         if (!p || p.senha !== corpo.senhaAtual) return { ok: false, erro: 'A senha atual não confere.' };
@@ -1263,6 +1273,40 @@ var TESTES = {
     await p.reload(); await esperarTexto(p, 'Olá, Ana');
     afirmar(!(await p.$eval('#botaoRelato', function (b) { return b.classList.contains('oculto'); })), 'sem sinal, o "!" devia aparecer pelo que o aparelho guardou');
     await a.ctx.close();
+  },
+  /* O passo da matrícula (casca 1.14.0, 04/11/2026): com a chave do Núcleo ligada, o login devolve etapa MATRICULA; o app
+     pede o número, manda o mesmo pedido com ele, e não cai em laço se o login pedir de novo. */
+  T50_o_passo_da_matricula: async function () {
+    var x = loginComAna(); x.L.exigeMatricula = true;
+    var a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, x.cpf, 'senha-da-ana');
+    await p.waitForSelector('#matricula');
+    afirmar((await texto(p, '#codigo')) === 'APP-11', 'o código da tela da matrícula');
+    afirmar(!(await p.$('#senha')), 'na tela da matrícula não pede a senha de novo');
+    // Matrícula errada: a frase do login como veio, e a tela continua.
+    await p.fill('#matricula', '11111'); await p.click('[data-acao="enviarMatricula"]');
+    await esperarTexto(p, 'A matrícula não confere');
+    afirmar(!!(await p.$('#matricula')), 'errando a matrícula, o campo continua');
+    await p.fill('#matricula', ' 99901 '); await p.click('[data-acao="enviarMatricula"]');
+    await esperarTexto(p, 'Olá, Ana');
+    var ped = x.L.pedidos.filter(function (q) { return q.acao === 'entrar'; });
+    afirmar(ped.length === 3 && !ped[0].matricula && ped[2].matricula === '99901' && ped[2].senha === 'senha-da-ana' && ped[2].cpf === x.cpf,
+      'o 1º pedido sem matrícula e o último com ela, a senha e o CPF: ' + JSON.stringify(ped.map(function (q) { return !!q.matricula; })));
+    afirmar(JSON.stringify(await p.evaluate(function () { return E.pendente; })) === 'null', 'a senha não pode ficar na memória depois de entrar');
+    await a.ctx.close();
+    // Se o login pedir a matrícula de novo depois de recebê-la, o app para com um erro em vez de girar.
+    var y = loginComAna(); y.L.exigeMatricula = true; y.L.laco = true;
+    var b = await abrir(y.L);
+    await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await b.page.waitForSelector('#matricula');
+    await b.page.fill('#matricula', '99901'); await b.page.click('[data-acao="enviarMatricula"]');
+    await esperarTexto(b.page, 'A matrícula não confere');
+    afirmar(y.L.pedidos.filter(function (q) { return q.acao === 'entrar'; }).length === 2, 'sem laço: só dois pedidos');
+    await b.ctx.close();
+    // Chave desligada: nada muda, entra direto e o login nem vê a matrícula.
+    var z = loginComAna(), c = await abrir(z.L);
+    await entrarCpf(c.page, z.cpf, 'senha-da-ana'); await esperarTexto(c.page, 'Olá, Ana');
+    afirmar(z.L.pedidos.every(function (q) { return !('matricula' in q); }), 'com a chave desligada o pedido não leva matrícula');
+    await c.ctx.close();
   },
   T48_as_comunicacoes_fixas: async function () {
     var x = loginComAna({ fuso: 'America/Sao_Paulo' });

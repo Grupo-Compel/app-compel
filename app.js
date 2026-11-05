@@ -37,6 +37,7 @@ var E = {
   atual: null,         // { chave, dia }: quem está no celular e o dia (no fuso dela) em que entrou
   escolhida: null,     // na tela de entrada: a pessoa tocada na lista de "já entraram neste celular"
   erro: '', ok: '',
+  pendente: null,      // o pedido de entrada que espera a matrícula (com a senha, só na memória)
   memoria: null,       // { cpf?, chave?, senha }: só durante a troca de senha obrigatória; nunca vai ao disco
   avisos: null,        // { lista, quando } | { erro }
   ajuda: false,
@@ -171,7 +172,17 @@ function entrarSemSinal(chave, senha, motivo) {
 }
 
 /* O que fazer com a resposta do login, venha ela do "entrar", do primeiro acesso ou da troca de senha. */
-function tratarResposta(r, chave, senha, credencial) {
+function tratarResposta(r, chave, senha, credencial, corpo) {
+  /* O passo da matrícula (casca 1.14.0, 04/11/2026; Núcleo, `EXIGIR_MATRICULA_NO_LOGIN`): o login devolve
+     { etapa: 'MATRICULA' } sem o nome, antes de pedir a senha. Vale com ok verdadeiro ou falso, porque o formato exato da
+     resposta do roteador ainda espera a carta do Núcleo. O pedido volta com a matrícula junto. Se já tinha ido com
+     ela e o login pede de novo, a matrícula não confere: sem esse corte o app ficaria num laço. */
+  if (r && r.etapa === 'MATRICULA' && corpo) {
+    if (corpo.matricula) return mostrarErro(r.erro || 'A matrícula não confere. Confira o número e tente de novo.');
+    E.pendente = { corpo: corpo, chave: chave, senha: senha, credencial: credencial };
+    E.tela = 'matricula'; E.erro = ''; E.ocupado = false;
+    return desenhar();
+  }
   if (!r || r.ok !== true) {
     if (r && r.semSenha) { E.tela = 'primeiro'; return mostrarErro(r.erro || 'Você ainda não tem senha. Crie a sua aqui.'); }
     if (r && r.pedirCpf) { E.escolhida = null; return mostrarErro(r.erro || 'Digite o CPF de novo.'); }
@@ -183,7 +194,7 @@ function tratarResposta(r, chave, senha, credencial) {
     E.tela = 'trocar'; E.erro = ''; E.ocupado = false;
     return desenhar();
   }
-  return guardarEntrada(chave, r, senha).then(function () { E.memoria = null; irPara('inicio', ''); });
+  return guardarEntrada(chave, r, senha).then(function () { E.memoria = null; E.pendente = null; irPara('inicio', ''); });
 }
 
 function entrarComCpf() {
@@ -193,8 +204,9 @@ function entrarComCpf() {
   E.ocupado = true; E.erro = ''; desenhar();
   return chaveDoCpf(cpf).then(function (chave) {
     if (!comSinal()) return entrarSemSinal(chave, senha);
-    return postarAoLogin({ acao: 'entrar', cpf: cpf, senha: senha, aparelho: dadosDoAparelho() })
-      .then(function (r) { return tratarResposta(r, chave, senha, { cpf: cpf }); },
+    var corpo = { acao: 'entrar', cpf: cpf, senha: senha, aparelho: dadosDoAparelho() };
+    return postarAoLogin(corpo)
+      .then(function (r) { return tratarResposta(r, chave, senha, { cpf: cpf }, corpo); },
             function (e) { return e && e.semEndereco ? mostrarErro('O app ainda não está ligado ao login.') : entrarSemSinal(chave, senha, e && e.msg); });
   });
 }
@@ -207,8 +219,9 @@ function entrarComoEscolhida() {
   if (!senha) return mostrarErro('Digite a senha.');
   E.ocupado = true; E.erro = ''; desenhar();
   if (!comSinal()) return entrarSemSinal(chave, senha);
-  return postarAoLogin({ acao: 'entrar', sessao: p.sessao, senha: senha, aparelho: dadosDoAparelho() })
-    .then(function (r) { return tratarResposta(r, chave, senha, { sessao: p.sessao }); },
+  var corpo = { acao: 'entrar', sessao: p.sessao, senha: senha, aparelho: dadosDoAparelho() };
+  return postarAoLogin(corpo)
+    .then(function (r) { return tratarResposta(r, chave, senha, { sessao: p.sessao }, corpo); },
           function (e) { return e && e.semEndereco ? mostrarErro('O app ainda não está ligado ao login.') : entrarSemSinal(chave, senha, e && e.msg); });
 }
 
@@ -222,10 +235,22 @@ function criarSenha() {
   if (!comSinal()) return mostrarErro('Sem sinal: criar a senha precisa de sinal (o Wi-Fi da base serve).');
   E.ocupado = true; E.erro = ''; desenhar();
   return chaveDoCpf(cpf).then(function (chave) {
-    return postarAoLogin({ acao: 'criarSenha', cpf: cpf, email: email, senha: s1, aparelho: dadosDoAparelho() })
-      .then(function (r) { return tratarResposta(r, chave, s1, { cpf: cpf }); },
+    var corpo = { acao: 'criarSenha', cpf: cpf, email: email, senha: s1, aparelho: dadosDoAparelho() };
+    return postarAoLogin(corpo)
+      .then(function (r) { return tratarResposta(r, chave, s1, { cpf: cpf }, corpo); },
             function (e) { mostrarErro(e && e.semEndereco ? 'O app ainda não está ligado ao login.' : 'Não consegui falar com o login. Tente com sinal melhor.'); });
   });
+}
+
+function enviarMatricula() {
+  var p = E.pendente, mat = String(($('matricula') || {}).value || '').replace(/\s+/g, '');
+  if (!p) return irPara('entrar');
+  if (!mat) return mostrarErro('Digite a matrícula.');
+  if (!comSinal()) return mostrarErro('Sem sinal: a matrícula é conferida pelo login, que precisa de sinal.');
+  E.ocupado = true; E.erro = ''; desenhar();
+  var corpo = {}; Object.keys(p.corpo).forEach(function (k) { corpo[k] = p.corpo[k]; }); corpo.matricula = mat;
+  return postarAoLogin(corpo).then(function (r) { return tratarResposta(r, p.chave, p.senha, p.credencial, corpo); },
+    function (e) { mostrarErro(e && e.semEndereco ? 'O app ainda não está ligado ao login.' : 'Não consegui falar com o login. Tente com sinal melhor.'); });
 }
 
 function trocarSenha() {
@@ -511,11 +536,12 @@ function marcarAvisosVistos() {
    As telas usam as classes da folha do Núcleo (estilo/nucleo.css), as mesmas do App.html do Portal: a tela de
    entrada com a moldura vermelha e a marca quadrada, a barra grafite com a marca horizontal, a saudação, o rótulo
    "Seus sistemas" e os cartões .n-modulo. O que só o app tem leva o prefixo app- e mora no index.html. */
-var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09', relato: 'APP-10' };
+var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', matricula: 'APP-11', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09', relato: 'APP-10' };
 var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil', 'termo', 'relato'];
 var AJUDAS = {
   entrar: 'Entre com o seu CPF e a mesma senha do Portal. Quem já entrou neste celular aparece na lista: toque no seu nome e digite só a senha. Sem sinal, só entra quem já entrou neste celular com sinal antes. A entrada vale até o fim do dia; amanhã o app pede a senha de novo.',
   primeiro: 'Primeira vez no app ou no Portal: digite o CPF, o seu e-mail e crie a senha. O e-mail é para onde vai uma senha nova se um dia você esquecer a sua. Precisa de sinal.',
+  matricula: 'O login pede a matrícula para confirmar que é você. Digite só o número, como está no seu crachá ou no contracheque. Errar gasta uma das tentativas.',
   trocar: 'Você entrou com uma senha temporária. Crie agora a sua senha, que vale também para o Portal.',
   esqueci: 'Digite o CPF. O sistema manda uma senha temporária para o e-mail cadastrado. Entre com ela, e o app pede para você criar a sua.',
   inicio: 'Em cima, o Acesso rápido: os formulários que você faz no dia a dia (checklist, relato, diário…). Cada botão abre direto o formulário, no próprio celular, mesmo sem sinal; o que você preencher vai quando houver sinal. Embaixo, os sistemas completos que você pode abrir, já com você entrado, agrupados por área. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
@@ -601,6 +627,11 @@ function telaPrimeiro() {
     campo('email', 'Seu e-mail', 'type="email" inputmode="email" autocomplete="email" placeholder="nome@dominio.com"', 'É por aqui que a senha temporária chega, se um dia você esquecer a sua.') +
     campoSenha('senha', 'Crie uma senha', true) + campoSenha('senha2', 'Repita a senha', true) +
     botao('criarSenha', E.ocupado ? 'Criando…' : 'Criar senha e entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin()) + botao('irEntrar', 'Voltar', false, true));
+}
+function telaMatricula() {
+  return telaDeEntrada('matricula', '<p class="etiqueta n-secao app-sem-margem">Sua matrícula</p><p>Para entrar, digite o número da sua matrícula.</p>' +
+    campo('matricula', 'Matrícula', 'type="tel" inputmode="numeric" autocomplete="off" maxlength="12"') +
+    botao('enviarMatricula', E.ocupado ? 'Conferindo…' : 'Continuar', E.ocupado, false, E.ocupado) + botao('irEntrar', 'Voltar', false, true));
 }
 function telaTrocar() {
   return telaDeEntrada('trocar', '<p class="etiqueta n-secao app-sem-margem">Troca de senha</p><p>Escolha uma senha sua para continuar. A que você usou agora (a senha temporária, ou a que a administração pediu para trocar) deixa de valer.</p>' +
@@ -815,9 +846,9 @@ function desenhar() {
   // O que a pessoa já digitou no CPF e no e-mail sobrevive ao redesenho (um erro não a obriga a digitar de novo).
   // A senha não: depois de um erro, ela é digitada outra vez.
   var guardados = {};
-  if (E.telaDesenhada === tela) ['cpf', 'email'].forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
+  if (E.telaDesenhada === tela) ['cpf', 'email', 'matricula'].forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
   E.telaDesenhada = tela;
-  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil, relato: telaRelato }[tela];
+  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, matricula: telaMatricula, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil, relato: telaRelato }[tela];
   $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
 }
@@ -859,7 +890,8 @@ document.addEventListener('click', function (ev) {
   if (a === 'esqueciSenha') return esqueciSenha();
   if (a === 'irPrimeiro') return irPara('primeiro');
   if (a === 'irEsqueci') return irPara('esqueci');
-  if (a === 'irEntrar') { E.memoria = null; return irPara('entrar'); }
+  if (a === 'enviarMatricula') return enviarMatricula();
+  if (a === 'irEntrar') { E.memoria = null; E.pendente = null; return irPara('entrar'); }
   if (a === 'abrirModulo') return abrirModulo(+b.getAttribute('data-i'));
   if (a === 'atalho') return abrirAtalho(b.getAttribute('data-bloco'), b.getAttribute('data-atalho'));
   if (a === 'aceitarTermo') return aceitarTermo();
