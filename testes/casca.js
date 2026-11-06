@@ -1278,31 +1278,43 @@ var TESTES = {
     afirmar(!(await p.$eval('#botaoRelato', function (b) { return b.classList.contains('oculto'); })), 'sem sinal, o "!" devia aparecer pelo que o aparelho guardou');
     await a.ctx.close();
   },
-  /* O passo da matrícula (casca 1.14.0, 04/11/2026): com a chave do Núcleo ligada, o login devolve etapa MATRICULA; o app
-     pede o número, manda o mesmo pedido com ele, e não cai em laço se o login pedir de novo. */
-  T50_o_passo_da_matricula: async function () {
+  /* A matrícula na mesma tela da entrada (casca 1.15.0, 06/11/2026; antes, 1.14.x, era uma tela à parte): com a chave do
+     Núcleo ligada, o primeiro "Entrar" volta pedirMatricula; o campo aparece embaixo da senha, CPF e senha continuam
+     à vista, e o mesmo pedido segue com a matrícula. Sem laço se o login pedir de novo. */
+  T50_a_matricula_na_mesma_tela: async function () {
     var x = loginComAna(); x.L.exigeMatricula = true;
     var a = await abrir(x.L), p = a.page;
+    afirmar(!(await p.$('#matricula')), 'antes do primeiro Entrar o campo da matrícula não existe');
     await entrarCpf(p, x.cpf, 'senha-da-ana');
     await p.waitForSelector('#matricula');
-    afirmar((await texto(p, '#codigo')) === 'APP-11', 'o código da tela da matrícula');
-    afirmar(!(await p.$('#senha')), 'na tela da matrícula não pede a senha de novo');
-    // Matrícula errada: a frase do login como veio, e a tela continua.
-    await p.fill('#matricula', '11111'); await p.click('[data-acao="enviarMatricula"]');
+    afirmar((await texto(p, '#codigo')) !== 'APP-11', 'não existe mais tela à parte para a matrícula');
+    afirmar(!!(await p.$('#senha')) && !!(await p.$('#cpf')), 'CPF e senha continuam na tela');
+    afirmar((await p.$eval('#senha', function (c) { return c.value; })) === 'senha-da-ana', 'a senha digitada fica no campo');
+    afirmar((await p.$eval('#cpf', function (c) { return c.value.replace(/\D/g, ''); })) === x.cpf, 'o CPF fica no campo');
+    // Matrícula errada: a frase do login como veio, e o campo continua com a senha.
+    await p.fill('#matricula', '11111'); await p.click('[data-acao="entrarCpf"]');
     await esperarTexto(p, 'A matrícula não confere');
-    afirmar(!!(await p.$('#matricula')), 'errando a matrícula, o campo continua');
-    await p.fill('#matricula', ' 99901 '); await p.click('[data-acao="enviarMatricula"]');
+    afirmar(!!(await p.$('#matricula')) && (await p.$eval('#senha', function (c) { return c.value; })) === 'senha-da-ana', 'errando a matrícula, o campo e a senha continuam');
+    await p.fill('#matricula', ' 99901 '); await p.click('[data-acao="entrarCpf"]');
     await esperarTexto(p, 'Olá, Ana');
     var ped = x.L.pedidos.filter(function (q) { return q.acao === 'entrar'; });
     afirmar(ped.length === 3 && !ped[0].matricula && ped[2].matricula === '99901' && ped[2].senha === 'senha-da-ana' && ped[2].cpf === x.cpf,
       'o 1º pedido sem matrícula e o último com ela, a senha e o CPF: ' + JSON.stringify(ped.map(function (q) { return !!q.matricula; })));
-    afirmar(JSON.stringify(await p.evaluate(function () { return E.pendente; })) === 'null', 'a senha não pode ficar na memória depois de entrar');
+    afirmar((await p.evaluate(function () { return E.matricula; })) === null, 'o campo da matrícula não fica armado depois de entrar');
     await a.ctx.close();
+    // Mexer no CPF derruba a matrícula e a senha (a matrícula de um CPF não pode seguir para outro).
+    var w = loginComAna(); w.L.exigeMatricula = true;
+    var d = await abrir(w.L);
+    await entrarCpf(d.page, w.cpf, 'senha-da-ana'); await d.page.waitForSelector('#matricula');
+    await d.page.fill('#cpf', '1'); await d.page.dispatchEvent('#cpf', 'input');
+    afirmar(!(await d.page.$('#matricula')), 'mexer no CPF tira o campo da matrícula');
+    afirmar((await d.page.$eval('#senha', function (c) { return c.value; })) === '', 'mexer no CPF limpa a senha');
+    await d.ctx.close();
     // Se o login pedir a matrícula de novo depois de recebê-la, o app para com um erro em vez de girar.
     var y = loginComAna(); y.L.exigeMatricula = true; y.L.laco = true;
     var b = await abrir(y.L);
     await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await b.page.waitForSelector('#matricula');
-    await b.page.fill('#matricula', '99901'); await b.page.click('[data-acao="enviarMatricula"]');
+    await b.page.fill('#matricula', '99901'); await b.page.click('[data-acao="entrarCpf"]');
     await esperarTexto(b.page, 'A matrícula não confere');
     afirmar(y.L.pedidos.filter(function (q) { return q.acao === 'entrar'; }).length === 2, 'sem laço: só dois pedidos');
     await b.ctx.close();
@@ -1312,34 +1324,46 @@ var TESTES = {
     afirmar(z.L.pedidos.every(function (q) { return !('matricula' in q); }), 'com a chave desligada o pedido não leva matrícula');
     await c.ctx.close();
   },
-  /* Quem tem matrícula e ainda não tem senha (carta nº 26 do Núcleo, 05/11/2026): a matrícula certa volta
-     semSenha + pedirMatricula; o app leva para criar a senha e manda a matrícula junto no criarSenha. E a forma antiga
-     (etapa MATRICULA) continua aceita. */
+  /* Quem tem matrícula e ainda não tem senha (carta nº 26 do Núcleo): a matrícula certa volta semSenha + pedirMatricula;
+     o app leva para criar a senha, com o CPF e a matrícula já nos campos, e manda a matrícula no criarSenha. A forma
+     antiga (etapa MATRICULA) continua aceita. */
   T51_matricula_de_quem_nao_tem_senha: async function () {
     var x = loginComAna(); x.L.exigeMatricula = true; x.L.pessoas[x.cpf].senha = '';
     var a = await abrir(x.L), p = a.page;
     await entrarCpf(p, x.cpf, 'qualquer');
     await p.waitForSelector('#matricula');
-    await p.fill('#matricula', '99901'); await p.click('[data-acao="enviarMatricula"]');
+    await p.fill('#matricula', '99901'); await p.click('[data-acao="entrarCpf"]');
     await esperarTexto(p, 'ainda não tem senha');
     afirmar(!!(await p.$('#senha2')), 'sem senha, a tela de criar a senha');
-    await p.fill('#cpf', x.cpf); await p.fill('#email', 'ana@exemplo.com');
+    afirmar((await p.$eval('#matricula', function (c) { return c.value; })) === '99901', 'a matrícula vem preenchida na tela de criar a senha');
+    afirmar((await p.$eval('#cpf', function (c) { return c.value.replace(/\D/g, ''); })) === x.cpf, 'o CPF vem preenchido');
+    await p.fill('#email', 'ana@exemplo.com');
     await p.fill('#senha', 'senha-nova-1'); await p.fill('#senha2', 'senha-nova-1');
     await p.click('[data-acao="criarSenha"]'); await esperarTexto(p, 'Olá, Ana');
     var cr = x.L.pedidos.filter(function (q) { return q.acao === 'criarSenha'; });
-    afirmar(cr.length === 1 && cr[0].matricula === '99901', 'o criarSenha leva a matrícula já conferida: ' + JSON.stringify(cr.map(function (q) { return q.matricula; })));
-    afirmar((await p.evaluate(function () { return E.matriculaOk; })) === null, 'a matrícula conferida não fica na memória depois');
+    afirmar(cr.length === 1 && cr[0].matricula === '99901', 'o criarSenha leva a matrícula: ' + JSON.stringify(cr.map(function (q) { return q.matricula; })));
+    afirmar((await p.evaluate(function () { return E.matricula; })) === null, 'a matrícula não fica armada depois');
     await a.ctx.close();
+    // Criar a senha direto, sem passar pela entrada: o servidor pede a matrícula e o campo aparece na mesma tela.
+    var w = loginComAna(); w.L.exigeMatricula = true; w.L.pessoas[w.cpf].senha = '';
+    var d = await abrir(w.L), q = d.page;
+    await q.click('[data-acao="irPrimeiro"]'); await q.waitForSelector('#senha2');
+    await q.fill('#cpf', w.cpf); await q.fill('#email', 'ana@exemplo.com');
+    await q.fill('#senha', 'senha-nova-1'); await q.fill('#senha2', 'senha-nova-1');
+    await q.click('[data-acao="criarSenha"]'); await q.waitForSelector('#matricula');
+    afirmar((await q.$eval('#senha2', function (c) { return c.value; })) === 'senha-nova-1', 'a senha repetida fica ao pedir a matrícula');
+    await q.fill('#matricula', '99901'); await q.click('[data-acao="criarSenha"]'); await esperarTexto(q, 'Olá, Ana');
+    await d.ctx.close();
     // A forma antiga da resposta continua aceita.
     var y = loginComAna(); y.L.exigeMatricula = true; y.L.formaAntiga = true;
     var b = await abrir(y.L);
     await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await b.page.waitForSelector('#matricula');
-    await b.page.fill('#matricula', '99901'); await b.page.click('[data-acao="enviarMatricula"]');
+    await b.page.fill('#matricula', '99901'); await b.page.click('[data-acao="entrarCpf"]');
     await esperarTexto(b.page, 'Olá, Ana');
     await b.ctx.close();
   },
-  /* A matrícula na entrada pelo nome (casca 1.14.1, teste acrescentado em 06/11/2026): quem já usou o celular entra tocando no nome e digitando a
-     senha, e o pedido leva a sessão, não o CPF. É o caminho de todo dia, e o T50 só cobria o do CPF. */
+  /* A matrícula na entrada pelo nome (teste de 06/11/2026): quem já usou o celular entra tocando no nome e digitando a
+     senha, e o pedido leva a sessão, não o CPF. É o caminho de todo dia. */
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;
     await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
@@ -1349,7 +1373,8 @@ var TESTES = {
     await esperarTexto(p, 'Sua senha mudou');
     await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarEscolhida"]');
     await p.waitForSelector('#matricula');
-    await p.fill('#matricula', '99901'); await p.click('[data-acao="enviarMatricula"]');
+    afirmar((await p.$eval('#senha', function (c) { return c.value; })) === 'senha-da-ana', 'a senha continua no campo ao pedir a matrícula');
+    await p.fill('#matricula', '99901'); await p.click('[data-acao="entrarEscolhida"]');
     await esperarTexto(p, 'Olá, Ana');
     var ped = x.L.pedidos.filter(function (q) { return q.acao === 'entrar' && q.sessao; });
     afirmar(ped.length === 2 && !ped[0].matricula && ped[1].matricula === '99901' && ped[1].senha === 'senha-da-ana' && !ped[1].cpf,
