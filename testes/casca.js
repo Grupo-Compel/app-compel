@@ -1338,6 +1338,24 @@ var TESTES = {
     await esperarTexto(b.page, 'Olá, Ana');
     await b.ctx.close();
   },
+  /* A matrícula na entrada pelo nome (casca 1.14.1, teste acrescentado em 06/11/2026): quem já usou o celular entra tocando no nome e digitando a
+     senha, e o pedido leva a sessão, não o CPF. É o caminho de todo dia, e o T50 só cobria o do CPF. */
+  T52_matricula_na_entrada_pelo_nome: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    x.L.exigeMatricula = true;
+    Object.keys(x.L.sessoes).forEach(function (s) { x.L.senhaMudou[s] = true; });
+    await p.click('#modulos .n-modulo[data-i="0"]');
+    await esperarTexto(p, 'Sua senha mudou');
+    await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarEscolhida"]');
+    await p.waitForSelector('#matricula');
+    await p.fill('#matricula', '99901'); await p.click('[data-acao="enviarMatricula"]');
+    await esperarTexto(p, 'Olá, Ana');
+    var ped = x.L.pedidos.filter(function (q) { return q.acao === 'entrar' && q.sessao; });
+    afirmar(ped.length === 2 && !ped[0].matricula && ped[1].matricula === '99901' && ped[1].senha === 'senha-da-ana' && !ped[1].cpf,
+      'o pedido pelo nome leva a sessão e a matrícula, sem CPF: ' + JSON.stringify(ped.map(function (q) { return [!!q.matricula, !!q.cpf]; })));
+    await a.ctx.close();
+  },
   T48_as_comunicacoes_fixas: async function () {
     var x = loginComAna({ fuso: 'America/Sao_Paulo' });
     x.L.comunicacoes = [
