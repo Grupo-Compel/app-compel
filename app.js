@@ -555,14 +555,15 @@ function marcarAvisosVistos() {
    As telas usam as classes da folha do Núcleo (estilo/nucleo.css), as mesmas do App.html do Portal: a tela de
    entrada com a moldura vermelha e a marca quadrada, a barra grafite com a marca horizontal, a saudação, o rótulo
    "Seus sistemas" e os cartões .n-modulo. O que só o app tem leva o prefixo app- e mora no index.html. */
-var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09', relato: 'APP-10' };
-var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil', 'termo', 'relato'];
+var CODIGOS = { entrar: 'APP-01', primeiro: 'APP-02', trocar: 'APP-03', esqueci: 'APP-04', inicio: 'APP-05', avisos: 'APP-06', perfil: 'APP-07', envio: 'APP-08', termo: 'APP-09', relato: 'APP-10', agenda: 'APP-12' };
+var TELAS_DE_DENTRO = ['inicio', 'avisos', 'envio', 'perfil', 'termo', 'relato', 'agenda'];
 var AJUDAS = {
   entrar: 'Entre com o seu CPF e a mesma senha do Portal. Quem já entrou neste celular aparece na lista: toque no seu nome e digite só a senha. Sem sinal, só entra quem já entrou neste celular com sinal antes. A entrada vale até o fim do dia; amanhã o app pede a senha de novo. Se o seu cadastro pedir a matrícula, o campo aparece embaixo da senha depois do primeiro "Entrar": digite só o número, como está no crachá ou no contracheque. Errar gasta uma das tentativas.',
   primeiro: 'Primeira vez no app ou no Portal: digite o CPF, o seu e-mail e crie a senha. O e-mail é para onde vai uma senha nova se um dia você esquecer a sua. Precisa de sinal.',
   trocar: 'Você entrou com uma senha temporária. Crie agora a sua senha, que vale também para o Portal.',
   esqueci: 'Digite o CPF. O sistema manda uma senha temporária para o e-mail cadastrado. Entre com ela, e o app pede para você criar a sua.',
   inicio: 'Em cima, o Acesso rápido: os formulários que você faz no dia a dia (checklist, relato, diário…). Cada botão abre direto o formulário, no próprio celular, mesmo sem sinal; o que você preencher vai quando houver sinal. Embaixo, os sistemas completos que você pode abrir, já com você entrado, agrupados por área. Os que estão apagados dizem o motivo. Os marcados "funciona sem sinal" abrem no próprio celular; os outros precisam de sinal.',
+  agenda: 'A sua agenda e as suas tarefas, as mesmas do Portal: toque num dia da faixa para ver a lista dele; toque num item para abrir. Tarefa da empresa você marca como feita; compromisso seu você cria, edita e exclui, e só você o vê. Precisa de sinal: o que você criar vai na hora e, se for recusado, a frase aparece no formulário.',
   termo: 'A Compel pede que você leia e aceite este termo antes de abrir os sistemas. O aceite fica registrado com a data, e vale também para o Portal. Se o texto tiver um documento completo, ele abre pelo link. Precisa de sinal.',
   envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
   avisos: 'Em cima, o que é só para você (o problema que você relatou e foi corrigido, por exemplo): "Marcar como lido" tira o aviso daqui. Embaixo, as comunicações da Compel dos últimos 30 dias; as marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
@@ -856,6 +857,7 @@ function desenhar() {
   var n = logado ? quantosNovos() : 0, bol = $('bolinha'); bol.classList.toggle('oculto', !n); bol.textContent = n > 9 ? '9+' : n;
   // A aba de Envio só existe quando algum bloco deste app envia; a bolinha dela é o que espera para subir.
   $('abaEnvio').classList.toggle('oculto', !blocosQueEnviam().length);
+  $('abaAgenda').classList.toggle('oculto', E.agenda.semAcesso === true);
   var pe = logado ? totalPendente() : 0, bolE = $('bolinhaEnvio'); bolE.classList.toggle('oculto', !pe); bolE.textContent = pe > 9 ? '9+' : pe;
   // O que a pessoa já digitou no CPF e no e-mail sobrevive ao redesenho (um erro não a obriga a digitar de novo).
   // A senha não: depois de um erro, ela é digitada outra vez.
@@ -865,7 +867,7 @@ function desenhar() {
   var comMatricula = (E.matricula || E.ocupado) && (tela === 'entrar' || tela === 'primeiro');
   if (E.telaDesenhada === tela) ['cpf', 'email', 'matricula'].concat(comMatricula ? ['senha', 'senha2'] : []).forEach(function (id) { var c = $(id); if (c) guardados[id] = c.value; });
   E.telaDesenhada = tela;
-  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil, relato: telaRelato }[tela];
+  var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil, relato: telaRelato, agenda: telaAgenda }[tela];
   $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
   if (E.cpfLevar) { var cc = $('cpf'); if (cc && !cc.value) cc.value = mascaraDoCpf(E.cpfLevar); E.cpfLevar = ''; }
@@ -886,8 +888,288 @@ function irPara(tela, ok) {
   if (tela === 'inicio' && !E.avisos) buscarAvisos();
   if (tela !== 'avisos') delete E.avisosNovosAntes;
   if (tela === 'envio') lerEnvio();
+  if (tela === 'agenda') { E.agenda.form = null; E.agenda.confirma = null; E.agenda.sel = null; E.agenda.erro = ''; E.agenda.ancora = agHoje(); E.agenda.carregada = false; desenhar(); window.scrollTo(0, 0); return agCarregar(); }
   desenhar();
   window.scrollTo(0, 0);
+}
+
+/* ---------- a agenda (APP-12; casca 1.16.0, 07/11/2026) ----------
+   Pedido do Dalton (06/11, 05h23): a agenda como quinto item da barra de baixo. O servidor é o do Portal: o Núcleo abre
+   as repetições, decide quem executa cada tarefa e recusa o que não é da pessoa; a casca só pede e desenha (cartas do
+   Núcleo nº 30 e 33, 06/11/2026). Só com sinal: a agenda tem repetição e a gravação pode ser recusada com frase, e uma
+   fila no aparelho esconderia a recusa (carta da Interface nº 2). Só a "minha agenda" (ver:'eu'); a visão da equipe do
+   gestor fica para outra versão. O desenho vem de claude/agenda_script.js e agenda_n-ag.css da Interface (referência
+   de comportamento): aqui só a faixa da semana e a lista do dia, que é o desenho que o Dalton escolheu para o celular. */
+var AG_REPETE = { NAO: 'Só nesta data', DIARIA: 'Diária, só dias úteis', SEMANAL: 'Semanal', MENSAL: 'Mensal', SEMESTRAL: 'Semestral', ANUAL: 'Anual' };
+var AG_DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+var AG_DIAS_LONGO = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+var AG_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+var AG_TIPOS_FIXOS = ['Lembrete', 'Compromisso', 'Reunião', 'Visita à obra'];
+/* A frase exata do Núcleo para quem não pode ter agenda (afastado, carta nº 33). Só ela esconde a aba: qualquer outra
+   recusa (período grande, data ruim) é erro daquele pedido e a aba continua. */
+var AG_SEM_ACESSO = 'Você não tem acesso à agenda.';
+E.agenda = { itens: [], tipos: AG_TIPOS_FIXOS.slice(), ancora: '', sel: null, form: null, confirma: null, carregando: false, erro: '', carregada: false, semAcesso: false, token: 0, ocupado: false };
+
+/* Datas sempre como texto AAAA-MM-DD e contas ao meio-dia: new Date('2026-11-05') é meia-noite UTC e, no Brasil, vira o
+   dia anterior. O "hoje" é o do fuso da pessoa (o mesmo da entrada), não o do relógio do aparelho. */
+function agIso(d) { var m = d.getMonth() + 1, dia = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (dia < 10 ? '0' : '') + dia; }
+function agData(iso) { var p = String(iso).split('-'); return new Date(+p[0], (+p[1]) - 1, +p[2], 12, 0, 0); }
+function agSoma(iso, n) { var d = agData(iso); d.setDate(d.getDate() + n); return agIso(d); }
+function agHoje() { return diaNoFuso(new Date(), fusoDe(pessoaAtual())); }
+function agIsoValido(t) { return /^\d{4}-\d{2}-\d{2}$/.test(String(t || '')); }
+function agDom(iso) { return agSoma(iso, -agData(iso).getDay()); }
+function agBr(iso) { var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+function agPrimeira(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function agLinkSeguro(u) { return /^https?:\/\//i.test(String(u || '')); }
+function agChave(it) { return it.id + '|' + it.data; }
+function agEhPessoal(it) { return it.tipo === 'PESSOAL'; }
+function agHoras(it) { return !it.hora ? '' : it.horaFim ? it.hora + '–' + it.horaFim : it.hora; }
+function agDoDia(iso) {
+  return E.agenda.itens.filter(function (it) { return it.data === iso; }).sort(function (a, b) {
+    var ha = a.hora || '', hb = b.hora || '';
+    if (ha !== hb) return ha === '' ? -1 : (hb === '' ? 1 : (ha < hb ? -1 : 1));
+    return (a.ordem || 0) - (b.ordem || 0);
+  });
+}
+function agSelecionado() {
+  var A = E.agenda; if (!A.sel) return null;
+  for (var i = 0; i < A.itens.length; i++) if (agChave(A.itens[i]) === A.sel) return A.itens[i];
+  return null;
+}
+
+/* ---------- pedidos ---------- */
+function agPedirServidor(corpo) {
+  var p = pessoaAtual();
+  corpo.sessao = p && p.sessao;
+  return postarAoLogin(corpo).then(function (r) {
+    if (r && r.pedirCpf) { exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.'); return null; }
+    if (r && r.entrarDeNovo) { exigirEntrada(false, senhaMudou(r.erro)); return null; }
+    return r || { ok: false, erro: 'O login não respondeu.' };
+  }, function () { return { ok: false, erro: 'Falha de conexão. Tente de novo.' }; });
+}
+/* O sem acesso esconde a aba e leva ao Início: ficar numa tela que o servidor nega seria mostrar um erro sem saída. */
+function agSemAcesso(r) {
+  if (!r || r.ok === true || r.erro !== AG_SEM_ACESSO) return false;
+  E.agenda.semAcesso = true; E.agenda.carregando = false;
+  if (E.tela === 'agenda') irPara('inicio'); else desenhar();
+  return true;
+}
+function agCarregar() {
+  var A = E.agenda, p = pessoaAtual();
+  if (!p || !p.sessao || !comSinal() || A.semAcesso) return Promise.resolve();
+  if (!agIsoValido(A.ancora)) A.ancora = agHoje();
+  var ini = agDom(A.ancora), fim = agSoma(ini, 6), minha = ++A.token;
+  A.carregando = true; A.erro = ''; desenhar();
+  return agPedirServidor({ acao: 'agenda', de: ini, ate: fim, ver: 'eu' }).then(function (r) {
+    // A resposta que chega depois de a pessoa ter mudado de semana não pode desenhar a semana antiga por cima.
+    if (minha !== A.token || r === null) return;
+    A.carregando = false;
+    if (agSemAcesso(r)) return;
+    if (!r.ok || !Array.isArray(r.itens)) { A.erro = r.erro || 'Não consegui carregar a agenda.'; return desenhar(); }
+    A.itens = r.itens.filter(function (it) { return it && agIsoValido(it.data) && it.id && it.titulo; });
+    var tipos = AG_TIPOS_FIXOS.slice();
+    (Array.isArray(r.tipos) ? r.tipos : []).forEach(function (t) { if (t && typeof t === 'string' && tipos.indexOf(t) < 0) tipos.push(t); });
+    A.tipos = tipos; A.carregada = true;
+    // Ausente é falso (carta nº 30): o aviso só aparece quando o servidor cortou a resposta no teto.
+    if (r.truncado === true) A.erro = 'Há mais compromissos nesta semana do que cabem na tela.';
+    desenhar();
+  });
+}
+function agIrPara(iso) {
+  var A = E.agenda, antes = agDom(A.ancora || agHoje());
+  A.ancora = iso; A.sel = null; A.form = null; A.confirma = null;
+  if (agDom(iso) !== antes) return agCarregar();
+  desenhar();
+}
+
+/* ---------- a tela ---------- */
+function agTitulo() {
+  var A = E.agenda, i = agDom(A.ancora), f = agSoma(i, 6);
+  return agData(i).getDate() + ' a ' + agData(f).getDate() + ' de ' + AG_MESES[agData(f).getMonth()] + ' de ' + agData(f).getFullYear();
+}
+function agChip(it, semHora) {
+  var A = E.agenda, feita = it.feita === true, h = (it.hora && !semHora) ? it.hora + ' ' : '';
+  return '<button type="button" class="n-ag-chip ' + (agEhPessoal(it) ? 'n-ag-pessoal' : 'n-ag-empresa') + (feita ? ' n-ag-feita' : '') + (A.sel === agChave(it) ? ' n-ag-aqui' : '') +
+    '" data-acao="agSel" data-chave="' + esc(agChave(it)) + '" aria-label="' + esc((agEhPessoal(it) ? 'Compromisso pessoal' : 'Tarefa da empresa') + ': ' +
+    (it.hora ? (it.horaFim ? 'das ' + it.hora + ' às ' + it.horaFim : it.hora) + ', ' : 'dia todo, ') + it.titulo + (feita ? ', feita' : '')) + '">' +
+    (feita ? '✓ ' : '') + esc(h + it.titulo) + '</button>';
+}
+function agFaixa() {
+  var A = E.agenda, hoje = agHoje(), ini = agDom(A.ancora), h = '<div class="n-ag-faixa">';
+  for (var k = 0; k < 7; k++) {
+    var iso = agSoma(ini, k), qtd = agDoDia(iso).length;
+    h += '<button type="button" class="n-ag-fdia' + (iso === A.ancora ? ' n-ag-aqui' : '') + (iso === hoje ? ' n-ag-hoje' : '') + '" data-acao="agDia" data-iso="' + iso + '" aria-label="' +
+      esc(agBr(iso) + (qtd ? ', ' + qtd + (qtd === 1 ? ' item' : ' itens') : ', nada marcado')) + '"><span class="n-ag-fnome">' + AG_DIAS[agData(iso).getDay()] + '</span><span class="n-ag-fnum">' +
+      agData(iso).getDate() + '</span><span class="n-ag-fponto' + (qtd ? ' n-ag-tem' : '') + '">' + (qtd ? '●' : '') + '</span></button>';
+  }
+  return h + '</div>';
+}
+function agListaDoDia() {
+  var A = E.agenda, lista = agDoDia(A.ancora);
+  var h = '<p class="n-ag-lado-quando">' + esc(agPrimeira(AG_DIAS_LONGO[agData(A.ancora).getDay()]) + ', ' + agBr(A.ancora)) + '</p><ul class="n-ag-dia">';
+  if (!lista.length) h += '<li class="n-ag-vazio">Nada marcado para este dia.</li>';
+  lista.forEach(function (it) { h += '<li class="n-ag-linha"><span class="n-ag-hora">' + esc(agHoras(it) || 'dia todo') + '</span>' + agChip(it, true) + '</li>'; });
+  return h + '</ul>';
+}
+function agFeitaEm(iso) {
+  var t = Date.parse(iso); if (isNaN(t)) return String(iso);
+  var p = new Intl.DateTimeFormat('en-CA', { timeZone: fusoDe(pessoaAtual()), year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(t)), v = {};
+  p.forEach(function (x) { v[x.type] = x.value; });
+  return v.day + '/' + v.month + '/' + v.year + ' às ' + v.hour + ':' + v.minute;
+}
+function agDetalhe(it) {
+  var A = E.agenda, pes = agEhPessoal(it);
+  var h = '<div class="n-ag-lado" id="agLado"><button type="button" class="n-ag-fechar" data-acao="agFechar" aria-label="Fechar o detalhe">×</button>' +
+    '<p class="n-ag-selo ' + (pes ? 'n-ag-pessoal' : 'n-ag-empresa') + '">' + esc(pes ? (it.tipoLivre || 'Compromisso') + ' · só você vê' : 'Tarefa da empresa') + '</p>' +
+    '<h3 class="n-ag-lado-titulo">' + esc(it.titulo) + '</h3>' +
+    '<p class="n-ag-lado-quando">' + esc(AG_DIAS_LONGO[agData(it.data).getDay()] + ', ' + agBr(it.data) + (it.hora ? (it.horaFim ? ' das ' + it.hora + ' às ' + it.horaFim : ' às ' + it.hora) : ' · dia todo')) + '</p>';
+  if (it.repete && it.repete !== 'NAO') h += '<p class="n-ag-lado-linha">Repete: ' + esc((AG_REPETE[it.repete] || '') + (it.ate ? ' até ' + agBr(it.ate) : '')) + '</p>';
+  if (pes) {
+    if (it.obs) h += '<p class="n-ag-obs">' + esc(it.obs) + '</p>';
+    if (it.editavel === true) {
+      h += '<div class="n-ag-pe"><button type="button" class="btn" data-acao="agEditar">Editar</button><button type="button" class="btn n-ag-sec" data-acao="agExcluirPedir">Excluir</button></div>';
+      if (A.confirma === it.id) h += '<div class="n-ag-confirma"><p>' + esc(it.repete && it.repete !== 'NAO' ? 'Excluir "' + it.titulo + '" em todas as datas?' : 'Excluir "' + it.titulo + '"?') +
+        '</p><button type="button" class="btn" data-acao="agExcluirSim"' + (A.ocupado ? ' disabled' : '') + '>Sim, excluir</button><button type="button" class="btn n-ag-sec" data-acao="agExcluirNao">Não</button></div>';
+    }
+    return h + '</div>';
+  }
+  if (it.ordem) h += '<p class="n-ag-lado-linha">Ordem de execução no dia: ' + esc(it.ordem) + 'ª</p>';
+  if (it.procCodigo || it.procNome) {
+    var txt = (it.procCodigo ? it.procCodigo + ' · ' : '') + (it.procNome || '');
+    h += '<p class="n-ag-lado-linha">Procedimento: ' + (agLinkSeguro(it.procLink) ? '<a href="' + esc(it.procLink) + '" target="_blank" rel="noopener noreferrer">' + esc(txt) + '</a>' : esc(txt)) + '</p>';
+  }
+  if (it.videoNome) {
+    var vt = it.videoNome + (it.videoDuracao ? ' (' + it.videoDuracao + ')' : '');
+    h += '<p class="n-ag-lado-linha">Treinamento: ' + (agLinkSeguro(it.videoLink) ? '<a href="' + esc(it.videoLink) + '" target="_blank" rel="noopener noreferrer">' + esc(vt) + '</a>' : esc(vt)) + '</p>';
+  }
+  h += '<div class="n-ag-pe">';
+  if (it.tela && it.tela.modulo) {
+    var i = agIndiceDoModulo(it.tela.modulo);
+    // Sistema que a pessoa não tem na grade: o botão apagado diz por quê, em vez de abrir o que o servidor recusaria.
+    h += i < 0 ? '<button type="button" class="btn" disabled>Abrir ' + esc(it.tela.rotulo || 'o sistema') + '</button><p class="n-ag-lado-linha">Você não tem acesso a este sistema.</p>' :
+      '<button type="button" class="btn" data-acao="agAbrirTela" data-i="' + i + '"' + (comSinal() ? '' : ' disabled') + '>Abrir ' + esc(it.tela.rotulo || 'o sistema') + '</button>';
+  }
+  var feita = it.feita === true;
+  h += '<button type="button" class="btn' + (feita ? ' n-ag-sec' : '') + '" data-acao="agMarcar"' + (A.ocupado ? ' disabled' : '') + '>' + (feita ? 'Desfazer' : 'Marcar como feita') + '</button></div>';
+  if (feita && it.feitaEm) h += '<p class="n-ag-feitaem">Feita em ' + esc(agFeitaEm(it.feitaEm)) + '.</p>';
+  return h + '</div>';
+}
+function agIndiceDoModulo(cod) {
+  var p = pessoaAtual(), ms = (p && p.modulos) || [];
+  for (var i = 0; i < ms.length; i++) if (ms[i].modulo === cod && ms[i].liberado !== false && enderecoBom(ms[i])) return i;
+  return -1;
+}
+function agForm() {
+  var A = E.agenda, f = A.form, ehNovo = A.tipos.indexOf(f.tipoLivre) < 0;
+  var opt = function (v, t, sel) { return '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(t) + '</option>'; };
+  var h = '<div class="n-ag-lado" id="agLado"><button type="button" class="n-ag-fechar" data-acao="agFecharForm" aria-label="Fechar sem salvar">×</button>' +
+    '<h3 class="n-ag-lado-titulo">' + (f.id ? 'Editar compromisso' : 'Novo compromisso') + '</h3><p class="n-ag-lado-linha">Só você vê. Nem o seu gestor.</p>' +
+    '<div class="campo"><label for="agfTitulo">O que é</label><input id="agfTitulo" type="text" maxlength="120" value="' + esc(f.titulo) + '"></div>' +
+    '<div class="n-ag-linhaf n-ag-linhaf-2"><div class="campo"><label for="agfTipo">Tipo</label><select id="agfTipo">' +
+      A.tipos.map(function (t) { return opt(t, t, !ehNovo && t === f.tipoLivre); }).join('') + opt('__outro', 'Outro…', ehNovo || f.outro) + '</select></div>' +
+    '<div class="campo"><label for="agfRepete">Repete</label><select id="agfRepete">' + Object.keys(AG_REPETE).map(function (k) { return opt(k, AG_REPETE[k], k === f.repete); }).join('') + '</select></div></div>';
+  if (ehNovo || f.outro) h += '<div class="campo"><label for="agfOutro">Nome do tipo</label><input id="agfOutro" type="text" maxlength="40" placeholder="Nome do novo tipo" value="' + esc(ehNovo ? f.tipoLivre : f.outroTexto || '') + '"></div>';
+  h += '<div class="n-ag-linhaf n-ag-linhaf-3"><div class="campo"><label for="agfInicio">Data</label><input id="agfInicio" type="date" value="' + esc(f.inicio) + '"></div>' +
+    '<div class="campo"><label for="agfHora">Hora</label><input id="agfHora" type="time" value="' + esc(f.hora) + '"></div>' +
+    '<div class="campo"><label for="agfHoraFim">Termina às</label><input id="agfHoraFim" type="time" value="' + esc(f.horaFim) + '"></div></div>' +
+    '<p class="n-ag-dica">Hora vazia = dia todo. O término é opcional.</p>';
+  if (f.repete !== 'NAO') h += '<div class="campo"><label for="agfAte">Repete até (vazio = sem fim)</label><input id="agfAte" type="date" value="' + esc(f.ate) + '"></div>';
+  h += '<div class="campo"><label for="agfObs">Observação (opcional)</label><textarea id="agfObs" rows="2" maxlength="500">' + esc(f.obs) + '</textarea></div>' +
+    '<p class="n-ag-aviso' + (f.aviso ? '' : ' oculto') + '" id="agAviso" role="alert">' + esc(f.aviso || '') + '</p>' +
+    '<div class="n-ag-pe"><button type="button" class="btn" data-acao="agSalvar"' + (A.ocupado ? ' disabled' : '') + '>Salvar</button><button type="button" class="btn n-ag-sec" data-acao="agFecharForm">Cancelar</button></div></div>';
+  return h;
+}
+function telaAgenda() {
+  var A = E.agenda, h = '<p class="etiqueta n-secao app-sem-margem">Agenda</p>' + mensagens();
+  if (!comSinal()) return '<div class="conteudo">' + h + '<div class="aviso atencao" id="agSemSinal">A agenda precisa de sinal. Quando o celular tiver sinal, ela aparece aqui.</div>' + ajuda('agenda') + '</div>';
+  if (!A.ancora) A.ancora = agHoje();
+  h += '<div class="n-ag-barra"><div class="n-ag-nav"><button type="button" class="n-ag-btn" data-acao="agAnt" aria-label="Semana anterior">‹</button>' +
+    '<button type="button" class="n-ag-btn" data-acao="agHoje">Hoje</button><button type="button" class="n-ag-btn" data-acao="agProx" aria-label="Próxima semana">›</button></div>' +
+    '<h2 class="n-ag-titulo" id="agTitulo">' + esc(agTitulo()) + '</h2></div>';
+  if (A.erro) h += '<p class="n-ag-erro" id="agErro" role="alert">' + esc(A.erro) + '</p>';
+  h += agFaixa();
+  if (A.carregando && !A.carregada) h += '<div class="carregando">Buscando a agenda…</div>';
+  else {
+    h += agListaDoDia();
+    if (!A.form) h += '<button type="button" class="btn n-ag-novo" data-acao="agNovo" id="agNovo">+ Compromisso</button>';
+    var it = agSelecionado();
+    h += A.form ? agForm() : it ? agDetalhe(it) : '';
+  }
+  return '<div class="conteudo">' + h + ajuda('agenda') + '</div>';
+}
+
+/* ---------- o formulário ---------- */
+function agNovoForm(it) {
+  var A = E.agenda; A.confirma = null;
+  A.form = it ? { id: it.id, titulo: it.titulo, tipoLivre: it.tipoLivre || 'Compromisso', inicio: it.inicio || it.data, hora: it.hora || '', horaFim: it.horaFim || '', repete: it.repete || 'NAO', ate: it.ate || '', obs: it.obs || '', aviso: '' }
+    : { id: '', titulo: '', tipoLivre: 'Compromisso', inicio: A.ancora, hora: '', horaFim: '', repete: 'NAO', ate: '', obs: '', aviso: '' };
+  desenhar();
+  var c = $('agfTitulo'); if (c) c.focus();
+}
+/* Os campos são lidos antes de qualquer redesenho (trocar o tipo ou a repetição muda o formulário): sem isso o que a
+   pessoa digitou sumiria. O "input" também chama, para o sinal que vai e volta não apagar o texto. */
+function agLerCampos() {
+  var A = E.agenda, f = A.form; if (!f || !$('agfTitulo')) return;
+  var v = function (id) { var c = $(id); return c ? c.value : undefined; };
+  f.titulo = v('agfTitulo'); f.inicio = v('agfInicio') || ''; f.hora = v('agfHora') || ''; f.horaFim = v('agfHoraFim') || '';
+  f.repete = v('agfRepete') || 'NAO'; f.obs = v('agfObs') || '';
+  var ate = v('agfAte'); if (ate !== undefined) f.ate = ate;
+  var tipo = v('agfTipo'), outro = v('agfOutro');
+  if (tipo === '__outro') { f.outro = true; if (outro !== undefined) { f.outroTexto = outro; f.tipoLivre = outro; } else if (A.tipos.indexOf(f.tipoLivre) >= 0) f.tipoLivre = ''; }
+  else if (tipo !== undefined) { f.outro = false; f.tipoLivre = tipo; }
+}
+function agErroDoForm(c) {
+  if (!c.titulo) return 'Escreva o que é o compromisso.';
+  if (!c.tipoLivre) return 'Escolha o tipo, ou escreva o nome de um novo.';
+  if (!agIsoValido(c.inicio)) return 'Escolha a data.';
+  if (c.horaFim && !c.hora) return 'Para marcar o término, informe também a hora de início.';
+  if (c.horaFim && c.horaFim <= c.hora) return 'O término precisa ser depois do início.';
+  if (c.ate && !agIsoValido(c.ate)) return 'A data final não é válida.';
+  if (c.ate && c.ate < c.inicio) return 'A data final não pode ser antes da data de início.';
+  return '';
+}
+function agSalvar() {
+  var A = E.agenda, f = A.form; if (!f || A.ocupado) return;
+  agLerCampos();
+  var c = { id: f.id || '', titulo: String(f.titulo || '').trim(), tipoLivre: String(f.tipoLivre || '').trim(), inicio: f.inicio, hora: f.hora, horaFim: f.horaFim,
+    repete: f.repete, ate: f.repete === 'NAO' ? '' : f.ate, obs: String(f.obs || '').trim() };
+  var erro = agErroDoForm(c);
+  if (erro) { f.aviso = erro; return desenhar(); }
+  f.aviso = ''; A.ocupado = true; desenhar();
+  return agPedirServidor({ acao: 'salvarCompromisso', compromisso: c }).then(function (r) {
+    A.ocupado = false;
+    if (r === null) return;
+    if (agSemAcesso(r)) return;
+    // A frase de recusa do servidor aparece como veio, no formulário: nunca "erro ao salvar" (pedido da Interface).
+    if (!r.ok) { f.aviso = r.erro || 'Não consegui salvar.'; return desenhar(); }
+    A.form = null; A.ancora = c.inicio; A.sel = null; A.carregada = false;
+    return agCarregar();
+  });
+}
+function agMarcar() {
+  var A = E.agenda, it = agSelecionado(); if (!it || A.ocupado) return;
+  var feita = it.feita !== true;
+  A.ocupado = true; A.erro = ''; desenhar();
+  return agPedirServidor({ acao: 'marcarTarefa', id: it.id, data: it.data, feita: feita }).then(function (r) {
+    A.ocupado = false;
+    if (r === null) return;
+    if (agSemAcesso(r)) return;
+    if (!r.ok) { A.erro = r.erro || 'Não consegui marcar.'; return desenhar(); }
+    it.feita = feita; it.feitaEm = feita ? (r.feitaEm || '') : '';
+    desenhar();
+  });
+}
+function agExcluir() {
+  var A = E.agenda, it = agSelecionado(); if (!it || A.ocupado) return;
+  A.ocupado = true; A.erro = ''; desenhar();
+  return agPedirServidor({ acao: 'excluirCompromisso', id: it.id }).then(function (r) {
+    A.ocupado = false;
+    if (r === null) return;
+    if (agSemAcesso(r)) return;
+    if (!r.ok) { A.erro = r.erro || 'Não consegui excluir.'; return desenhar(); }
+    A.confirma = null; A.sel = null;
+    return agCarregar();
+  });
 }
 
 /* ---------- os toques ---------- */
@@ -898,6 +1180,21 @@ document.addEventListener('click', function (ev) {
   if (!b || b.disabled) return;
   var a = b.getAttribute('data-acao');
   if (a === 'ajuda') { E.ajuda = !E.ajuda; return desenhar(); }
+  if (a === 'agDia') return agIrPara(b.getAttribute('data-iso'));
+  if (a === 'agAnt') return agIrPara(agSoma(E.agenda.ancora, -7));
+  if (a === 'agProx') return agIrPara(agSoma(E.agenda.ancora, 7));
+  if (a === 'agHoje') return agIrPara(agHoje());
+  if (a === 'agSel') { E.agenda.sel = b.getAttribute('data-chave'); E.agenda.form = null; E.agenda.confirma = null; return desenhar(); }
+  if (a === 'agFechar') { E.agenda.sel = null; E.agenda.confirma = null; return desenhar(); }
+  if (a === 'agNovo') return agNovoForm(null);
+  if (a === 'agEditar') return agNovoForm(agSelecionado());
+  if (a === 'agFecharForm') { E.agenda.form = null; return desenhar(); }
+  if (a === 'agSalvar') return agSalvar();
+  if (a === 'agMarcar') return agMarcar();
+  if (a === 'agExcluirPedir') { var sl = agSelecionado(); E.agenda.confirma = sl && sl.id; return desenhar(); }
+  if (a === 'agExcluirNao') { E.agenda.confirma = null; return desenhar(); }
+  if (a === 'agExcluirSim') return agExcluir();
+  if (a === 'agAbrirTela') return abrirModulo(+b.getAttribute('data-i'));
   if (a === 'atualizar') return location.reload();
   if (a === 'escolher') { E.escolhida = b.getAttribute('data-chave') || ''; E.erro = ''; E.matricula = null; desenhar(); var c = $(E.escolhida ? 'senha' : 'cpf'); if (c) c.focus(); return; }
   if (a === 'verSenha') return alternarVerSenha(b.getAttribute('data-campo'));
@@ -932,6 +1229,7 @@ document.addEventListener('input', function (ev) {
     var bm = $('blocoMatricula'); if (bm) bm.remove();
     var sn = $('senha'); if (sn) sn.value = '';
   }
+  if (ev.target && /^agf/.test(ev.target.id || '')) agLerCampos();
   /* O texto do relato não redesenha a tela (o cursor sairia do campo): só o botão e a frase do que falta mudam. */
   if (ev.target && ev.target.id === 'relatoTexto' && E.relato) {
     E.relato.texto = ev.target.value;
@@ -940,7 +1238,13 @@ document.addEventListener('input', function (ev) {
     if (m) m.classList.toggle('oculto', !falta);
   }
 });
+/* Trocar o tipo ou a repetição muda os campos do formulário da agenda (o nome do tipo novo, o "repete até"). */
+document.addEventListener('change', function (ev) {
+  if (ev.target && (ev.target.id === 'agfTipo' || ev.target.id === 'agfRepete') && E.agenda.form) { agLerCampos(); desenhar(); }
+});
 document.addEventListener('keydown', function (ev) {
+  // Na agenda o Enter não clica no primeiro botão da tela (seria o "+ Compromisso" e apagaria o que se digitou).
+  if (E.tela === 'agenda') return;
   if (ev.key !== 'Enter' || !ev.target || ev.target.tagName !== 'INPUT') return;
   var b = $('corpo').querySelector('.btn:not(.fantasma)'); if (b && !b.disabled) { ev.preventDefault(); b.click(); }
 });

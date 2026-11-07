@@ -1,0 +1,82 @@
+/* Agenda do App (casca 1.16.0, 07/11/2026). Subconjunto para celular do n-ag-*.css da Interface (claude/agenda_n-ag.css,
+   extraído em 06/11/2026): só faixa da semana, lista do dia, painel de detalhe/formulário e chips. Ficam de fora o mês,
+   a grade da semana, o mini calendário, a janela e o seletor de pessoa, que são do Portal. Arquivo separado para não
+   mexer na cópia fiel do Núcleo (nucleo.css). Usa só tokens que o nucleo.css já tem. Não testado no celular. */
+.conteudo { --ag-pessoal: #e4eefc; --ag-pessoal-borda: #9dbbe8; }
+.n-ag-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; }
+.n-ag-nav, .n-ag-nav { display: flex; gap: 6px; }
+.n-ag-titulo { margin: 0; font-size: 20px; font-weight: 700; flex: 1 1 200px; }
+.n-ag-btn {
+  min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--linha);
+  background: var(--superficie, #fff); color: var(--tinta); border-radius: 8px; font: inherit; cursor: pointer;
+}
+.n-ag-btn:hover { background: #f4f5f7; }
+.n-ag-novo { width: auto; }
+.n-ag-erro { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: #fdecee; color: var(--vermelho-forte); font-size: 14px; }
+
+.n-ag-lado {
+  position: relative; border: 1px solid var(--linha); border-radius: 12px; padding: 18px;
+  background: var(--superficie, #fff);
+}
+.n-ag-fechar {
+  position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border: 0; background: transparent;
+  font-size: 24px; color: var(--tinta-media); cursor: pointer;
+}
+.n-ag-selo { margin: 0 0 6px; padding: 2px 8px; border-radius: 6px; font-size: 12px; display: inline-block; }
+.n-ag-lado-titulo { margin: 0 32px 6px 0; font-size: 18px; line-height: 1.3; }
+.n-ag-lado-quando { margin: 0 0 8px; font-weight: 600; font-size: 14px; }
+.n-ag-lado-linha { margin: 0 0 6px; font-size: 14px; color: var(--tinta-media); }
+.n-ag-lado-linha a { color: var(--vermelho-forte); }
+.n-ag-obs { margin: 8px 0; padding: 8px 10px; background: #f4f5f7; border-radius: 8px; font-size: 14px; white-space: pre-wrap; }
+.n-ag-pe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.n-ag-pe .btn { width: auto; }
+.n-ag-sec { background: transparent; color: var(--tinta); border: 1px solid var(--linha); }
+.n-ag-confirma { margin-top: 12px; padding: 12px; border-radius: 8px; background: #fdecee; }
+.n-ag-confirma p { margin: 0 0 8px; font-size: 14px; }
+.n-ag-confirma .btn { width: auto; margin-right: 8px; }
+.n-ag-feitaem { margin: 10px 0 0; font-size: 13px; color: var(--tinta-media); }
+.n-ag-aviso { margin: 8px 0 0; font-size: 14px; color: var(--vermelho-forte); }
+.n-ag-lado .campo { margin-bottom: 10px; }
+.n-ag-lado textarea { width: 100%; font: inherit; border: 1px solid var(--linha); border-radius: 8px; padding: 10px; box-sizing: border-box; }
+
+.n-ag-chip {
+  display: block; width: 100%; text-align: left; margin: 2px 0; padding: 4px 8px; min-height: 28px;
+  border: 1px solid var(--linha); border-radius: 6px; font: inherit; font-size: 12.5px; line-height: 1.3;
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tinta);
+}
+.n-ag-empresa { background: #f4f5f7; }
+.n-ag-pessoal { background: var(--ag-pessoal); border-color: var(--ag-pessoal-borda); }
+.n-ag-feita { text-decoration: line-through; opacity: .7; }
+.n-ag-chip.n-ag-aqui { outline: 2px solid var(--vermelho-forte); outline-offset: 1px; }
+.n-ag-chip:focus-visible, .n-ag-btn:focus-visible { outline: 2px solid var(--vermelho-forte); outline-offset: 2px; }
+
+.n-ag-dia { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.n-ag-linha { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.n-ag-hora { font-size: 13px; color: var(--tinta-media); }
+.n-ag-quem { font-size: 12px; color: var(--tinta-media); }
+.n-ag-vazio { padding: 24px 0; color: var(--tinta-media); }
+
+/* Celular: faixa da semana e lista do dia; o painel do lado passa para baixo. */
+.n-ag-faixa { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 12px; }
+.n-ag-fdia { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 64px; padding: 6px 0; border: 1px solid var(--linha); border-radius: 10px; background: var(--superficie, #fff); font: inherit; cursor: pointer; color: var(--tinta); }
+.n-ag-fdia.n-ag-aqui { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+.n-ag-fnome { font-size: 11px; }
+.n-ag-fnum { font-size: 17px; font-weight: 700; }
+.n-ag-fponto { font-size: 8px; line-height: 8px; min-height: 8px; color: var(--vermelho-forte); }
+.n-ag-fdia.n-ag-aqui .n-ag-fponto { color: #fff; }
+.n-ag-fdia.n-ag-hoje:not(.n-ag-aqui) { border-color: var(--vermelho-forte); }
+
+.n-ag-linhaf { display: grid; gap: 0 10px; }
+.n-ag-linhaf-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.n-ag-linhaf-3 { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); }
+.n-ag-lado .campo label { font-size: 13px; }
+.n-ag-lado .campo input, .n-ag-lado .campo select { padding: 10px 10px; }
+.n-ag-lado .campo { margin-bottom: 8px; }
+.n-ag-linhaf .campo input, .n-ag-linhaf .campo select { width: 100%; min-width: 0; box-sizing: border-box; }
+.n-ag-dica { margin: -2px 0 8px; font-size: 12.5px; color: var(--tinta-media); }
+.n-ag-linha { grid-template-columns: 56px minmax(0, 1fr); }
+.n-ag-chip { white-space: normal; min-height: 44px; padding: 10px 12px; }
+.n-ag-linhaf-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.n-ag-linhaf-3 > .campo:first-child { grid-column: 1 / -1; }
+.n-ag-novo { width: 100%; margin: 12px 0; }
+.n-ag-lado { margin-top: 12px; }

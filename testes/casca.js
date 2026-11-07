@@ -175,6 +175,28 @@ function novoLogin() {
         }
         if (L.recusarRelato) return { ok: false, erro: L.recusarRelato };
         return { ok: true, id: 'R-7' };
+      // A agenda (cartas nº 30 e 33 do Núcleo, 06/11/2026): a pessoa vem sempre da sessão; o corpo nunca traz CPF nem dono.
+      case 'agenda':
+      case 'salvarCompromisso':
+      case 'excluirCompromisso':
+      case 'marcarTarefa':
+        if (!p || L.cortadas[corpo.sessao]) return { ok: false, pedirCpf: true, entrarDeNovo: false, erro: 'Este celular foi desligado. Entre com o CPF.' };
+        if (L.agendaSemAcesso) return { ok: false, erro: 'Você não tem acesso à agenda.' };
+        L.agendaItens = L.agendaItens || [];
+        if (corpo.acao === 'agenda') return { ok: true, itens: L.agendaItens.filter(function (i) { return i.data >= corpo.de && i.data <= corpo.ate; }), tipos: ['Lembrete', 'Compromisso', 'Reunião', 'Visita à obra', 'Dentista'], equipe: [], truncado: !!L.agendaTruncada };
+        if (corpo.acao === 'salvarCompromisso') {
+          var c = corpo.compromisso || {};
+          if (c.horaFim && !c.hora) return { ok: false, erro: 'Para marcar o termino, informe tambem a hora de inicio.' };
+          if (L.recusarCompromisso) return { ok: false, erro: L.recusarCompromisso };
+          L.agendaItens = L.agendaItens.filter(function (i) { return !c.id || i.id !== c.id; });
+          var novo = Object.assign({}, c, { id: c.id || 'C' + (L.agendaItens.length + 1), data: c.inicio, tipo: 'PESSOAL', feita: false, editavel: true, ordem: 0 });
+          L.agendaItens.push(novo); return { ok: true, id: novo.id };
+        }
+        if (corpo.acao === 'excluirCompromisso') { L.agendaItens = L.agendaItens.filter(function (i) { return i.id !== corpo.id; }); return { ok: true }; }
+        if (corpo.data > L.hojeAgenda) return { ok: false, erro: 'Nao da para marcar um dia que ainda nao chegou.' };
+        var tar = L.agendaItens.filter(function (i) { return i.id === corpo.id && i.data === corpo.data; })[0];
+        if (!tar) return { ok: false, erro: 'Esta tarefa nao e sua neste dia.' };
+        tar.feita = corpo.feita === true; tar.feitaEm = tar.feita ? '2026-11-05T14:30:00Z' : ''; return { ok: true, feitaEm: tar.feitaEm };
     }
     return { ok: false, erro: 'ação desconhecida' };
   };
@@ -1364,6 +1386,108 @@ var TESTES = {
   },
   /* A matrícula na entrada pelo nome (teste de 06/11/2026): quem já usou o celular entra tocando no nome e digitando a
      senha, e o pedido leva a sessão, não o CPF. É o caminho de todo dia. */
+  /* A agenda (casca 1.16.0, 07/11/2026): o 5º item da barra. Sempre com sinal e sempre pela sessão: o corpo nunca leva CPF
+     nem dono. Dia fixo (quinta, 05/11/2026): a semana pedida é de domingo a sábado, 01 a 07. */
+  T53_a_agenda_carrega_a_semana_e_mostra_o_dia: async function () {
+    var x = loginComAna(), a = await abrir(x.L, { relogio: '2026-11-05T12:00:00-03:00' }), p = a.page;
+    x.L.hojeAgenda = '2026-11-05';
+    x.L.agendaItens = [
+      { id: 'T1', data: '2026-11-05', hora: '', horaFim: '', tipo: 'TAREFA', titulo: 'Revisar a cabine', repete: 'SEMANAL', feita: false, editavel: false, ordem: 1, procCodigo: 'POP-7', procNome: 'Cabine', procLink: 'javascript:alert(1)' },
+      { id: 'C1', data: '2026-11-05', hora: '09:00', horaFim: '10:00', tipo: 'PESSOAL', titulo: 'Dentista', tipoLivre: 'Dentista', repete: 'NAO', feita: false, editavel: true, ordem: 0 },
+      { id: 'T9', data: '2026-11-20', hora: '', tipo: 'TAREFA', titulo: 'Fora da semana', feita: false }
+    ];
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    afirmar(!!(await p.$('#abas [data-aba="agenda"]')), 'a barra devia ter o item Agenda');
+    await p.click('[data-aba="agenda"]'); await p.waitForSelector('.n-ag-faixa');
+    await esperarTexto(p, 'Revisar a cabine');
+    var ped = x.L.pedidos.filter(function (q) { return q.acao === 'agenda'; }).pop();
+    afirmar(ped.de === '2026-11-01' && ped.ate === '2026-11-07' && ped.ver === 'eu' && ped.sessao && !ped.cpf && !ped.dono, 'o pedido da semana: ' + JSON.stringify(ped));
+    var txt = await texto(p);
+    afirmar(txt.indexOf('Dentista') >= 0 && txt.indexOf('Fora da semana') < 0, 'só os itens da semana aparecem');
+    afirmar((await p.$$('.n-ag-fdia')).length === 7 && (await p.$eval('.n-ag-fdia.n-ag-aqui .n-ag-fnum', function (e) { return e.textContent; })) === '5', 'sete dias, o 5 selecionado');
+    // O link perigoso do procedimento não vira link.
+    await p.click('.n-ag-chip[data-chave="T1|2026-11-05"]'); await p.waitForSelector('#agLado');
+    afirmar(!(await p.$('#agLado a')), 'link javascript: não pode virar âncora');
+    afirmar((await texto(p, '#agLado')).indexOf('POP-7') >= 0, 'o procedimento aparece como texto');
+    // Semana seguinte: novo pedido, de 08 a 14.
+    await p.click('[data-acao="agProx"]'); await esperarTexto(p, '8 a 14 de novembro');
+    var q2 = x.L.pedidos.filter(function (q) { return q.acao === 'agenda'; }).pop();
+    afirmar(q2.de === '2026-11-08' && q2.ate === '2026-11-14', 'a semana seguinte pede 08 a 14: ' + q2.de);
+    await a.ctx.close();
+  },
+  T54_marcar_tarefa_feita_e_desfazer: async function () {
+    var x = loginComAna(), a = await abrir(x.L, { relogio: '2026-11-05T12:00:00-03:00' }), p = a.page;
+    x.L.hojeAgenda = '2026-11-05';
+    x.L.agendaItens = [
+      { id: 'T1', data: '2026-11-05', hora: '', tipo: 'TAREFA', titulo: 'Revisar a cabine', feita: false, editavel: false, ordem: 1 },
+      { id: 'T2', data: '2026-11-06', hora: '', tipo: 'TAREFA', titulo: 'Amanhã', feita: false, editavel: false, ordem: 1 }
+    ];
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="agenda"]'); await esperarTexto(p, 'Revisar a cabine');
+    await p.click('.n-ag-chip[data-chave="T1|2026-11-05"]'); await p.click('[data-acao="agMarcar"]');
+    await esperarTexto(p, 'Desfazer'); await esperarTexto(p, 'Feita em 05/11/2026 às 10:30');
+    var m = x.L.pedidos.filter(function (q) { return q.acao === 'marcarTarefa'; }).pop();
+    afirmar(m.id === 'T1' && m.data === '2026-11-05' && m.feita === true && typeof m.feita === 'boolean' && !m.cpf, 'o pedido de marcar: ' + JSON.stringify(m));
+    afirmar(await p.$eval('.n-ag-chip.n-ag-feita', function (e) { return e.textContent.indexOf('✓') >= 0; }), 'o item feito leva o ✓');
+    await p.click('[data-acao="agMarcar"]'); await esperarTexto(p, 'Marcar como feita');
+    afirmar(x.L.pedidos.filter(function (q) { return q.acao === 'marcarTarefa'; }).pop().feita === false, 'o desfazer manda feita:false');
+    // Dia que não chegou: a frase do servidor aparece como veio.
+    await p.click('.n-ag-fdia[data-iso="2026-11-06"]'); await p.click('.n-ag-chip[data-chave="T2|2026-11-06"]'); await p.click('[data-acao="agMarcar"]');
+    await esperarTexto(p, 'Nao da para marcar um dia que ainda nao chegou.');
+    await a.ctx.close();
+  },
+  T55_compromisso_novo_recusa_do_servidor_e_exclusao: async function () {
+    var x = loginComAna(), a = await abrir(x.L, { relogio: '2026-11-05T12:00:00-03:00' }), p = a.page;
+    x.L.hojeAgenda = '2026-11-05'; x.L.agendaItens = [];
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="agenda"]'); await esperarTexto(p, 'Nada marcado para este dia');
+    await p.click('#agNovo'); await p.waitForSelector('#agfTitulo');
+    // Vazio: a validação é do aparelho e nada vai ao servidor.
+    var antes = x.L.pedidos.length;
+    await p.click('[data-acao="agSalvar"]'); await esperarTexto(p, 'Escreva o que é o compromisso.', '#agAviso');
+    afirmar(x.L.pedidos.length === antes, 'formulário inválido não pode ir ao servidor');
+    await p.fill('#agfTitulo', 'Consulta'); await p.fill('#agfHoraFim', '11:00');
+    await p.click('[data-acao="agSalvar"]'); await esperarTexto(p, 'Para marcar o término, informe também a hora de início.', '#agAviso');
+    // Recusa do servidor: a frase aparece como veio e o que foi digitado fica.
+    await p.fill('#agfHoraFim', ''); x.L.recusarCompromisso = 'O limite de compromissos foi atingido.';
+    await p.click('[data-acao="agSalvar"]'); await esperarTexto(p, 'O limite de compromissos foi atingido.', '#agAviso');
+    afirmar((await p.$eval('#agfTitulo', function (c) { return c.value; })) === 'Consulta', 'o texto digitado fica depois da recusa');
+    x.L.recusarCompromisso = '';
+    await p.click('[data-acao="agSalvar"]'); await esperarTexto(p, 'Consulta', '.n-ag-dia');
+    var s = x.L.pedidos.filter(function (q) { return q.acao === 'salvarCompromisso'; }).pop();
+    afirmar(s.compromisso.titulo === 'Consulta' && s.compromisso.inicio === '2026-11-05' && !s.cpf && !s.compromisso.cpf && !s.compromisso.dono, 'o pedido de salvar: ' + JSON.stringify(s));
+    // Excluir pede confirmação; "Não" não exclui, "Sim" exclui.
+    await p.click('.n-ag-chip'); await p.waitForSelector('[data-acao="agExcluirPedir"]');
+    afirmar(!(await p.$('.n-ag-confirma')), 'a confirmação só aparece depois de tocar em Excluir');
+    await p.click('[data-acao="agExcluirPedir"]'); await p.click('[data-acao="agExcluirNao"]');
+    afirmar(!x.L.pedidos.some(function (q) { return q.acao === 'excluirCompromisso'; }), 'o Não não pode excluir');
+    await p.click('[data-acao="agExcluirPedir"]'); await p.click('[data-acao="agExcluirSim"]');
+    await esperarTexto(p, 'Nada marcado para este dia');
+    afirmar(x.L.pedidos.filter(function (q) { return q.acao === 'excluirCompromisso'; }).length === 1, 'uma exclusão');
+    await a.ctx.close();
+  },
+  T56_agenda_sem_acesso_sem_sinal_e_sessao_vencida: async function () {
+    // Sem acesso (afastado): só a frase exata esconde a aba e leva ao Início.
+    var x = loginComAna(), a = await abrir(x.L, { relogio: '2026-11-05T12:00:00-03:00' }), p = a.page;
+    x.L.agendaSemAcesso = true;
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="agenda"]'); await esperarTexto(p, 'Olá, Ana');
+    await p.waitForFunction(function () { return document.getElementById('abaAgenda').classList.contains('oculto'); });
+    await a.ctx.close();
+    // Sem sinal: a frase, e nenhum pedido de agenda sai.
+    var y = loginComAna(), b = await abrir(y.L, { relogio: '2026-11-05T12:00:00-03:00' });
+    await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await esperarTexto(b.page, 'Olá, Ana');
+    await b.ctx.setOffline(true);
+    await b.page.click('[data-aba="agenda"]'); await esperarTexto(b.page, 'A agenda precisa de sinal');
+    afirmar(!y.L.pedidos.some(function (q) { return q.acao === 'agenda'; }), 'sem sinal não pode haver pedido');
+    await b.ctx.close();
+    // Sessão cortada: volta para a entrada, sem erro solto.
+    var z = loginComAna(), c = await abrir(z.L, { relogio: '2026-11-05T12:00:00-03:00' });
+    await entrarCpf(c.page, z.cpf, 'senha-da-ana'); await esperarTexto(c.page, 'Olá, Ana');
+    Object.keys(z.L.sessoes).forEach(function (s) { z.L.cortadas[s] = true; });
+    await c.page.click('[data-aba="agenda"]'); await c.page.waitForSelector('#cpf');
+    await c.ctx.close();
+  },
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;
     await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
