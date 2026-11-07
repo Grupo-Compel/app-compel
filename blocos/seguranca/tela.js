@@ -384,6 +384,19 @@ function telaLuvas() {
 }
 
 /* ---------- veicular ---------- */
+/* O km como a pessoa digita (decisão do Dalton, 06/11/2026: "inserir o km como número e ponto"). A mesma regra do
+   kmDigitado do servidor (20_Campo.gs, seg-0.9.4): "269.154" é milhar e vira 269154; "12.5" ou "12,5" é fração e vira
+   12. Até 06/11 o bloco tirava tudo que não era algarismo, e "12.5" subia como 125. A regra fica nos dois lados porque
+   o servidor no ar até a 0.9.3 grava o km como chega: o bloco não pode depender de qual servidor está instalado. O
+   teclado passou de "numeric" para "decimal": em parte dos Android o teclado numérico não tem a tecla do ponto. */
+function kmDoCampo(v) {
+  var t = String(v === undefined || v === null ? '' : v).replace(/[\s ]/g, '');
+  if (!t) return '';
+  if (t.indexOf(',') >= 0) t = t.split(',')[0].replace(/\./g, '');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+  else if (/^\d+\.\d*$/.test(t)) t = t.split('.')[0];
+  return t.replace(/\D/g, '');
+}
 function telaVeicular() {
   var f = S.form = S.form || { id: novoId('vei'), tipo: 'veicular', placa: (S.contexto && S.contexto.placa) || '', tipoV: '', km: '', estados: {}, fotos: {}, obs: {} };
   var tipos = S.pacote ? Object.keys(S.pacote.veiculos) : [], crit = (S.pacote ? S.pacote.criticosVeiculo : []).map(normalizar);
@@ -393,7 +406,7 @@ function telaVeicular() {
   var daFrota = placaDaFrota(f.placa);
   if (!f.tipoV && daFrota && daFrota.tipo && S.pacote && S.pacote.veiculos[daFrota.tipo]) f.tipoV = daFrota.tipo;
   var html = listaDePlacas() + '<div class="cartao"><div class="campo"><label>Placa</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" placeholder="ABC1D23" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
-    '<div class="campo"><label>Km do hodômetro (se puder ver)</label><input data-campo="km" inputmode="numeric" value="' + h(f.km || '') + '"></div><b>Tipo do veículo</b><div class="seg-chips">' +
+    '<div class="campo"><label>Km do hodômetro (se puder ver)</label><input data-campo="km" inputmode="decimal" value="' + h(f.km || '') + '"></div><b>Tipo do veículo</b><div class="seg-chips">' +
     tipos.map(function (t) { return '<button type="button" class="chip' + (f.tipoV === t ? ' ativo' : '') + '" data-acao="campo" data-c="tipoV" data-v="' + h(t) + '">' + h(t) + '</button>'; }).join('') + '</div></div>';
   if (!S.pacote) return html + '<div class="aviso atencao">Os itens de cada tipo de veículo chegam com o pacote. Abra com sinal uma vez.</div>';
   if (!f.tipoV) return html;
@@ -419,7 +432,7 @@ function telaVeicular() {
 /* ---------- SQP ---------- */
 function telaSqp() {
   var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', irr: [], busca: '', nova: null, anterior: {} };
-  var html = seletorDeBase() + listaDePlacas() + '<div class="cartao"><div class="campo"><label>Equipe (prefixo)</label><input data-campo="equipe" value="' + h(f.equipe) + '"></div>' + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
+  var html = seletorDeBase() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
     campoCondutor(f, f.placa) + '</div>' + painelAnterior(f, chavesDoSqp(f));
   html += '<h2 class="seg-h2">Irregularidades (' + f.irr.length + ')</h2>' + f.irr.map(function (x, i) {
     var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
@@ -553,6 +566,52 @@ function formacao() {
   var da = l.filter(function (x) { return mesmaBase(String(x.b || '').toUpperCase(), b); });
   return da.length ? da : l;
 }
+/* LISTA DE EQUIPES E DE TEMAS (07/11/2026; Dalton: "Equipe/prefixo pode ser lista suspensa com base na base que a pessoa tem
+   ou selecionou"). A lista de equipes é a formação do mês da Operação, só da base escolhida: a "formacao()" acima devolve a
+   lista inteira quando a base não tem ninguém (para o encarregado achar o prefixo pelo nome), e uma lista suspensa com
+   as equipes de todas as bases seria pior que o campo livre. Por isso aqui a base sem formação, ou ainda não escolhida,
+   mostra o campo de digitar como sempre. "Outra equipe" existe porque a formação do mês pode estar atrasada: equipe nova
+   no campo não pode ficar sem registro. */
+var VALOR_OUTRO = '__outro__';
+function equipesDaBase() {
+  var b = baseEscolhida(), vistos = {}, out = [];
+  if (!b) return out;
+  ((S.pacote && S.pacote.formacao) || []).forEach(function (x) {
+    var k = chaveDoPrefixo(x.p);
+    if (!k || vistos[k] || !mesmaBase(String(x.b || '').toUpperCase(), b)) return;
+    vistos[k] = 1; out.push(x);
+  });
+  /* Equipe desativada na formação (ATIVO = NAO) sai da lista; "Outra equipe" cobre o resto. Se a Operação ainda não
+     preencheu o ATIVO de nenhuma, vale a lista inteira, em vez de uma lista vazia. */
+  var ativas = out.filter(function (x) { return x.a; });
+  if (ativas.length) out = ativas;
+  return out.sort(function (a, c) { return String(a.p).localeCompare(String(c.p)); });
+}
+/* Os temas de DDS mais repetidos nas 6.948 respostas da planilha antiga (lida em 07/11/2026; 6.049 temas diferentes,
+   quase todos o mesmo assunto escrito de outro jeito: "Ditais", "DITAIS", "Ditais "). Esta é a primeira lista, já sem
+   as variações de caixa e de espaço. Se o servidor mandar "temasDds" no pacote, a lista dele vale e esta fica de reserva. */
+var TEMAS_DDS_PADRAO = ['DITAIS', 'Ginástica laboral', 'Direção defensiva', 'APR', 'APR digital', 'Parada de segurança', 'Check list',
+  'Check list de EPI e EPC', 'Movimentação de carga', 'Organização e limpeza no local de trabalho', 'Segurança no trânsito',
+  'Percepção de risco', 'Abertura e fechamento de chave', 'Trabalho em equipe', 'Trabalho em altura', 'Linha de vida',
+  'Animais peçonhentos', 'Teste de luvas', 'Preenchimento correto da APR', 'Regras que salvam vidas', 'Comportamento seguro',
+  'Stop Work', 'Aterramento temporário', 'Proteção das mãos', 'Sinalização', 'Automedicação', '5S', 'Parceiro Amigo',
+  'Motivacional', 'Comunicação', 'Janeiro Branco', 'Outubro Rosa'];
+function temasDoDds() { var t = S.pacote && S.pacote.temasDds; return t && t.length ? t : TEMAS_DDS_PADRAO; }
+/* Uma lista suspensa que aceita o que não está nela: "Outro" troca a lista pelo campo de digitar, e "Escolher da lista"
+   volta. O valor digitado fica igual ao de antes (texto no campo), então o servidor não muda. */
+function campoDeLista(f, campo, rotulo, opcoes, vazio, outro) {
+  var livre = !!(f._livre && f._livre[campo]) || (!!f[campo] && !opcoes.some(function (o) { return o.v === f[campo]; }));
+  if (livre) return '<div class="campo"><label>' + h(rotulo) + '</label><input data-campo="' + campo + '" value="' + h(f[campo]) + '"></div>' +
+    '<button type="button" class="link-texto" data-acao="voltarLista" data-c="' + campo + '">Escolher da lista</button>';
+  return '<div class="campo"><label>' + h(rotulo) + '</label><select data-campo="' + campo + '" aria-label="' + h(rotulo) + '"><option value="">' + h(vazio) + '</option>' +
+    opcoes.map(function (o) { return '<option value="' + h(o.v) + '"' + (o.v === f[campo] ? ' selected' : '') + '>' + h(o.t) + '</option>'; }).join('') +
+    '<option value="' + VALOR_OUTRO + '">' + h(outro) + '</option></select></div>';
+}
+function campoDaEquipe(f, campo, rotulo) {
+  var l = equipesDaBase();
+  if (!l.length) return '<div class="campo"><label>' + h(rotulo) + '</label><input data-campo="' + campo + '" value="' + h(f[campo]) + '"></div>';
+  return campoDeLista(f, campo, rotulo, l.map(function (x) { return { v: x.p, t: x.p + (x.n ? ' · ' + x.n : '') }; }), 'Escolha a equipe', 'Outra equipe (digitar)');
+}
 function campoDoEncarregado(f, alvo) {
   if (!formacao().length) return '';
   var q = normalizar(f.encarregadoBusca), soNum = q.replace(/\D/g, '');
@@ -581,7 +640,7 @@ function telaBlitz() {
     '<div class="campo"><label>Matrículas de quem está presente (separadas por vírgula)</label><input data-campo="integrantesTxt" inputmode="numeric" value="' + h(f.integrantesTxt) + '"></div>' +
     (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addIntegrante" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '');
   var html = listaDePlacas() + '<div class="cartao"><div class="seg-tres">' + [['pessoa', 'Pessoa'], ['veiculo', 'Veículo'], ['equipe', 'Equipe']].map(function (x) { return '<button type="button" class="chip' + (f.alvoTipo === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="alvoTipo" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-    '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa', equipe: 'Prefixo da equipe' }[f.alvoTipo] + '</label><input data-campo="alvoId"' + (f.alvoTipo === 'veiculo' ? ' list="segPlacas" autocapitalize="characters"' : '') + ' value="' + h(f.alvoId) + '"></div>' + (f.alvoTipo === 'veiculo' ? sobreAPlaca(f.alvoId) : '') + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
+    (f.alvoTipo === 'equipe' ? campoDaEquipe(f, 'alvoId', 'Prefixo da equipe') : '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa' }[f.alvoTipo] + '</label><input data-campo="alvoId"' + (f.alvoTipo === 'veiculo' ? ' list="segPlacas" autocapitalize="characters"' : '') + ' value="' + h(f.alvoId) + '"></div>') + (f.alvoTipo === 'veiculo' ? sobreAPlaca(f.alvoId) : '') + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
     painelAnterior(f, chavesDaBlitz(f)) +
     '<div class="seg-chips">' + cats.map(function (c) { var n = S.pacote.blitz[c].filter(function (it) { return f.resp[chaveBlitz(c, it.item)]; }).length; return '<button type="button" class="chip' + (f.cat === c ? ' ativo' : '') + '" data-acao="campo" data-c="cat" data-v="' + h(c) + '">' + h(c) + ' <b>' + n + '/' + S.pacote.blitz[c].length + '</b></button>'; }).join('') + '</div>';
   (S.pacote.blitz[f.cat] || []).forEach(function (it, i) {
@@ -604,7 +663,7 @@ function telaDds() {
   if (!listas.length) return aviso + '<div class="aviso atencao">Nenhuma lista do DDS dos últimos 7 dias chegou a este celular. A lista é gerada no sistema (tela "Lista do DDS"), impressa, e chega ao celular no próximo sinal.</div>' +
     '<button type="button" class="btn secundario" data-acao="buscarPacote">Buscar as listas agora</button>';
   var html = aviso + '<div class="cartao"><b>Qual lista?</b>' + listas.map(function (l) { return '<button type="button" class="seg-opcao' + (f.lista === l.id ? ' ativo' : '') + '" data-acao="campo" data-c="lista" data-v="' + h(l.id) + '">' + h(l.base) + ' · ' + h(l.cab.data) + ' · ' + l.pessoas.length + ' pessoas</button>'; }).join('') +
-    '<div class="campo"><label>Tema</label><input data-campo="tema" value="' + h(f.tema) + '"></div></div>';
+    campoDeLista(f, 'tema', 'Tema', temasDoDds().map(function (t) { return { v: t, t: t }; }), 'Escolha o tema', 'Outro assunto (digitar)') + '</div>';
   if (!f.lista) return html;
   var lista = listas.filter(function (l) { return l.id === f.lista; })[0], lays = FolhaLista.layout(lista.pessoas, lista.cab);
   html += '<div class="cartao"><b>Fotografe cada página assinada</b><div class="seg-tres">' + lays.map(function (l, i) { return '<button type="button" class="btn ' + (f.paginas[i + 1] ? 'secundario' : '') + ' auto" data-acao="fotoPagina" data-p="' + (i + 1) + '">Página ' + (i + 1) + (f.paginas[i + 1] ? ' ✓' : '') + '</button>'; }).join('') + '</div>' +
@@ -752,6 +811,8 @@ document.addEventListener('input', function (ev) {
   var t = ev.target, f = S.form; if (!f) return;
   if (t.dataset.nova && f.nova) { f.nova[t.dataset.nova] = t.value; if (t.dataset.nova === 'obs' && f.nova.desvio === DESVIO_NAO_PREVISTO) redesenharMantendoFoco(t); }
   if (t.dataset.campo) {
+    /* "Outro" nas listas de equipe e de tema: vira campo de digitar, vazio, para não gravar o texto interno da opção. */
+    if (t.tagName === 'SELECT' && t.value === VALOR_OUTRO) { f._livre = f._livre || {}; f._livre[t.dataset.campo] = true; f[t.dataset.campo] = ''; guardarRascunho(); return desenhar(); }
     f[t.dataset.campo] = t.value;
     // No relato, o botão de enviar depende do que se digita: redesenha mantendo o cursor onde estava.
     if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo)) ||
@@ -767,7 +828,13 @@ document.addEventListener('input', function (ev) {
 /* Texto digitado NÃO redesenha a tela ao sair do campo: redesenhar no "change" troca o botão debaixo do dedo, e o toque
    que vem logo depois de digitar se perde (a bateria pegou em 23/10/2026: o "+ Irregularidade" não respondia). O que
    depende de texto é conferido no toque do botão, com a frase do que falta. */
-document.addEventListener('change', function (ev) { if (ev.target.id === 'arquivoFoto') aoEscolherFoto(ev.target.files[0]); });
+document.addEventListener('change', function (ev) {
+  var t = ev.target;
+  if (t.id === 'arquivoFoto') aoEscolherFoto(t.files[0]);
+  /* Alguns navegadores de celular só avisam a escolha numa lista suspensa pelo "change", e não pelo "input": repassa para
+     o mesmo tratamento, só se o valor ainda não foi lido. */
+  if (t.tagName === 'SELECT' && t.dataset.campo && S.form && t.value !== S.form[t.dataset.campo] && !(t.value === VALOR_OUTRO && S.form._livre && S.form._livre[t.dataset.campo])) t.dispatchEvent(new Event('input', { bubbles: true }));
+});
 function falta(msg) { S.msg = msg; desenhar(); return true; }
 function redesenharMantendoFoco(el) {
   var qual = el.dataset.campo ? '[data-campo="' + el.dataset.campo + '"]' : '[data-nova="' + el.dataset.nova + '"]', pos = el.selectionStart;
@@ -793,6 +860,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'fotoCampo') return pedirFoto(function (id) { f[b.dataset.c] = id; });
   if (a === 'rosto') return pedirFoto(function (id) { f.rosto = id; }, true);
   if (a === 'campo') { f[b.dataset.c] = v; return desenhar(); }
+  if (a === 'voltarLista') { f._livre = f._livre || {}; f._livre[b.dataset.c] = false; f[b.dataset.c] = ''; return desenhar(); }
   if (a === 'alternar') { f.nova[b.dataset.c] = !f.nova[b.dataset.c]; return desenhar(); }
   if (a === 'novaIrr') { f.nova = { desvio: '', foto: '' }; f.busca = ''; return desenhar(); }
   if (a === 'cancelarIrr') { f.nova = null; return desenhar(); }
@@ -821,7 +889,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'salvarLuvas') return concluir({ id: f.id, tipo: 'luvas', fotoRosto: f.rosto, luvas: { classe: f.classe, esquerda: String(f.esquerda).trim(), direita: String(f.direita).trim(), par: String(f.esquerda).trim() + ' / ' + String(f.direita).trim(), inflagem: f.inflagem, visual: f.visual, foto: f.foto || '' } },
     f.inflagem === 'reprovado' || f.visual === 'reprovado' ? 'Par reprovado registrado: ele sai de uso.' : 'Teste de luvas salvo.');
   if (a === 'salvarVeicular' && !String(f.placa).trim() && falta('Digite a placa do veículo.')) return;
-  if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: String(f.km || '').replace(/\D/g, '') }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
+  if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: kmDoCampo(f.km) }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
     itens: f._itens.map(function (it) { return { item: it.replace(/^Lataria /, 'Lataria '), estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) };
     return concluir(reg, reg.retido ? 'VEÍCULO RETIDO: não saia com ele até um superior liberar.' : 'Checklist veicular salvo.'); }
   if (a === 'salvarSqp' && valeSemQuem(f, chavesDoSqp(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
