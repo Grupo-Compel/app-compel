@@ -180,16 +180,17 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
 var AJUDAS = {
   incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
-  luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, o par sai de uso: tire a foto e avise o almoxarifado.',
-  veicular: 'Item por item: aprovado ou reprovado. Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
+  luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, diga qual luva reprovou (as duas, só a esquerda ou só a direita): o par sai de uso, tire a foto e avise o almoxarifado.',
+  veicular: 'Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
   sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
   blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. O que ficou em aberto da Blitz anterior aparece logo abaixo: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo.',
-  dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento.',
+  dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento. Se o DDS foi feito com a folha antiga (a lista não saiu do sistema), use o botão "Informar no modelo antigo".',
+  ddsAntigo: 'É o "Informe de Realização DDS_COMPEL" no celular: quem ministrou, horário, tema, tipo, participantes e as fotos da lista. A lista não foi emitida pelo sistema, então o informe vai para revisão: a Operação ou a Segurança confere a foto e dá a baixa, quem fizer primeiro.',
   meus: 'O que você fez neste mês, contado neste celular. Sem percentual: o número que vale para a Campanha é o do extrato.',
   equipe: 'Cada pessoa da equipe com o que a função dela pede. Toque no que falta para fazer por ela: o registro fica no nome dela, marcado "feito no celular do encarregado", e no fim pede a foto do SEU rosto.',
   fila: 'Tudo o que foi feito neste celular e ainda não subiu, e o que o servidor recusou (com o motivo). O que espera sobe sozinho quando houver sinal.',
@@ -206,7 +207,7 @@ function desenhar() {
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
   else if (S.msg) avisos += '<div class="aviso erro">' + h(S.msg) + '</div>';
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
-  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
+  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
   Casca.ajuda($('ajuda'), AJUDAS[t]);
   // Volta ao topo só quando a TELA muda: o redesenho de 20 em 20 s não pode jogar para cima quem está rolando a lista.
@@ -379,8 +380,11 @@ function telaLuvas() {
     '<div class="seg-dois"><div class="campo"><label>Luva esquerda (nº)</label><input data-campo="esquerda" inputmode="numeric" value="' + h(f.esquerda) + '" placeholder="ex.: 1234"></div>' +
     '<div class="campo"><label>Luva direita (nº)</label><input data-campo="direita" inputmode="numeric" value="' + h(f.direita) + '" placeholder="ex.: 1235"></div></div></div>' +
     '<div class="cartao"><b>Inflagem</b>' + sel('inflagem', [['aprovado', 'Aprovada'], ['reprovado', 'Reprovada']]) + '<b>Teste visual contra a luz</b>' + sel('visual', [['aprovado', 'Aprovado'], ['reprovado', 'Reprovado']]) + '</div>' +
+    /* O formulário antigo perguntava qual luva reprovou (ambas / só a esquerda / só a direita); sem isso o almoxarifado
+       troca o par inteiro sem saber se bastava uma luva (decisão do Dalton, 07/11/2026). */
+    (reprov ? '<div class="cartao"><b>Qual luva reprovou?</b>' + sel('lado', [['ambas', 'As duas'], ['esquerda', 'Só a esquerda'], ['direita', 'Só a direita']]) + '</div>' : '') +
     (reprov ? '<div class="aviso erro">Par reprovado: sai de uso hoje. Tire a foto e avise o almoxarifado.</div><button type="button" class="btn secundario" data-acao="fotoCampo" data-c="foto">' + (f.foto ? 'Foto tirada ✓' : 'Tirar foto do defeito') + '</button>' : '') +
-    rostoSePreciso(f) + '<button type="button" class="btn" data-acao="salvarLuvas"' + (!f.classe || !f.inflagem || !f.visual || (reprov && !f.foto) || (S.alvo && !f.rosto) ? ' disabled' : '') + '>Salvar teste</button>';
+    rostoSePreciso(f) + '<button type="button" class="btn" data-acao="salvarLuvas"' + (!f.classe || !f.inflagem || !f.visual || (reprov && (!f.foto || !f.lado)) || (S.alvo && !f.rosto) ? ' disabled' : '') + '>Salvar teste</button>';
 }
 
 /* ---------- veicular ---------- */
@@ -411,13 +415,15 @@ function telaVeicular() {
   if (!S.pacote) return html + '<div class="aviso atencao">Os itens de cada tipo de veículo chegam com o pacote. Abra com sinal uma vez.</div>';
   if (!f.tipoV) return html;
   var v = S.pacote.veiculos[f.tipoV], itens = v.itens.concat(v.lataria.map(function (x) { return 'Lataria ' + x; })).concat(v.iluminacao);
-  var retidos = [];
+  var retidos = [], aceitaNa = v.na || [];
   html += '<div class="cartao"><button type="button" class="btn fantasma auto" data-acao="todosOk">Marcar o que falta como aprovado</button></div>';
   itens.forEach(function (it, i) {
     var e = f.estados[it] || '', ehCrit = crit.indexOf(normalizar(it)) >= 0;
     if (e === 'reprovado' && ehCrit) retidos.push(it);
     html += '<div class="cartao seg-item' + (e === 'reprovado' && ehCrit ? ' seg-critico' : '') + '"><b>' + (ehCrit ? '! ' : '') + h(it) + '</b><div class="seg-tres">' +
-      ['aprovado', 'reprovado'].map(function (x) { return '<button type="button" class="chip' + (e === x ? ' ativo' : '') + '" data-acao="estadoItem" data-i="' + i + '" data-v="' + x + '">' + (x === 'aprovado' ? 'Aprovado' : 'Reprovado') + '</button>'; }).join('') + '</div>' +
+      /* "N/A" só nos itens que o catálogo (ACEITA_NA) aceita para este tipo de veículo; o servidor recusa nos outros.
+         Conta como marcado, mas não reprova nem retém. */
+      (aceitaNa.indexOf(it) >= 0 ? ['aprovado', 'reprovado', 'na'] : ['aprovado', 'reprovado']).map(function (x) { return '<button type="button" class="chip' + (e === x ? ' ativo' : '') + '" data-acao="estadoItem" data-i="' + i + '" data-v="' + x + '">' + { aprovado: 'Aprovado', reprovado: 'Reprovado', na: 'N/A' }[x] + '</button>'; }).join('') + '</div>' +
       (e === 'reprovado' ? '<div class="campo"><input placeholder="O que houve" data-obs="' + i + '" value="' + h(f.obs[it] || '') + '"></div><button type="button" class="btn secundario auto" data-acao="fotoItem" data-i="' + i + '">' + (f.fotos[it] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
   });
   f._itens = itens; f._retidos = retidos;
@@ -660,11 +666,14 @@ function telaDds() {
   var f = S.form = S.form || { id: novoId('dds'), tipo: 'dds', onde: 'base', tema: '', lista: '', paginas: {}, conf: {}, manuais: {}, fotoLista: '' };
   var aviso = S.contexto ? '<div class="aviso info">Esta é a presença do DDS feito na base. O DDS em campo, com a equipe, é marcado no diário da Operação, com a foto da lista.</div>' : '';
   var listas = (S.pacote && S.pacote.listasDds) || [];
+  /* O DDS feito com a folha antiga (a lista que o sistema não emitiu) não é recusado: vai pelo informe do modelo antigo,
+     para revisão (decisão do Dalton, 07/11/2026). O botão fica nas duas saídas: com lista e sem lista. */
+  var antigo = '<div class="cartao"><b>A lista não saiu do sistema?</b><p class="seg-sub">Se o DDS foi feito com a folha antiga, informe como no formulário de papel. O informe vai para revisão.</p><button type="button" class="btn secundario" data-acao="abrir" data-tela="ddsAntigo">Informar no modelo antigo</button></div>';
   if (!listas.length) return aviso + '<div class="aviso atencao">Nenhuma lista do DDS dos últimos 7 dias chegou a este celular. A lista é gerada no sistema (tela "Lista do DDS"), impressa, e chega ao celular no próximo sinal.</div>' +
-    '<button type="button" class="btn secundario" data-acao="buscarPacote">Buscar as listas agora</button>';
+    '<button type="button" class="btn secundario" data-acao="buscarPacote">Buscar as listas agora</button>' + antigo;
   var html = aviso + '<div class="cartao"><b>Qual lista?</b>' + listas.map(function (l) { return '<button type="button" class="seg-opcao' + (f.lista === l.id ? ' ativo' : '') + '" data-acao="campo" data-c="lista" data-v="' + h(l.id) + '">' + h(l.base) + ' · ' + h(l.cab.data) + ' · ' + l.pessoas.length + ' pessoas</button>'; }).join('') +
     campoDeLista(f, 'tema', 'Tema', temasDoDds().map(function (t) { return { v: t, t: t }; }), 'Escolha o tema', 'Outro assunto (digitar)') + '</div>';
-  if (!f.lista) return html;
+  if (!f.lista) return html + antigo;
   var lista = listas.filter(function (l) { return l.id === f.lista; })[0], lays = FolhaLista.layout(lista.pessoas, lista.cab);
   html += '<div class="cartao"><b>Fotografe cada página assinada</b><div class="seg-tres">' + lays.map(function (l, i) { return '<button type="button" class="btn ' + (f.paginas[i + 1] ? 'secundario' : '') + ' auto" data-acao="fotoPagina" data-p="' + (i + 1) + '">Página ' + (i + 1) + (f.paginas[i + 1] ? ' ✓' : '') + '</button>'; }).join('') + '</div>' +
     (S.lido && S.lido.erro ? '<div class="aviso erro">' + h(S.lido.erro) + '</div>' : '') + '</div>';
@@ -686,6 +695,48 @@ function telaDds() {
     html += '<div class="cartao"><b>Linha ' + m.linha + ', escrita à mão</b><div class="campo"><label>Digite a matrícula que está escrita</label><input data-manual="' + m.linha + '" inputmode="numeric" value="' + h(f.manuais[m.linha] || '') + '"></div></div>';
   }); });
   return html + '<button type="button" class="btn" data-acao="salvarDds"' + (pend ? ' disabled' : '') + '>Enviar presença com a foto da lista (' + (pres + Object.keys(f.manuais).filter(function (k) { return f.manuais[k]; }).length) + ')</button>' + (pend ? '<p class="seg-sub">Confira o que está em amarelo antes de enviar.</p>' : '');
+}
+/* ---------- DDS no modelo antigo ----------
+   O "Informe de Realização DDS_COMPEL" (SMS-FORM-086) que o Dalton mostrou em 07/11/2026. Não há presença por pessoa:
+   o formulário antigo só tem a CONTAGEM de administrativos e operacionais, e inventar nomes seria pior que não ter. O
+   servidor guarda o informe e abre a pendência de revisão (aba DDS_PENDENTES). */
+function telaDdsAntigo() {
+  var f = S.form = S.form || { id: novoId('dds'), tipo: 'ddsAntigo', ministrou: String(S.pessoa.matricula || ''), inicio: '', fim: '', tema: '', tipoDds: '', cliente: '', adm: '', oper: '', fotoLista: '', fotoLista2: '', fotos: [] };
+  var sel = function (campo, op) { return '<div class="seg-tres">' + op.map(function (x) { return '<button type="button" class="chip' + (f[campo] === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="' + campo + '" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
+  var foto = function (rotulo, ok, acao, extra) { return '<button type="button" class="btn ' + (ok ? 'secundario ' : '') + 'auto" data-acao="' + acao + '"' + (extra || '') + '>' + rotulo + (ok ? ' ✓' : '') + '</button>'; };
+  var oQueFalta = faltaNoDdsAntigo(f);
+  return '<div class="aviso atencao">A lista deste DDS não foi emitida pelo sistema. O informe fica guardado e vai para revisão: a Operação ou a Segurança confere a foto da lista e dá a baixa.</div>' +
+    seletorDeBase() +
+    '<div class="cartao"><div class="campo"><label>Matrícula de quem ministrou' + (f.cliente === 'sim' ? ' (a do TST que estava presente)' : '') + '</label><input data-campo="ministrou" inputmode="numeric" value="' + h(f.ministrou) + '"></div>' +
+    '<div class="seg-dois"><div class="campo"><label>Início</label><input type="time" data-campo="inicio" value="' + h(f.inicio) + '"></div>' +
+    '<div class="campo"><label>Fim</label><input type="time" data-campo="fim" value="' + h(f.fim) + '"></div></div>' +
+    campoDeLista(f, 'tema', 'Tema', temasDoDds().map(function (t) { return { v: t, t: t }; }), 'Escolha o tema', 'Outro assunto (digitar)') + '</div>' +
+    '<div class="cartao"><b>Tipo do DDS</b>' + sel('tipoDds', [['pratico', 'Prático'], ['teorico', 'Teórico']]) +
+    '<b>Houve participação do cliente?</b>' + sel('cliente', [['sim', 'Sim'], ['nao', 'Não']]) + '</div>' +
+    '<div class="cartao"><b>Participantes</b><div class="seg-dois"><div class="campo"><label>Administrativos</label><input data-campo="adm" inputmode="numeric" value="' + h(f.adm) + '" placeholder="0"></div>' +
+    '<div class="campo"><label>Operacionais</label><input data-campo="oper" inputmode="numeric" value="' + h(f.oper) + '" placeholder="0"></div></div></div>' +
+    '<div class="cartao"><b>Fotos</b><p class="seg-sub">A lista de presença (parte 1) e a foto 1 do DDS são obrigatórias.</p>' +
+    foto('Lista de presença, parte 1', f.fotoLista, 'fotoCampo', ' data-c="fotoLista"') + foto('Lista, parte 2 (se houver)', f.fotoLista2, 'fotoCampo', ' data-c="fotoLista2"') +
+    [0, 1, 2].map(function (i) { return foto('Foto ' + (i + 1) + ' do DDS', f.fotos[i], 'fotoDdsAntigo', ' data-i="' + i + '"'); }).join('') + '</div>' +
+    '<button type="button" class="btn" data-acao="salvarDdsAntigo"' + (oQueFalta ? ' disabled' : '') + '>Enviar informe para revisão</button>' + (oQueFalta ? '<p class="seg-sub">Falta: ' + h(oQueFalta) + '.</p>' : '');
+}
+/* A mesma conferência do servidor (56_DdsAntigo.gs), para o botão só acender com o informe completo; a do servidor
+   continua valendo, porque o celular pode estar desatualizado. */
+function faltaNoDdsAntigo(f) {
+  if (faltaEscolherBase()) return 'a base de hoje';
+  if (!String(f.ministrou).replace(/\D/g, '')) return 'a matrícula de quem ministrou';
+  var hh = /^([01]?\d|2[0-3]):[0-5]\d$/;
+  if (!hh.test(f.inicio || '') || !hh.test(f.fim || '')) return 'o início e o fim';
+  if (f.fim <= f.inicio) return 'o fim depois do início';
+  if (String(f.tema || '').trim().length < 3) return 'o tema';
+  if (!f.tipoDds) return 'o tipo (prático ou teórico)';
+  if (!f.cliente) return 'a participação do cliente';
+  var n = /^\d{1,4}$/;
+  if (!n.test(String(f.adm).trim()) || !n.test(String(f.oper).trim())) return 'o número de participantes (zero vale)';
+  if (+f.adm + +f.oper < 1) return 'pelo menos um participante';
+  if (!f.fotoLista) return 'a foto da lista (parte 1)';
+  if (!f.fotos[0]) return 'a foto 1 do DDS';
+  return '';
 }
 /* A leitura da foto, no próprio celular: desenha a foto num canvas e passa os pixels ao leitor (leitor.js). Lida da
    foto ORIGINAL, e não da reduzida que vai como documento: o leitor foi medido com fotos de 1600 a 3000 px de largura. */
@@ -816,7 +867,8 @@ document.addEventListener('input', function (ev) {
     f[t.dataset.campo] = t.value;
     // No relato, o botão de enviar depende do que se digita: redesenha mantendo o cursor onde estava.
     if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo)) ||
-      (f.tipo === 'incidente' && /^(descricao|local)$/.test(t.dataset.campo)) || (f.tipo === 'veicular' && t.dataset.campo === 'placa')) redesenharMantendoFoco(t);
+      (f.tipo === 'incidente' && /^(descricao|local)$/.test(t.dataset.campo)) || (f.tipo === 'veicular' && t.dataset.campo === 'placa') ||
+      (f.tipo === 'ddsAntigo' && /^(ministrou|inicio|fim|tema|adm|oper)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
     // A Blitz anterior e a sugestão do condutor aparecem enquanto se digita o prefixo, a placa ou quem está presente.
     else if ((f.tipo === 'blitz' && /^(alvoId|placa|integrantesTxt|encarregadoBusca)$/.test(t.dataset.campo)) || (f.tipo === 'sqp' && /^(equipe|placa|encarregadoBusca)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
   }
@@ -886,7 +938,8 @@ document.addEventListener('click', function (ev) {
   if (a === 'salvarEpi') return concluir({ id: f.id, tipo: 'epi', funcao: (S.alvo || {}).funcao || (S.pacote && S.pacote.pessoa.funcao) || '', fotoRosto: f.rosto,
     itens: f._itens.map(function (it) { return { item: it, estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) }, 'Checklist de EPI/EPC salvo.');
   if (a === 'salvarLuvas' && (!String(f.esquerda).trim() || !String(f.direita).trim()) && falta('Digite o número das duas luvas, a esquerda e a direita.')) return;
-  if (a === 'salvarLuvas') return concluir({ id: f.id, tipo: 'luvas', fotoRosto: f.rosto, luvas: { classe: f.classe, esquerda: String(f.esquerda).trim(), direita: String(f.direita).trim(), par: String(f.esquerda).trim() + ' / ' + String(f.direita).trim(), inflagem: f.inflagem, visual: f.visual, foto: f.foto || '' } },
+  if (a === 'salvarLuvas' && (f.inflagem === 'reprovado' || f.visual === 'reprovado') && !f.lado && falta('Diga qual luva reprovou: as duas, só a esquerda ou só a direita.')) return;
+  if (a === 'salvarLuvas') return concluir({ id: f.id, tipo: 'luvas', fotoRosto: f.rosto, luvas: { classe: f.classe, esquerda: String(f.esquerda).trim(), direita: String(f.direita).trim(), par: String(f.esquerda).trim() + ' / ' + String(f.direita).trim(), inflagem: f.inflagem, visual: f.visual, lado: f.inflagem === 'reprovado' || f.visual === 'reprovado' ? f.lado : '', foto: f.foto || '' } },
     f.inflagem === 'reprovado' || f.visual === 'reprovado' ? 'Par reprovado registrado: ele sai de uso.' : 'Teste de luvas salvo.');
   if (a === 'salvarVeicular' && !String(f.placa).trim() && falta('Digite a placa do veículo.')) return;
   if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: kmDoCampo(f.km) }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
@@ -923,6 +976,13 @@ document.addEventListener('click', function (ev) {
     return concluir({ id: f.id, tipo: 'relato', relato: { tipo: f.tipoRelato, data: f.data, hora: f.hora, local: String(f.local).trim(), ferido: fer,
       feridoMatricula: fer === 'outro' ? String(f.feridoMatricula).replace(/\D/g, '') : '', feridoNome: fer === 'outro' ? String(f.feridoNome).trim() : '',
       descricao: String(f.descricao).trim(), naHora: String(f.naHora).trim(), fotos: f.fotos.slice() } }, 'Relato salvo. Um técnico de segurança vai completar e investigar.');
+  }
+  if (a === 'fotoDdsAntigo') { var iF = +b.dataset.i; return pedirFoto(function (id) { f.fotos[iF] = id; }); }
+  if (a === 'salvarDdsAntigo') {
+    var que = faltaNoDdsAntigo(f); if (que && falta('Para enviar, falta ' + que + '.')) return;
+    return concluir({ id: f.id, tipo: 'dds', dds: { modelo: 'antigo', onde: 'base', ministrou: String(f.ministrou).replace(/\D/g, ''), inicio: f.inicio, fim: f.fim, tema: String(f.tema).trim(),
+      tipoDds: f.tipoDds, cliente: f.cliente, participantesAdm: String(f.adm).trim(), participantesOper: String(f.oper).trim(), fotoLista: f.fotoLista, fotoLista2: f.fotoLista2 || '',
+      fotos: f.fotos.filter(function (x) { return !!x; }) } }, 'Informe do DDS enviado: a lista não saiu do sistema, então vai para revisão.');
   }
   if (a === 'salvarDds' && !String(f.tema).trim() && falta('Escreva o tema do DDS.')) return;
   if (a === 'salvarDds' && document.querySelector('[data-manual]') && Array.prototype.some.call(document.querySelectorAll('[data-manual]'), function (x) { return !x.value.trim(); }) && falta('Digite a matrícula de cada linha escrita à mão.')) return;
