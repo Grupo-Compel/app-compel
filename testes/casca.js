@@ -1488,6 +1488,22 @@ var TESTES = {
     await c.page.click('[data-aba="agenda"]'); await c.page.waitForSelector('#cpf');
     await c.ctx.close();
   },
+  /* A prova de 07/11/2026 no celular do Dalton: a Agenda mostrou "Falha de conexão" em 5 s, com sinal. A frase valia para
+     qualquer falha e escondia a causa. Agora o login fora do ar diz que está fora do ar; e a falta de rede de verdade
+     continua dizendo "Falha de conexão". */
+  T57_agenda_diz_o_motivo_da_falha: async function () {
+    var x = loginComAna(), a = await abrir(x.L, { relogio: '2026-11-05T12:00:00-03:00' }), p = a.page;
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    x.L.fora = true;
+    await p.click('[data-aba="agenda"]'); await esperarTexto(p, 'O cadastro está fora do ar agora.', '#agErro');
+    afirmar((await texto(p, '#agErro')).indexOf('Falha de conexão') < 0, 'login fora do ar não pode virar "Falha de conexão"');
+    x.L.fora = false;
+    await p.click('[data-acao="agProx"]'); await p.waitForFunction(function () { return !document.getElementById('agErro') && document.getElementById('agTitulo').textContent.indexOf('8 a 14') >= 0; });
+    // Rede que cai de verdade: o pedido nem chega ao login.
+    await a.ctx.route('**/exec*', function (r) { r.abort('failed'); }); await a.ctx.route(LOGIN + '*', function (r) { r.abort('failed'); });
+    await p.click('[data-acao="agProx"]'); await esperarTexto(p, 'Falha de conexão. Tente de novo.', '#agErro');
+    await a.ctx.close();
+  },
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;
     await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');

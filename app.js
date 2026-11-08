@@ -945,7 +945,12 @@ function agPedirServidor(corpo) {
     if (r && r.pedirCpf) { exigirEntrada(true, r.erro || 'Entre de novo com o seu CPF.'); return null; }
     if (r && r.entrarDeNovo) { exigirEntrada(false, senhaMudou(r.erro)); return null; }
     return r || { ok: false, erro: 'O login não respondeu.' };
-  }, function () { return { ok: false, erro: 'Falha de conexão. Tente de novo.' }; });
+  }, function (e) {
+    // O "Falha de conexão" valia para qualquer falha e escondia a causa (prova de 07/11/2026, 12h34, no celular do Dalton:
+    // 5 s e a mesma frase, com sinal; o tempo limite é 30 s, então não foi tempo). Quando a casca sabe o motivo, ele aparece:
+    // o login fora do ar, ou a resposta fora do combinado. Só a falta de rede de verdade fica com a frase de conexão.
+    return { ok: false, erro: e && e.semResposta && e.msg ? e.msg : 'Falha de conexão. Tente de novo.' };
+  });
 }
 /* O sem acesso esconde a aba e leva ao Início: ficar numa tela que o servidor nega seria mostrar um erro sem saída. */
 function agSemAcesso(r) {
