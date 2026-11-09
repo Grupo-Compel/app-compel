@@ -186,7 +186,7 @@ var AJUDAS = {
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, diga qual luva reprovou (as duas, só a esquerda ou só a direita): o par sai de uso, tire a foto e avise o almoxarifado.',
-  veicular: 'Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
+  veicular: 'O km é opcional: digite o que o painel mostra. Se for menor que o último km que a Frota tem para a placa (descontados 50 km), a tela avisa para você conferir; se estiver certo, pode seguir. Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
   sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
   blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. O que ficou em aberto da Blitz anterior aparece logo abaixo: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo.',
   dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento. Se o DDS foi feito com a folha antiga (a lista não saiu do sistema), use o botão "Informar no modelo antigo".',
@@ -401,6 +401,27 @@ function kmDoCampo(v) {
   else if (/^\d+\.\d*$/.test(t)) t = t.split('.')[0];
   return t.replace(/\D/g, '');
 }
+/* O AVISO DE KM MENOR QUE O ÚLTIMO (Dalton, 07/11/2026: "se alguém digita um km menor, na tela, na hora, já fala que está
+   errado"). O último km de cada placa vem no pacote (servidor 0.9.10, da aba ULTIMO_KM da Frota); sem o campo, sem a placa
+   ou sem km digitado, não avisa nada. A margem de 50 km é da Frota (Frota nº 9, 06/11/2026): o posto e o painel divergem
+   uns quilômetros. Só avisa para baixo: o último km pode ter semanas, e o carro anda. Nunca trava: o km continua opcional
+   (Dalton, 06/11/2026) e o aviso diz "se estiver certo, pode seguir". */
+var MARGEM_DO_KM = 50;
+function milhar(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+/* Enquanto se digita, "269154" passa por "2", "26", "269"... e todos são menores que o último: avisar em cada tecla piscaria.
+   Por isso, digitando, só avisa quando o número já tem tantos algarismos quanto o último; ao sair do campo, avisa sempre. */
+function avisoDoKm(f, aoSair) {
+  var u = S.pacote && S.pacote.ultimoKm && S.pacote.ultimoKm[soPlaca(f.placa)], k = kmDoCampo(f.km);
+  if (!u || !u.km || k === '') return '';
+  if (!aoSair && k.length < String(u.km).length) return '';
+  var n = Number(k);
+  if (!(n < u.km - MARGEM_DO_KM)) return '';
+  return '<p class="aviso atencao" role="alert">O último km desta placa que a Frota tem é ' + milhar(u.km) + (u.dia ? ' (' + h(u.dia) + ')' : '') + '. Você digitou ' + milhar(n) + '. Confira o painel; se estiver certo, pode seguir.</p>';
+}
+function atualizarAvisoDoKm(aoSair) {
+  var e = document.getElementById('segAvisoKm');
+  if (e && S.form) e.innerHTML = avisoDoKm(S.form, aoSair);
+}
 function telaVeicular() {
   var f = S.form = S.form || { id: novoId('vei'), tipo: 'veicular', placa: (S.contexto && S.contexto.placa) || '', tipoV: '', km: '', estados: {}, fotos: {}, obs: {} };
   var tipos = S.pacote ? Object.keys(S.pacote.veiculos) : [], crit = (S.pacote ? S.pacote.criticosVeiculo : []).map(normalizar);
@@ -410,7 +431,7 @@ function telaVeicular() {
   var daFrota = placaDaFrota(f.placa);
   if (!f.tipoV && daFrota && daFrota.tipo && S.pacote && S.pacote.veiculos[daFrota.tipo]) f.tipoV = daFrota.tipo;
   var html = listaDePlacas() + '<div class="cartao"><div class="campo"><label>Placa</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" placeholder="ABC1D23" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
-    '<div class="campo"><label>Km do hodômetro (se puder ver)</label><input data-campo="km" inputmode="decimal" value="' + h(f.km || '') + '"></div><b>Tipo do veículo</b><div class="seg-chips">' +
+    '<div class="campo"><label>Km do hodômetro (se puder ver)</label><input data-campo="km" inputmode="decimal" value="' + h(f.km || '') + '"></div><div id="segAvisoKm">' + avisoDoKm(f, true) + '</div><b>Tipo do veículo</b><div class="seg-chips">' +
     tipos.map(function (t) { return '<button type="button" class="chip' + (f.tipoV === t ? ' ativo' : '') + '" data-acao="campo" data-c="tipoV" data-v="' + h(t) + '">' + h(t) + '</button>'; }).join('') + '</div></div>';
   if (!S.pacote) return html + '<div class="aviso atencao">Os itens de cada tipo de veículo chegam com o pacote. Abra com sinal uma vez.</div>';
   if (!f.tipoV) return html;
@@ -865,6 +886,8 @@ document.addEventListener('input', function (ev) {
     /* "Outro" nas listas de equipe e de tema: vira campo de digitar, vazio, para não gravar o texto interno da opção. */
     if (t.tagName === 'SELECT' && t.value === VALOR_OUTRO) { f._livre = f._livre || {}; f._livre[t.dataset.campo] = true; f[t.dataset.campo] = ''; guardarRascunho(); return desenhar(); }
     f[t.dataset.campo] = t.value;
+    /* O km avisa sem redesenhar a tela: só troca o texto do aviso, para o cursor não sair do campo. */
+    if (f.tipo === 'veicular' && t.dataset.campo === 'km') atualizarAvisoDoKm(false);
     // No relato, o botão de enviar depende do que se digita: redesenha mantendo o cursor onde estava.
     if (t.dataset.campo === 'busca' || (f.tipo === 'relato' && /^(descricao|feridoMatricula|feridoNome|data)$/.test(t.dataset.campo)) ||
       (f.tipo === 'incidente' && /^(descricao|local)$/.test(t.dataset.campo)) || (f.tipo === 'veicular' && t.dataset.campo === 'placa') ||
@@ -883,6 +906,8 @@ document.addEventListener('input', function (ev) {
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (t.id === 'arquivoFoto') aoEscolherFoto(t.files[0]);
+  /* Ao sair do campo do km, o aviso vale mesmo para o número curto (ver avisoDoKm). */
+  if (t.dataset && t.dataset.campo === 'km' && S.form && S.form.tipo === 'veicular') atualizarAvisoDoKm(true);
   /* Alguns navegadores de celular só avisam a escolha numa lista suspensa pelo "change", e não pelo "input": repassa para
      o mesmo tratamento, só se o valor ainda não foi lido. */
   if (t.tagName === 'SELECT' && t.dataset.campo && S.form && t.value !== S.form[t.dataset.campo] && !(t.value === VALOR_OUTRO && S.form._livre && S.form._livre[t.dataset.campo])) t.dispatchEvent(new Event('input', { bubbles: true }));
