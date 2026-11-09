@@ -1504,6 +1504,34 @@ var TESTES = {
     await p.click('[data-acao="agProx"]'); await esperarTexto(p, 'Falha de conexão. Tente de novo.', '#agErro');
     await a.ctx.close();
   },
+  /* Tarefa da agenda de um módulo com formulário no celular abre o formulário direto (Dalton, 09/11/2026, pedido da Segurança,
+     carta nº 19). `tela.id` é o id do atalho. Atalho que a pessoa não enxerga (o SQP do eletricista) não abre nada por
+     aí: fica o botão do sistema, como era. */
+  T58_a_agenda_abre_o_atalho_do_bloco: async function () {
+    var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true };
+    var x = loginComAna({ modulos: [OUTRO] }), a = await abrir(x.L, { relogio: '2026-11-05T12:00:00-03:00' }), p = a.page;
+    x.L.hojeAgenda = '2026-11-05';
+    x.L.agendaItens = [
+      { id: 'T1', data: '2026-11-05', hora: '', tipo: 'TAREFA', titulo: 'Checklist do dia', feita: false, editavel: false, ordem: 1, tela: { modulo: 'OUTRO', id: 'epi', rotulo: 'Checklist EPI/EPC' } },
+      { id: 'T2', data: '2026-11-05', hora: '', tipo: 'TAREFA', titulo: 'Inspeção', feita: false, editavel: false, ordem: 2, tela: { modulo: 'OUTRO', id: 'sqp', rotulo: 'Inspeção SQP' } },
+      { id: 'T3', data: '2026-11-05', hora: '', tipo: 'TAREFA', titulo: 'De outro módulo', feita: false, editavel: false, ordem: 3, tela: { modulo: 'OUTRO2', id: 'epi', rotulo: 'Outro' } }
+    ];
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="agenda"]'); await esperarTexto(p, 'Checklist do dia');
+    // O SQP não é do eletricista: nenhum atalho, só o botão do sistema.
+    await p.click('.n-ag-chip[data-chave="T2|2026-11-05"]'); await p.waitForSelector('#agLado');
+    afirmar(!(await p.$('[data-acao="agAbrirAtalho"]')) && !!(await p.$('[data-acao="agAbrirTela"]')), 'atalho que a pessoa não vê não pode abrir o formulário');
+    // O mesmo id de atalho em outro módulo: não é o atalho desta pessoa.
+    await p.click('.n-ag-chip[data-chave="T3|2026-11-05"]'); await p.waitForSelector('#agLado');
+    afirmar(!(await p.$('[data-acao="agAbrirAtalho"]')), 'o id do atalho só vale no módulo dele');
+    await p.click('.n-ag-chip[data-chave="T1|2026-11-05"]'); await p.waitForSelector('[data-acao="agAbrirAtalho"]');
+    afirmar(!(await p.$('[data-acao="agAbrirTela"]')), 'com o atalho, não há o botão do sistema');
+    await p.click('[data-acao="agAbrirAtalho"]');
+    await p.waitForURL(/\/blocos\/outro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
+    var r = await p.evaluate(function () { return window.INICIO_DO_BLOCO; });
+    afirmar(r.contexto && r.contexto.abrir === 'epi', 'o bloco devia abrir no formulário epi: ' + JSON.stringify(r && r.contexto));
+    await a.ctx.close();
+  },
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;
     await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');

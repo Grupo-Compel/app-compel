@@ -1049,7 +1049,10 @@ function agDetalhe(it) {
   }
   h += '<div class="n-ag-pe">';
   if (it.tela && it.tela.modulo) {
-    var i = agIndiceDoModulo(it.tela.modulo);
+    var at = agAtalhoDaTela(it.tela), i = at ? -1 : agIndiceDoModulo(it.tela.modulo);
+    // O formulário do celular abre sem sinal; é o caso do checklist de EPI feito em campo.
+    if (at) h += '<button type="button" class="btn" data-acao="agAbrirAtalho" data-bloco="' + esc(at.bloco.id) + '" data-atalho="' + esc(at.atalho.id) + '">Abrir ' + esc(it.tela.rotulo || at.atalho.nome) + '</button>';
+    else
     // Sistema que a pessoa não tem na grade: o botão apagado diz por quê, em vez de abrir o que o servidor recusaria.
     h += i < 0 ? '<button type="button" class="btn" disabled>Abrir ' + esc(it.tela.rotulo || 'o sistema') + '</button><p class="n-ag-lado-linha">Você não tem acesso a este sistema.</p>' :
       '<button type="button" class="btn" data-acao="agAbrirTela" data-i="' + i + '"' + (comSinal() ? '' : ' disabled') + '>Abrir ' + esc(it.tela.rotulo || 'o sistema') + '</button>';
@@ -1058,6 +1061,15 @@ function agDetalhe(it) {
   h += '<button type="button" class="btn' + (feita ? ' n-ag-sec' : '') + '" data-acao="agMarcar"' + (A.ocupado ? ' disabled' : '') + '>' + (feita ? 'Desfazer' : 'Marcar como feita') + '</button></div>';
   if (feita && it.feitaEm) h += '<p class="n-ag-feitaem">Feita em ' + esc(agFeitaEm(it.feitaEm)) + '.</p>';
   return h + '</div>';
+}
+/* Tarefa de um módulo com formulário no celular abre o formulário direto (decisão do Dalton, 09/11/2026, a pedido da
+   Segurança, carta nº 19): `tela.id` é o id do atalho do bloco ('epi', 'luvas', 'veicular'). Só vale se a pessoa
+   enxerga esse atalho (mesma regra do Acesso rápido do Início); senão cai no que já existia, abrir o sistema do Google. */
+function agAtalhoDaTela(t) {
+  var p = pessoaAtual(); if (!p || !t || !t.modulo || !t.id) return null;
+  var l = atalhosDe(p);
+  for (var i = 0; i < l.length; i++) if (l[i].modulo.modulo === t.modulo && l[i].atalho.id === t.id) return l[i];
+  return null;
 }
 function agIndiceDoModulo(cod) {
   var p = pessoaAtual(), ms = (p && p.modulos) || [];
@@ -1199,6 +1211,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'agExcluirPedir') { var sl = agSelecionado(); E.agenda.confirma = sl && sl.id; return desenhar(); }
   if (a === 'agExcluirNao') { E.agenda.confirma = null; return desenhar(); }
   if (a === 'agExcluirSim') return agExcluir();
+  if (a === 'agAbrirAtalho') return abrirAtalho(b.getAttribute('data-bloco'), b.getAttribute('data-atalho'));
   if (a === 'agAbrirTela') return abrirModulo(+b.getAttribute('data-i'));
   if (a === 'atualizar') return location.reload();
   if (a === 'escolher') { E.escolhida = b.getAttribute('data-chave') || ''; E.erro = ''; E.matricula = null; desenhar(); var c = $(E.escolhida ? 'senha' : 'cpf'); if (c) c.focus(); return; }
