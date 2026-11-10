@@ -182,12 +182,12 @@ function luvasNaSemana(mat) {
 /* ---------- desenhar ---------- */
 var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
 var AJUDAS = {
-  incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
+  incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. As fotos podem ser tiradas na hora ou escolhidas da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, diga qual luva reprovou (as duas, só a esquerda ou só a direita): o par sai de uso, tire a foto e avise o almoxarifado.',
   veicular: 'O km é opcional: digite o que o painel mostra. Se for menor que o último km que a Frota tem para a placa (descontados 50 km), a tela avisa para você conferir; se estiver certo, pode seguir. Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
-  sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
+  sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz; ao marcar o prefixo aparecem as placas que já saíram com ele. A matrícula do responsável da equipe vem da formação do mês, e você indica as pessoas inspecionadas. As fotos da inspeção são opcionais, com ou sem irregularidade. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
   blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. O que ficou em aberto da Blitz anterior aparece logo abaixo: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo.',
   dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento. Se o DDS foi feito com a folha antiga (a lista não saiu do sistema), use o botão "Informar no modelo antigo".',
   ddsAntigo: 'É o "Informe de Realização DDS_COMPEL" no celular: quem ministrou, horário, tema, tipo, participantes e as fotos da lista. A lista não foi emitida pelo sistema, então o informe vai para revisão: a Operação ou a Segurança confere a foto e dá a baixa, quem fizer primeiro.',
@@ -327,15 +327,21 @@ function concluir(reg, frase) {
 
 /* ---------- foto ---------- */
 var fotoPendente = null;
-function pedirFoto(onde, frente) {
-  fotoPendente = onde;
-  var i = $('arquivoFoto'); i.setAttribute('capture', frente ? 'user' : 'environment'); i.value = ''; i.click();
+/* A galeria (09/11/2026; Dalton: "habilitar o botão de buscar foto da galeria também"): sem o atributo capture o celular
+   abre a galeria em vez da câmera. A foto da galeria não é do momento nem do lugar: vai sem GPS e com a linha "da galeria"
+   no carimbo, para a engenharia não tomar a hora de agora como a hora do fato. */
+var fotoDaGaleria = false;
+function pedirFoto(onde, frente, galeria) {
+  fotoPendente = onde; fotoDaGaleria = !!galeria;
+  var i = $('arquivoFoto');
+  if (galeria) i.removeAttribute('capture'); else i.setAttribute('capture', frente ? 'user' : 'environment');
+  i.value = ''; i.click();
 }
 function aoEscolherFoto(arquivo) {
-  var onde = fotoPendente; fotoPendente = null;
+  var onde = fotoPendente, daGaleria = fotoDaGaleria; fotoPendente = null; fotoDaGaleria = false;
   if (!arquivo || !onde) return;
   var idFoto = novoId('foto');
-  Casca.foto(arquivo, { linhas: ['Segurança · ' + S.pessoa.nome, new Date().toLocaleString('pt-BR')] }).then(function (f) {
+  Casca.foto(arquivo, { semGps: daGaleria, linhas: ['Segurança · ' + S.pessoa.nome + (daGaleria ? ' · da galeria' : ''), new Date().toLocaleString('pt-BR')] }).then(function (f) {
     return segGuardarFoto({ id: idFoto, idRegistro: S.form.id, blob: f.blob, meta: f.meta }).then(function () { onde(idFoto, URL.createObjectURL(f.blob)); desenhar(); });
   });
 }
@@ -458,14 +464,19 @@ function telaVeicular() {
 
 /* ---------- SQP ---------- */
 function telaSqp() {
-  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', irr: [], busca: '', nova: null, anterior: {} };
-  var html = seletorDeBase() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
-    campoCondutor(f, f.placa) + '</div>' + painelAnterior(f, chavesDoSqp(f));
+  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', integrantesTxt: ((S.contexto && S.contexto.equipe) || []).map(function (p) { return p.matricula; }).join(', '), fotos: [], irr: [], busca: '', nova: null, anterior: {} };
+  f.fotos = f.fotos || []; if (f.integrantesTxt === undefined) f.integrantesTxt = ''; /* rascunho guardado antes da 0.6.5 não tem estes campos */
+  var html = seletorDeBase() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + responsavelDaEquipe(f) + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + placasDaEquipe(f) + sobreAPlaca(f.placa) +
+    campoCondutor(f, f.placa) + pessoasInspecionadas(f) + '</div>' + painelAnterior(f, chavesDoSqp(f));
   html += '<h2 class="seg-h2">Irregularidades (' + f.irr.length + ')</h2>' + f.irr.map(function (x, i) {
     var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
   }).join('');
   if (!f.nova) html += '<button type="button" class="btn secundario" data-acao="novaIrr">+ Irregularidade</button>';
   else html += formIrregularidade(f);
+  /* As fotos da inspeção ficam sempre à mostra, com ou sem irregularidade, e nunca travam o botão (Dalton, 09/11/2026:
+     "mesmo não tendo irregularidade, mantenha o campo de fotos, mas sem ser obrigatório"). A foto de CADA irregularidade
+     continua obrigatória: é a prova do desvio. */
+  html += blocoDeFotos(f, 'Fotos da inspeção', 'Opcional: o local, a equipe, o veículo. Vale também sem irregularidade.');
   html += '<button type="button" class="btn" data-acao="salvarSqp"' + (f.nova ? ' disabled' : '') + '>Concluir inspeção' + (f.irr.length ? '' : ' sem irregularidade') + '</button>';
   // O botão apagado diz por quê (o teste do Dalton no celular, 25/10/2026: ele ficou sem saber o que faltava).
   if (f.nova) html += '<p class="seg-sub seg-falta">Para concluir: acrescente ou cancele a irregularidade aberta acima.</p>';
@@ -650,7 +661,55 @@ function campoDoEncarregado(f, alvo) {
       : q.length >= 3 ? '<p class="seg-sub">Nenhum encarregado com "' + h(f.encarregadoBusca) + '" na formação do mês.</p>' : '') +
     (atual ? '<p class="seg-sub">' + h(atual.b) + ' · ' + (atual.n ? 'encarregado ' + h(atual.n) + (atual.m ? ' (' + h(atual.m) + ')' : '') : 'sem encarregado na formação do mês') + (atual.t ? ' · ' + h(atual.t) : '') + '</p>' : '');
 }
-function chavesDoSqp(f) { return { prefixo: f.equipe, placa: f.placa, mats: [] }; }
+/* O RESPONSÁVEL DA EQUIPE e os INSPECIONADOS (09/11/2026; Dalton: "colocar também a matrícula do responsável da equipe e das
+   pessoas inspecionadas"). O responsável é o encarregado da formação do mês, na base escolhida (o mesmo prefixo pode existir
+   em duas bases). Sem formação ou sem o encarregado preenchido, a tela diz isso: o inspetor não fica achando que a
+   matrícula foi gravada. */
+function equipeDaFormacao(prefixo) {
+  var k = chaveDoPrefixo(prefixo); if (!k) return null;
+  var l = formacao().filter(function (x) { return chaveDoPrefixo(x.p) === k; }), b = baseEscolhida();
+  return l.filter(function (x) { return b && mesmaBase(String(x.b || '').toUpperCase(), b); })[0] || l[0] || null;
+}
+/* O nome e a matrícula do responsável já aparecem na linha do encarregado (campoDoEncarregado). Aqui fica o que falta
+   quando a formação do mês não tem a matrícula dele (a aba estava só com o cabeçalho em 09/11/2026): o inspetor digita, e a
+   tela diz que a matrícula não veio da formação, em vez de gravar a inspeção sem responsável sem ninguém notar. */
+function matriculaDoResponsavel(f) {
+  var x = equipeDaFormacao(f.equipe);
+  return (x && x.m) || String(f.responsavel || '').replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+}
+function responsavelDaEquipe(f) {
+  var x = equipeDaFormacao(f.equipe);
+  if (x && x.m) return '';
+  if (!String(f.equipe || '').trim()) return '';
+  return '<div class="campo"><label>Matrícula do responsável da equipe</label><input data-campo="responsavel" inputmode="numeric" value="' + h(f.responsavel || '') + '"></div>' +
+    '<p class="seg-sub">A formação do mês não tem a matrícula do encarregado desta equipe: digite a dele.</p>';
+}
+function pessoasInspecionadas(f) {
+  var equipe = (S.contexto && S.contexto.equipe) || [], resp = equipeDaFormacao(f.equipe), ms = matsDoTexto(f.integrantesTxt);
+  var chips = equipe.map(function (p) { return { m: String(p.matricula), n: p.nome }; });
+  if (resp && resp.m && !chips.some(function (c) { return c.m === resp.m; })) chips.unshift({ m: resp.m, n: (resp.n || resp.m) + ' (responsável)' });
+  return '<div class="campo"><label>Matrículas das pessoas inspecionadas (separadas por vírgula)</label><input data-campo="integrantesTxt" inputmode="numeric" value="' + h(f.integrantesTxt || '') + '"></div>' +
+    (chips.length ? '<div class="seg-chips">' + chips.map(function (c) { return '<button type="button" class="chip' + (ms.indexOf(c.m) >= 0 ? ' ativo' : '') + '" data-acao="addIntegrante" data-v="' + h(c.m) + '">' + h(c.n) + '</button>'; }).join('') + '</div>' : '') +
+    '<p class="seg-sub">' + (ms.length ? ms.length + ' pessoa(s) na inspeção.' : 'Ninguém indicado: a inspeção fica sem a lista de pessoas.') + '</p>';
+}
+/* AS PLACAS DESTE PREFIXO (09/11/2026; "marcando o prefixo, já aparecem as placas que saem com ele"). A lista vem do que
+   o próprio módulo já gravou (placasDasEquipes no pacote): a Operação ainda não mandou o cadastro de prefixo e placa. Só
+   sugere; a lista da base e o campo livre continuam valendo. */
+function placasDaEquipe(f) {
+  var k = chaveDoPrefixo(f.equipe); if (!k || !S.pacote) return '';
+  var b = baseEscolhida(), l = ((S.pacote.placasDasEquipes) || []).filter(function (x) { return chaveDoPrefixo(x.p) === k && (!b || mesmaBase(String(x.b || '').toUpperCase(), b)); });
+  var pls = []; l.forEach(function (x) { (x.pl || []).forEach(function (p) { if (pls.indexOf(p) < 0) pls.push(p); }); });
+  if (!pls.length) return '<p class="seg-sub">Nenhuma placa registrada ainda para este prefixo: digite, ou escolha da lista da base.</p>';
+  return '<p class="seg-sub">Já saíram com este prefixo:</p><div class="seg-chips">' + pls.map(function (p) { return '<button type="button" class="chip' + (soPlaca(f.placa) === p ? ' ativo' : '') + '" data-acao="campo" data-c="placa" data-v="' + h(p) + '">' + h(p) + '</button>'; }).join('') + '</div>';
+}
+/* Fotos de um formulário com a câmera e a galeria lado a lado (o incidente rápido e a SQP usam o mesmo bloco). */
+function blocoDeFotos(f, titulo, dica) {
+  f.fotos = f.fotos || [];
+  return '<div class="cartao"><b>' + h(titulo) + ' (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">' + h(dica) + '</p>' +
+    f.fotos.map(function (id, i) { return '<span class="chip seg-ok">Foto ' + (i + 1) + ' ✓ <button type="button" class="link-texto" data-acao="tirarFotoRelato" data-i="' + i + '">tirar</button></span>'; }).join(' ') +
+    (f.fotos.length < FOTOS_POR_RELATO ? '<div class="seg-tres"><button type="button" class="btn secundario auto" data-acao="fotoRelato">Tirar foto</button><button type="button" class="btn secundario auto" data-acao="fotoGaleria">Escolher da galeria</button></div>' : '') + '</div>';
+}
+function chavesDoSqp(f) { return { prefixo: f.equipe, placa: f.placa, mats: matsDoTexto(f.integrantesTxt) }; }
 function placaDaBlitz(f) { return f.alvoTipo === 'veiculo' ? f.alvoId : f.alvoTipo === 'equipe' ? f.placa : ''; }
 function chavesDaBlitz(f) { return { prefixo: f.alvoTipo === 'equipe' ? f.alvoId : '', placa: placaDaBlitz(f), mats: f.alvoTipo === 'pessoa' ? matsDoTexto(f.alvoId) : f.alvoTipo === 'equipe' ? matsDoTexto(f.integrantesTxt) : [] }; }
 
@@ -841,9 +900,7 @@ function telaIncidente() {
   var f = S.form = S.form || { id: novoId('inc'), tipo: 'incidente', local: '', descricao: '', fotos: [] };
   var html = '<div class="cartao"><div class="campo"><label>Onde foi (endereço, poste, trecho ou a base)</label><input data-campo="local" value="' + h(f.local) + '"></div>' +
     '<div class="campo"><label>O que aconteceu</label><textarea data-campo="descricao" rows="4" class="seg-texto" placeholder="Ex.: o caminhão encostou na cerca ao manobrar">' + h(f.descricao) + '</textarea></div></div>';
-  html += '<div class="cartao"><b>Fotos (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">Do lugar e do que foi danificado.</p>' +
-    f.fotos.map(function (id, i) { return '<span class="chip seg-ok">Foto ' + (i + 1) + ' ✓ <button type="button" class="link-texto" data-acao="tirarFotoRelato" data-i="' + i + '">tirar</button></span>'; }).join(' ') +
-    (f.fotos.length < FOTOS_POR_RELATO ? '<button type="button" class="btn secundario auto" data-acao="fotoRelato">Tirar foto</button>' : '') + '</div>';
+  html += blocoDeFotos(f, 'Fotos', 'Do lugar e do que foi danificado.');
   var faltam = oQueFaltaNoIncidente(f);
   return html + '<button type="button" class="btn" data-acao="salvarIncidente"' + (faltam.length ? ' disabled' : '') + '>Enviar</button>' +
     (faltam.length ? '<p class="seg-sub seg-falta">Para enviar, falta ' + faltam.join(', ') + '.</p>' : '<p class="seg-sub">Vai para a engenharia de segurança, com o seu nome, a hora de agora e a sua base. Sem sinal, sobe sozinho depois.</p>');
@@ -893,7 +950,7 @@ document.addEventListener('input', function (ev) {
       (f.tipo === 'incidente' && /^(descricao|local)$/.test(t.dataset.campo)) || (f.tipo === 'veicular' && t.dataset.campo === 'placa') ||
       (f.tipo === 'ddsAntigo' && /^(ministrou|inicio|fim|tema|adm|oper)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
     // A Blitz anterior e a sugestão do condutor aparecem enquanto se digita o prefixo, a placa ou quem está presente.
-    else if ((f.tipo === 'blitz' && /^(alvoId|placa|integrantesTxt|encarregadoBusca)$/.test(t.dataset.campo)) || (f.tipo === 'sqp' && /^(equipe|placa|encarregadoBusca)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
+    else if ((f.tipo === 'blitz' && /^(alvoId|placa|integrantesTxt|encarregadoBusca)$/.test(t.dataset.campo)) || (f.tipo === 'sqp' && /^(equipe|placa|encarregadoBusca|integrantesTxt)$/.test(t.dataset.campo))) redesenharMantendoFoco(t);
   }
   if (t.dataset.vale && f.anterior && f.anterior[t.dataset.vale]) f.anterior[t.dataset.vale].matricula = t.value;
   if (t.dataset.obs !== undefined) f.obs[f._itens[+t.dataset.obs]] = t.value;
@@ -955,7 +1012,8 @@ document.addEventListener('click', function (ev) {
     return desenhar();
   }
   if (a === 'valeQuem') { f.anterior[b.dataset.r].matricula = v; return desenhar(); }
-  if (a === 'addIntegrante') { f.integrantesTxt = (String(f.integrantesTxt || '').trim() ? f.integrantesTxt + ', ' : '') + v; return desenhar(); }
+  /* O toque no nome já marcado desmarca (antes acrescentava de novo, e a lista ficava com a matrícula duas vezes). */
+  if (a === 'addIntegrante') { var jaTem = matsDoTexto(f.integrantesTxt), vv = matsDoTexto(v)[0]; f.integrantesTxt = (jaTem.indexOf(vv) >= 0 ? jaTem.filter(function (m) { return m !== vv; }) : jaTem.concat(vv)).join(', '); return desenhar(); }
   if (a === 'blitzMotivo') { f.motivo[b.dataset.k] = v; return desenhar(); }
   if (a === 'blitzFoto') return pedirFoto(function (id) { f.fotos[b.dataset.k] = id; });
   if (a === 'conf') { f.conf[b.dataset.m] = v === '1'; return desenhar(); }
@@ -972,7 +1030,7 @@ document.addEventListener('click', function (ev) {
     return concluir(reg, reg.retido ? 'VEÍCULO RETIDO: não saia com ele até um superior liberar.' : 'Checklist veicular salvo.'); }
   if (a === 'salvarSqp' && valeSemQuem(f, chavesDoSqp(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
   if (a === 'salvarSqp') { var antS = anteriorParaEnviar(f, chavesDoSqp(f));
-    return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS } },
+    return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS, integrantes: matsDoTexto(f.integrantesTxt), responsavel: matriculaDoResponsavel(f), fotos: f.fotos.slice() } },
       'Inspeção SQP salva (' + f.irr.length + ' irregularidade(s)' + (antS.length ? ', ' + antS.length + ' da Blitz anterior conferido(s)' : '') + ').'); }
   if (a === 'salvarBlitz' && !String(f.alvoId).trim() && falta('Diga quem ou o que foi inspecionado (matrícula, placa ou prefixo).')) return;
   if (a === 'salvarBlitz' && valeSemQuem(f, chavesDaBlitz(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
@@ -989,6 +1047,7 @@ document.addEventListener('click', function (ev) {
       'Blitz salva (' + irr.length + ' não conforme' + (antB.length ? ', ' + antB.length + ' da anterior conferido(s)' : '') + ').');
   }
   if (a === 'fotoRelato') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); });
+  if (a === 'fotoGaleria') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); }, false, true);
   if (a === 'tirarFotoRelato') { f.fotos.splice(+b.dataset.i, 1); return desenhar(); }
   if (a === 'salvarIncidente') {
     if (oQueFaltaNoIncidente(f).length && falta('Para enviar, falta ' + oQueFaltaNoIncidente(f).join(', ') + '.')) return;
