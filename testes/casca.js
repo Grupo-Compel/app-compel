@@ -118,6 +118,15 @@ function novoLogin() {
       case 'entrar':
         if (!p) return corpo.sessao ? { ok: false, pedirCpf: true, erro: 'Entre com o CPF.' } : { ok: false, erro: 'CPF ou senha não conferem.' };
         // A chave do Núcleo (EXIGIR_MATRICULA_NO_LOGIN): pede a matrícula antes da senha e a confere no servidor (T50).
+        // A entrega 62 do Núcleo (carta Núcleo → Interface/App/PESSOAS/Segurança nº 1, 12/11/2026): com a chave ligada, o
+        // login confere tudo de uma vez e recusa com a MESMA frase, sem pedirMatricula. Matrícula em branco só passa para quem
+        // não tem matrícula na identidade (T59).
+        if (L.verificarAcesso) {
+          if (p.matricula ? corpo.matricula !== p.matricula : !!corpo.matricula) return { ok: false, erro: 'CPF, matrícula ou senha não conferem.', bloqueado: false, restantes: 4 };
+          if (!p.senha) return { ok: false, semSenha: true, erro: 'Você ainda não tem senha.' };
+          if (p.senha !== corpo.senha) return { ok: false, erro: 'CPF, matrícula ou senha não conferem.', bloqueado: false, restantes: 4 };
+          return L.resposta(p);
+        }
         if (L.exigeMatricula && p.matricula) {
           // O contrato da carta nº 26 do Núcleo (04/11/2026): sem matrícula → pedirMatricula, sem gastar tentativa;
           // errada → erro comum; certa mas sem senha → semSenha + pedirMatricula. `formaAntiga` mantém o palpite da 1.14.0.
@@ -130,6 +139,10 @@ function novoLogin() {
         if (!p.senha) return { ok: false, semSenha: true, erro: 'Você ainda não tem senha.' };
         if (p.senha !== corpo.senha) return { ok: false, erro: 'CPF ou senha não conferem.' };
         return L.resposta(p);
+      // Sem sessão e sem CPF (entrega 62). `pedeNovo` indefinido = o login antigo, que não conhece a ação.
+      case 'loginPedeMatricula':
+        if (L.pedeNovo === undefined) return { ok: false, erro: 'Ação desconhecida.' };
+        return { ok: true, pede: L.pedeNovo };
       case 'criarSenha':
         if (!p) return { ok: false, erro: 'CPF não encontrado.' };
         if (p.senha) return { ok: false, erro: 'Você já tem senha.' };
@@ -409,7 +422,8 @@ var TESTES = {
     await entrarCpf(a.page, errado, 'senha-da-ana');
     await esperarTexto(a.page, 'Confira o CPF');
     afirmar((await a.page.inputValue('#cpf')).replace(/\D/g, '') === errado, 'o CPF digitado devia continuar no campo depois do erro');
-    afirmar(x.L.pedidos.length === 0, 'CPF que não fecha não vai ao login');
+    // Desde a 1.18.0 o app pergunta ao abrir se o login pede matrícula (sem CPF); o que não pode sair é o CPF errado.
+    afirmar(x.L.pedidos.every(function (q) { return q.acao === 'loginPedeMatricula' && !q.cpf; }), 'CPF que não fecha não vai ao login');
     await entrarCpf(a.page, x.cpf, 'outra');
     await esperarTexto(a.page, 'CPF ou senha não conferem');
     afirmar((await oQueEstaGuardado(a.page)).indexOf('"pessoas":{}') >= 0 || (await oQueEstaGuardado(a.page)).indexOf('"pessoas"') < 0, 'senha errada não guarda ninguém');
@@ -1531,6 +1545,49 @@ var TESTES = {
     var r = await p.evaluate(function () { return window.INICIO_DO_BLOCO; });
     afirmar(r.contexto && r.contexto.abrir === 'epi', 'o bloco devia abrir no formulário epi: ' + JSON.stringify(r && r.contexto));
     await a.ctx.close();
+  },
+  /* A matrícula junto do CPF desde o começo (casca 1.18.0): o app pergunta ao login se a chave está ligada, mostra o
+     campo antes do primeiro "Entrar", aceita em branco (PJ, estágio) e guarda a resposta para a tela sair igual sem sinal.
+     Login antigo (sem a ação) ou chave desligada: tudo como na 1.15.0. */
+  T59_matricula_desde_o_comeco: async function () {
+    var x = loginComAna(); x.L.verificarAcesso = true; x.L.pedeNovo = true;
+    var a = await abrir(x.L), p = a.page;
+    await p.waitForSelector('#matricula');
+    afirmar(!!(await p.$('#cpf')) && !!(await p.$('#senha')), 'CPF, senha e matrícula na mesma tela, antes de tocar em Entrar');
+    afirmar(x.L.pedidos.some(function (q) { return q.acao === 'loginPedeMatricula' && !q.cpf && !q.sessao; }), 'a pergunta vai sem CPF e sem sessão');
+    // Matrícula errada: a frase do login, uma recusa só, e os campos ficam.
+    await p.fill('#cpf', x.cpf); await p.fill('#senha', 'senha-da-ana'); await p.fill('#matricula', '11111');
+    await p.click('[data-acao="entrarCpf"]');
+    await esperarTexto(p, 'CPF, matrícula ou senha não conferem');
+    afirmar((await p.$eval('#senha', function (c) { return c.value; })) === 'senha-da-ana', 'a senha fica no campo depois da recusa');
+    await p.fill('#matricula', '99901'); await p.click('[data-acao="entrarCpf"]');
+    await esperarTexto(p, 'Olá, Ana');
+    var ped = x.L.pedidos.filter(function (q) { return q.acao === 'entrar'; });
+    afirmar(ped.length === 2 && ped[1].matricula === '99901', 'dois pedidos de entrar, o último com a matrícula: ' + ped.length);
+    afirmar((await p.evaluate(function () { return cascaLer('pedeMatricula'); })) === true, 'a resposta ficou guardada no celular');
+    await a.ctx.close();
+    // Quem não tem matrícula deixa em branco e entra; o pedido não leva o campo vazio.
+    var w = loginComAna({ matricula: '' }); w.L.verificarAcesso = true; w.L.pedeNovo = true;
+    var b = await abrir(w.L);
+    await b.page.waitForSelector('#matricula');
+    await entrarCpf(b.page, w.cpf, 'senha-da-ana');
+    await esperarTexto(b.page, 'Olá, Ana');
+    afirmar(w.L.pedidos.filter(function (q) { return q.acao === 'entrar'; }).every(function (q) { return !('matricula' in q); }), 'matrícula em branco não vai no pedido');
+    await b.ctx.close();
+    // Login antigo (não conhece a ação): o campo não aparece antes, e a chave antiga ainda o pede depois (como na 1.15.0).
+    var y = loginComAna(); y.L.exigeMatricula = true;
+    var c = await abrir(y.L);
+    await c.page.waitForSelector('#cpf'); await c.page.waitForTimeout(300);
+    afirmar(!(await c.page.$('#matricula')), 'com o login antigo o campo não aparece antes do primeiro Entrar');
+    await entrarCpf(c.page, y.cpf, 'senha-da-ana'); await c.page.waitForSelector('#matricula');
+    await c.ctx.close();
+    // Chave desligada (pede:false): sem campo, entra direto.
+    var z = loginComAna(); z.L.pedeNovo = false;
+    var d = await abrir(z.L);
+    await d.page.waitForSelector('#cpf'); await d.page.waitForTimeout(300);
+    afirmar(!(await d.page.$('#matricula')), 'com a chave desligada não há campo de matrícula');
+    await entrarCpf(d.page, z.cpf, 'senha-da-ana'); await esperarTexto(d.page, 'Olá, Ana');
+    await d.ctx.close();
   },
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;

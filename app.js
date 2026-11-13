@@ -38,6 +38,7 @@ var E = {
   escolhida: null,     // na tela de entrada: a pessoa tocada na lista de "já entraram neste celular"
   erro: '', ok: '',
   matricula: null,     // { valor } enquanto o campo da matrícula está à vista na tela de entrada (tela única, 1.15.0)
+  pedeMatricula: null, // true | false | null: a última resposta do loginPedeMatricula (guardada, vale sem sinal); null = não sei
   cpfLevar: '',        // o CPF que acompanha quem vai criar a senha (semSenha), para não digitar de novo
   memoria: null,       // { cpf?, chave?, senha }: só durante a troca de senha obrigatória; nunca vai ao disco
   avisos: null,        // { lista, quando } | { erro }
@@ -218,19 +219,45 @@ function lerMatricula() {
 }
 function campoMatricula() {
   if (!E.matricula) return '';
+  var ajuda = E.matricula.desdeOInicio ? 'O número do crachá ou do contracheque. Quem não tem matrícula (PJ, estágio) deixa em branco.'
+    : 'O seu cadastro pede a matrícula para entrar: o número do crachá ou do contracheque.';
   return '<div id="blocoMatricula">' + campo('matricula', 'Sua matrícula', 'type="tel" inputmode="numeric" autocomplete="off" maxlength="12"' + (E.matricula.valor ? ' value="' + esc(E.matricula.valor) + '"' : ''),
-    'O seu cadastro pede a matrícula para entrar: o número do crachá ou do contracheque.') + '</div>';
+    ajuda) + '</div>';
+}
+/* A matrícula junto do CPF desde o começo (casca 1.18.0, 13/11/2026; Núcleo → Interface/App/PESSOAS/Segurança nº 1, entrega
+   62). Com a chave EXIGIR_MATRICULA_NO_LOGIN ligada, o login passa a conferir CPF, matrícula e senha de uma vez e recusa
+   com a MESMA frase qualquer erro: não devolve mais o pedirMatricula que fazia o campo aparecer depois do primeiro
+   "Entrar". Sem o campo à vista, quem tem matrícula nunca conseguiria entrar. Por isso o app pergunta ao abrir
+   (loginPedeMatricula) e guarda a resposta, para a tela sair certa também sem sinal. Resposta que não entende (login
+   antigo, sem a ação) não muda nada: fica o caminho da 1.15.0. */
+function perguntarSePedeMatricula() {
+  if (!comSinal() || !enderecoDoLogin()) return Promise.resolve();
+  return postarAoLogin({ acao: 'loginPedeMatricula' }).then(function (r) {
+    if (!r || r.ok !== true || typeof r.pede !== 'boolean' || r.pede === E.pedeMatricula) return;
+    E.pedeMatricula = r.pede;
+    gravarKv('pedeMatricula', r.pede);
+    // Redesenha só a entrada com CPF e sem pedido andando; o que já foi digitado (inclusive a senha) é guardado pelo desenhar.
+    // O campo é armado ANTES do desenho: o desenhar só guarda a senha digitada quando já vê o campo da matrícula armado.
+    if (E.tela === 'entrar' && !E.ocupado) { armarMatriculaDesdeOInicio(E.escolhida && E.pessoas[E.escolhida]); desenhar(); }
+  }, function () { });
+}
+function armarMatriculaDesdeOInicio(comNome) {
+  if (comNome) return;
+  if (E.pedeMatricula === true && !E.matricula) E.matricula = { valor: '', desdeOInicio: true };
+  if (E.pedeMatricula !== true && E.matricula && E.matricula.desdeOInicio) E.matricula = null;
 }
 function entrarComCpf() {
   var cpf = soDigitos(($('cpf') || {}).value), senha = String(($('senha') || {}).value || '');
   if (!cpfValido(cpf)) return mostrarErro('Confira o CPF: os 11 números não fecham.');
   if (!senha) return mostrarErro('Digite a senha.');
-  var m = lerMatricula(); if (m.visivel && !m.valor) return mostrarErro('Digite a matrícula.');
+  var m = lerMatricula(), opcional = !!(E.matricula && E.matricula.desdeOInicio);
+  if (m.visivel && !m.valor && !opcional) return mostrarErro('Digite a matrícula.');
   E.ocupado = true; E.erro = ''; desenhar();
   return chaveDoCpf(cpf).then(function (chave) {
     if (!comSinal()) return entrarSemSinal(chave, senha);
     var corpo = { acao: 'entrar', cpf: cpf, senha: senha, aparelho: dadosDoAparelho() };
-    if (m.visivel) corpo.matricula = m.valor;
+    // Em branco não vai: é o caso de quem não tem matrícula, e o login trata a ausência, não o texto vazio.
+    if (m.visivel && m.valor) corpo.matricula = m.valor;
     return postarAoLogin(corpo)
       .then(function (r) { return tratarResposta(r, chave, senha, { cpf: cpf }, corpo); },
             function (e) { return e && e.semEndereco ? mostrarErro('O app ainda não está ligado ao login.') : entrarSemSinal(chave, senha, e && e.msg); });
@@ -637,6 +664,7 @@ function telaEntrar() {
   }
   if (comNome) h += '<p class="n-saudacao app-ola">Olá, ' + esc(primeiroNome(comNome.nome)) + '.</p>' + campoSenha('senha', 'Senha de ' + primeiroNome(comNome.nome));
   else h += campoCpf() + campoSenha('senha', 'Sua senha');
+  armarMatriculaDesdeOInicio(comNome);
   h += campoMatricula();
   h += botao(comNome ? 'entrarEscolhida' : 'entrarCpf', E.ocupado ? 'Entrando…' : 'Entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin());
   h += botao('irPrimeiro', 'Primeiro acesso: criar a senha', false, true) + botao('irEsqueci', 'Esqueci minha senha', false, true);
@@ -1242,7 +1270,8 @@ document.addEventListener('input', function (ev) {
   if (ev.target && ev.target.id === 'cpf') ev.target.value = mascaraDoCpf(ev.target.value);
   /* Mexer no CPF derruba o que veio depois dele (a matrícula e a senha), como no Portal: sem isso a matrícula de um CPF
      seguiria para outro. Tira o campo da tela sem redesenhar, senão o cursor sai do CPF. */
-  if (ev.target && ev.target.id === 'cpf' && E.matricula) {
+  // No modo da 1.18.0 o campo é de todos e fica: é a própria pessoa digitando o CPF e a matrícula dela juntos.
+  if (ev.target && ev.target.id === 'cpf' && E.matricula && !E.matricula.desdeOInicio) {
     E.matricula = null;
     var bm = $('blocoMatricula'); if (bm) bm.remove();
     var sn = $('senha'); if (sn) sn.value = '';
@@ -1290,8 +1319,8 @@ function registrarServiceWorker() {
 
 /* ---------- abrir ---------- */
 function iniciar() {
-  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos'), lerKv('relatoLigado')]).then(function (v) {
-    E.relatoLigado = v[4] === true;
+  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos'), lerKv('relatoLigado'), lerKv('pedeMatricula')]).then(function (v) {
+    E.relatoLigado = v[4] === true; E.pedeMatricula = typeof v[5] === 'boolean' ? v[5] : null;
     E.aparelho = v[0]; E.pessoas = v[1] || {}; E.atual = v[2] || null; E.atalhosDaPessoa = v[3] || {};
     if (!E.aparelho) { E.aparelho = { id: sorteio(16), chave: sorteio(16) }; return gravarKv('aparelho', E.aparelho); }
   }).then(function () {
@@ -1299,6 +1328,7 @@ function iniciar() {
     var chaves = Object.keys(E.pessoas);
     E.escolhida = chaves.length === 1 ? chaves[0] : null;
     irPara(E.atual && entradaValeHoje() ? 'inicio' : 'entrar');
+    perguntarSePedeMatricula();
     // O "!" da faixa das telas dos blocos chega aqui por #relatar (04/11/2026).
     if (location.hash === '#relatar') { try { history.replaceState(null, '', location.pathname); } catch (e) { } if (E.atual && E.relatoLigado) irRelato(); }
     return carregarEnvioDosBlocos().then(lerEnvio).then(function () { return enviarOQueEspera('ao abrir'); });
