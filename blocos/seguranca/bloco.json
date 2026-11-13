@@ -12,7 +12,7 @@
     "ADMIN"
   ],
   "servidor": "SEGURANCA",
-  "versao": "0.6.5",
+  "versao": "0.6.7",
   "entrada": "index.html",
   "arquivos": [
     "index.html",

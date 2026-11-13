@@ -12,7 +12,25 @@
   .seg-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
   .seg-fila { font: 600 12px Inter, sans-serif; padding: 6px 10px; border-radius: 999px; background: var(--verde-claro, #E4F4EB); color: var(--verde, #0E7A47); cursor: pointer; }
   .seg-fila.espera { background: var(--ambar-claro, #FFF3DC); color: #6B4400; }
-  .seg-h1 { font: 700 22px 'Josefin Sans', sans-serif; margin: 6px 0 12px; }
+  /* 12/11/2026, desenho do App (§1): título grande e direto, em Inter 700; o selo de envio fica à direita dele. */
+  .seg-titulo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 12px; }
+  .seg-h1 { font: 700 26px/1.15 Inter, sans-serif; margin: 0; }
+  /* Botões de escolha: ao menos 44 px de altura, borda 1,5 px, raio 12. Marcado bom é verde, marcado ruim é vermelho
+     (a cor sai do valor do botão: o chip da casca pintava até o "OK" de vermelho); o resto marcado fica em vermelho claro
+     com contorno, que é como o desenho marca a escolha neutra. Texto de letra pequena em vermelho usa #A50E15: o da marca
+     (#ED1C24) não tem contraste suficiente. */
+  .seg-tres .chip, .seg-chips .chip { min-height: 44px; padding: 0 16px; border: 1.5px solid #D9DBDF; border-radius: 12px; background: #fff; color: var(--tinta, #231F20); }
+  .seg-tres .chip.ativo, .seg-chips .chip.ativo { background: #FFF5F5; border-color: #D3121A; color: var(--tinta, #231F20); }
+  .seg-tres .chip.ativo[data-v="ok"], .seg-tres .chip.ativo[data-v="aprovado"], .seg-tres .chip.ativo[data-v="C"] { background: #E4F4EB; border-color: #0E7A47; color: #0E5C36; }
+  .seg-tres .chip.ativo[data-v="problema"], .seg-tres .chip.ativo[data-v="falta"], .seg-tres .chip.ativo[data-v="reprovado"], .seg-tres .chip.ativo[data-v="NC"] { background: #FDECEC; border-color: #D3121A; color: #A50E15; }
+  .seg-tres .chip.ativo[data-v="na"], .seg-tres .chip.ativo[data-v="NA"] { background: #EEF0F2; border-color: #8A8D94; color: var(--tinta, #231F20); }
+  .seg-item.seg-problema { box-shadow: inset 0 0 0 1.5px #D3121A; }
+  .btn.seg-foto-obrig { background: #fff; border: 1.5px dashed #D3121A; color: #A50E15; }
+  /* O botão principal e a frase do que falta, presos no pé da tela. O fundo é o da página, para o conteúdo que rola por
+     baixo não aparecer através. */
+  .seg-rodape { position: sticky; bottom: 0; z-index: 5; margin-top: 10px; padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--fundo, #F4F5F7); box-shadow: 0 -10px 10px -10px rgba(35,31,32,.25); }
+  .seg-rodape .btn { width: 100%; }
+  .seg-rodape .seg-sub { text-align: center; margin: 6px 0 0; }
   .seg-h2 { font: 600 15px Inter, sans-serif; margin: 14px 0 8px; }
   .seg-sub { color: var(--tinta-media, #5A5C63); font-size: 13px; display: block; }
   .seg-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }

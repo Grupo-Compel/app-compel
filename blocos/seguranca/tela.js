@@ -182,7 +182,7 @@ function luvasNaSemana(mat) {
 /* ---------- desenhar ---------- */
 var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
 var AJUDAS = {
-  incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. As fotos podem ser tiradas na hora ou escolhidas da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
+  incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Toque em "Adicionar foto" e escolha entre tirar na hora ou pegar da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, diga qual luva reprovou (as duas, só a esquerda ou só a direita): o par sai de uso, tire a foto e avise o almoxarifado.',
@@ -199,9 +199,14 @@ var AJUDAS = {
 function desenhar() {
   var corpo = $('corpo'), t = S.tela;
   var esperando = S.registros.filter(function (r) { return r.estado === 'guardado'; }).length, recusados = S.registros.filter(function (r) { return r.estado === 'recusado'; }).length;
-  var topo = '<div class="seg-topo"><button type="button" class="btn fantasma auto" data-acao="' + (t === 'inicio' ? 'voltarApp' : 'inicio') + '">‹ ' + (t === 'inicio' ? 'Início do app' : 'Voltar') + '</button>' +
-    '<span class="seg-fila' + (esperando ? ' espera' : '') + '" data-acao="fila">' + (esperando ? esperando + ' para enviar' : 'tudo enviado') + (recusados ? ' · ' + recusados + ' recusado(s)' : '') + '</span></div>' +
-    '<h1 class="seg-h1">' + h(S.alvo && t !== 'inicio' && t !== 'equipe' ? TITULOS[t] + ' · ' + S.alvo.nome : TITULOS[t]) + '</h1>';
+  /* Um "Voltar" só (desenho do App, 12/11/2026): a faixa da casca (1.13.1 em diante) já tem o dela e o bloco mandava outro
+     logo abaixo. O destino sai daqui por Casca.barra. Casca anterior, sem a função, continua com o botão do bloco: sem
+     ele a pessoa ficaria sem como voltar. */
+  var temBarra = typeof Casca.barra === 'function';
+  if (temBarra) Casca.barra({ voltar: voltarDaTela, rotulo: t === 'inicio' ? 'Início do app' : 'Voltar' });
+  var topo = (temBarra ? '' : '<div class="seg-topo"><button type="button" class="btn fantasma auto" data-acao="' + (t === 'inicio' ? 'voltarApp' : 'inicio') + '">‹ ' + (t === 'inicio' ? 'Início do app' : 'Voltar') + '</button></div>') +
+    '<div class="seg-titulo"><h1 class="seg-h1">' + h(S.alvo && t !== 'inicio' && t !== 'equipe' ? TITULOS[t] + ' · ' + S.alvo.nome : TITULOS[t]) + '</h1>' +
+    '<span class="seg-fila' + (esperando ? ' espera' : '') + '" data-acao="fila">' + (esperando ? esperando + ' para enviar' : 'tudo enviado') + (recusados ? ' · ' + recusados + ' recusado(s)' : '') + '</span></div>';
   var avisos = '';
   if (S.recuperado && S.form) avisos += '<div class="aviso info">Continuando de onde você parou (o app foi fechado no meio).</div>';
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
@@ -209,11 +214,26 @@ function desenhar() {
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
   var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
+  rodapeFixo(corpo);
   Casca.ajuda($('ajuda'), AJUDAS[t]);
   // Volta ao topo só quando a TELA muda: o redesenho de 20 em 20 s não pode jogar para cima quem está rolando a lista.
   if (S._ultimaTela !== t || S._ultimoAlvo !== S.alvo) window.scrollTo(0, 0);
   S._ultimaTela = t; S._ultimoAlvo = S.alvo;
   guardarRascunho();
+}
+/* O destino do "Voltar" da faixa: do início sai do bloco; de qualquer outra tela volta ao início (ou à equipe, quando se
+   faz por outra pessoa). É o que o botão do corpo da tela fazia até a 0.6.6. */
+function voltarDaTela() { return S.tela === 'inicio' ? Casca.voltar() : ir(S.alvo ? 'equipe' : 'inicio'); }
+/* O botão de salvar e a frase "Faltam N" ficam presos no pé da tela, como no desenho do App (12/11/2026): com 41 itens
+   de EPI, quem terminou lá embaixo não precisa rolar de volta para saber o que falta. Embrulha o que já foi desenhado,
+   em vez de mudar as dez telas: o botão continua o mesmo, só ganha o rodapé em volta. A frase só vai junto quando é
+   a irmã imediata do botão. */
+function rodapeFixo(corpo) {
+  var bs = corpo.querySelectorAll('button[data-acao^="salvar"]'), b = bs[bs.length - 1];
+  if (!b || b.closest('.seg-rodape')) return;
+  var r = document.createElement('div'); r.className = 'seg-rodape';
+  var dep = b.nextElementSibling; b.parentNode.insertBefore(r, b); r.appendChild(b);
+  if (dep && dep.tagName === 'P' && dep.classList.contains('seg-sub')) r.appendChild(dep);
 }
 /* "Ocupado" quer dizer que a casca já está mandando (a trava única): espera e pergunta de novo, para o contador da tela
    mostrar o resultado do envio que estava em curso, e não o de antes dele. */
@@ -329,16 +349,23 @@ function concluir(reg, frase) {
 var fotoPendente = null;
 /* A galeria (09/11/2026; Dalton: "habilitar o botão de buscar foto da galeria também"): sem o atributo capture o celular
    abre a galeria em vez da câmera. A foto da galeria não é do momento nem do lugar: vai sem GPS e com a linha "da galeria"
-   no carimbo, para a engenharia não tomar a hora de agora como a hora do fato. */
-var fotoDaGaleria = false;
-function pedirFoto(onde, frente, galeria) {
-  fotoPendente = onde; fotoDaGaleria = !!galeria;
+   no carimbo, para a engenharia não tomar a hora de agora como a hora do fato.
+   12/11/2026 (Dalton: "apenas 1 botão que faz as duas coisas, como existe em outros lugares"): o botão único não leva o
+   capture, e o próprio celular pergunta câmera ou galeria. Como a tela não sabe qual das duas a pessoa escolheu, decide pela
+   data do arquivo: feito há menos de 5 minutos é foto de agora (com GPS e sem a marca); mais velho é "da galeria". Medido só
+   em Chromium (12/11/2026); no Android e no iPhone a data do arquivo da câmera ainda não foi vista. */
+var JANELA_FOTO_NA_HORA_MS = 5 * 60 * 1000;
+var fotoDaGaleria = false, fotoEscolhaLivre = false;
+function pedirFoto(onde, frente, galeria, escolhaLivre) {
+  fotoPendente = onde; fotoDaGaleria = !!galeria; fotoEscolhaLivre = !!escolhaLivre;
   var i = $('arquivoFoto');
-  if (galeria) i.removeAttribute('capture'); else i.setAttribute('capture', frente ? 'user' : 'environment');
+  if (galeria || escolhaLivre) i.removeAttribute('capture'); else i.setAttribute('capture', frente ? 'user' : 'environment');
   i.value = ''; i.click();
 }
+function fotoFeitaAgora(arquivo) { return !!(arquivo && arquivo.lastModified && Math.abs(Date.now() - arquivo.lastModified) < JANELA_FOTO_NA_HORA_MS); }
 function aoEscolherFoto(arquivo) {
-  var onde = fotoPendente, daGaleria = fotoDaGaleria; fotoPendente = null; fotoDaGaleria = false;
+  var onde = fotoPendente, daGaleria = fotoDaGaleria; if (fotoEscolhaLivre) daGaleria = !fotoFeitaAgora(arquivo);
+  fotoPendente = null; fotoDaGaleria = false; fotoEscolhaLivre = false;
   if (!arquivo || !onde) return;
   var idFoto = novoId('foto');
   Casca.foto(arquivo, { semGps: daGaleria, linhas: ['Segurança · ' + S.pessoa.nome + (daGaleria ? ' · da galeria' : ''), new Date().toLocaleString('pt-BR')] }).then(function (f) {
@@ -360,9 +387,9 @@ function telaEpi() {
   var html = '<div class="cartao"><button type="button" class="btn fantasma auto" data-acao="todosOk">Marcar todos como OK</button></div>';
   itens.forEach(function (it, i) {
     var e = f.estados[it] || '';
-    html += '<div class="cartao seg-item"><b>' + h(it) + '</b><div class="seg-tres">' +
+    html += '<div class="cartao seg-item' + (e === 'problema' || e === 'falta' ? ' seg-problema' : '') + '"><b>' + h(it) + '</b><div class="seg-tres">' +
       ['ok', 'problema', 'falta'].map(function (x) { return '<button type="button" class="chip' + (e === x ? ' ativo' : '') + '" data-acao="estadoItem" data-i="' + i + '" data-v="' + x + '">' + { ok: 'OK', problema: 'Com problema', falta: 'Faltando' }[x] + '</button>'; }).join('') + '</div>' +
-      (e === 'problema' ? '<div class="campo"><input placeholder="O que houve" data-obs="' + i + '" value="' + h(f.obs[it] || '') + '"></div><button type="button" class="btn secundario auto" data-acao="fotoItem" data-i="' + i + '">' + (f.fotos[it] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
+      (e === 'problema' ? '<div class="campo"><input placeholder="O que houve" data-obs="' + i + '" value="' + h(f.obs[it] || '') + '"></div><button type="button" class="btn secundario auto' + (f.fotos[it] ? '' : ' seg-foto-obrig') + '" data-acao="fotoItem" data-i="' + i + '">' + (f.fotos[it] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
   });
   var faltam = itens.filter(function (it) { return !f.estados[it]; }).length, semFoto = itens.filter(function (it) { return f.estados[it] === 'problema' && !f.fotos[it]; }).length;
   html += rostoSePreciso(f) + '<button type="button" class="btn" data-acao="salvarEpi"' + (faltam || semFoto || (S.alvo && !f.rosto) ? ' disabled' : '') + '>Salvar checklist</button>' +
@@ -389,7 +416,7 @@ function telaLuvas() {
     /* O formulário antigo perguntava qual luva reprovou (ambas / só a esquerda / só a direita); sem isso o almoxarifado
        troca o par inteiro sem saber se bastava uma luva (decisão do Dalton, 07/11/2026). */
     (reprov ? '<div class="cartao"><b>Qual luva reprovou?</b>' + sel('lado', [['ambas', 'As duas'], ['esquerda', 'Só a esquerda'], ['direita', 'Só a direita']]) + '</div>' : '') +
-    (reprov ? '<div class="aviso erro">Par reprovado: sai de uso hoje. Tire a foto e avise o almoxarifado.</div><button type="button" class="btn secundario" data-acao="fotoCampo" data-c="foto">' + (f.foto ? 'Foto tirada ✓' : 'Tirar foto do defeito') + '</button>' : '') +
+    (reprov ? '<div class="aviso erro">Par reprovado: sai de uso hoje. Tire a foto e avise o almoxarifado.</div><button type="button" class="btn secundario' + (f.foto ? '' : ' seg-foto-obrig') + '" data-acao="fotoCampo" data-c="foto">' + (f.foto ? 'Foto tirada ✓' : 'Tirar foto do defeito') + '</button>' : '') +
     rostoSePreciso(f) + '<button type="button" class="btn" data-acao="salvarLuvas"' + (!f.classe || !f.inflagem || !f.visual || (reprov && (!f.foto || !f.lado)) || (S.alvo && !f.rosto) ? ' disabled' : '') + '>Salvar teste</button>';
 }
 
@@ -447,11 +474,11 @@ function telaVeicular() {
   itens.forEach(function (it, i) {
     var e = f.estados[it] || '', ehCrit = crit.indexOf(normalizar(it)) >= 0;
     if (e === 'reprovado' && ehCrit) retidos.push(it);
-    html += '<div class="cartao seg-item' + (e === 'reprovado' && ehCrit ? ' seg-critico' : '') + '"><b>' + (ehCrit ? '! ' : '') + h(it) + '</b><div class="seg-tres">' +
+    html += '<div class="cartao seg-item' + (e === 'reprovado' ? ' seg-problema' : '') + (e === 'reprovado' && ehCrit ? ' seg-critico' : '') + '"><b>' + (ehCrit ? '! ' : '') + h(it) + '</b><div class="seg-tres">' +
       /* "N/A" só nos itens que o catálogo (ACEITA_NA) aceita para este tipo de veículo; o servidor recusa nos outros.
          Conta como marcado, mas não reprova nem retém. */
       (aceitaNa.indexOf(it) >= 0 ? ['aprovado', 'reprovado', 'na'] : ['aprovado', 'reprovado']).map(function (x) { return '<button type="button" class="chip' + (e === x ? ' ativo' : '') + '" data-acao="estadoItem" data-i="' + i + '" data-v="' + x + '">' + { aprovado: 'Aprovado', reprovado: 'Reprovado', na: 'N/A' }[x] + '</button>'; }).join('') + '</div>' +
-      (e === 'reprovado' ? '<div class="campo"><input placeholder="O que houve" data-obs="' + i + '" value="' + h(f.obs[it] || '') + '"></div><button type="button" class="btn secundario auto" data-acao="fotoItem" data-i="' + i + '">' + (f.fotos[it] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
+      (e === 'reprovado' ? '<div class="campo"><input placeholder="O que houve" data-obs="' + i + '" value="' + h(f.obs[it] || '') + '"></div><button type="button" class="btn secundario auto' + (f.fotos[it] ? '' : ' seg-foto-obrig') + '" data-acao="fotoItem" data-i="' + i + '">' + (f.fotos[it] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
   });
   f._itens = itens; f._retidos = retidos;
   /* O aviso aparece aqui, sem sinal, pela mesma lista que o servidor usa (o pacote): a equipe não pode sair achando
@@ -518,7 +545,7 @@ function formIrregularidade(f) {
     (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addEnvolvido" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '') +
     '<div class="campo"><label>O que viu' + (n.desvio === DESVIO_NAO_PREVISTO ? ' (obrigatório no desvio não previsto)' : '') + '</label><input data-nova="obs" value="' + h(n.obs || '') + '"></div>' +
     '<button type="button" class="chip' + (n.solucionadaNaHora ? ' ativo' : '') + '" data-acao="alternar" data-c="solucionadaNaHora">Solucionada na hora</button> ' +
-    '<button type="button" class="btn secundario auto" data-acao="fotoNova">' + (n.foto ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' +
+    '<button type="button" class="btn secundario auto' + (n.foto ? '' : ' seg-foto-obrig') + '" data-acao="fotoNova">' + (n.foto ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' +
     '<div class="seg-tres"><button type="button" class="btn auto" data-acao="addIrr"' + (faltaAqui.length ? ' disabled' : '') + '>Acrescentar</button><button type="button" class="btn fantasma auto" data-acao="cancelarIrr">Cancelar</button></div>' +
     (faltaAqui.length ? '<p class="seg-sub seg-falta">Para acrescentar, falta ' + faltaAqui.join(' e ') + '.</p>' : '') + '</div>';
 }
@@ -645,6 +672,29 @@ function campoDeLista(f, campo, rotulo, opcoes, vazio, outro) {
     opcoes.map(function (o) { return '<option value="' + h(o.v) + '"' + (o.v === f[campo] ? ' selected' : '') + '>' + h(o.t) + '</option>'; }).join('') +
     '<option value="' + VALOR_OUTRO + '">' + h(outro) + '</option></select></div>';
 }
+/* Os temas do DDS (12/11/2026; Dalton: "habilitar a pesquisa e a lista dos itens ficar em forma alfabética"): um <select>
+   não tem busca e o datalist do navegador fecha quando a tela se redesenha; por isso a lista é de botões e a busca só
+   esconde os que não casam, sem redesenhar (o cursor fica no campo). A ordem é a alfabética do português, sem diferença
+   de acento ou caixa. "Outro assunto" continua escrevendo o texto livre, igual ao de antes. */
+function emOrdemAlfabetica(opcoes) { return opcoes.slice().sort(function (a, b) { return String(a.t).localeCompare(String(b.t), 'pt-BR', { sensitivity: 'base' }); }); }
+function campoDoTema(f) {
+  var opcoes = emOrdemAlfabetica(temasDoDds().map(function (t) { return { v: t, t: t }; }));
+  var livre = !!(f._livre && f._livre.tema) || (!!f.tema && !opcoes.some(function (o) { return o.v === f.tema; }));
+  if (livre) return '<div class="campo"><label>Tema</label><input data-campo="tema" value="' + h(f.tema) + '"></div>' +
+    '<button type="button" class="link-texto" data-acao="voltarLista" data-c="tema">Escolher da lista</button>';
+  if (f.tema) return '<div class="campo"><label>Tema</label><span class="chip seg-ok">' + h(f.tema) + ' ✓</span> <button type="button" class="link-texto" data-acao="trocarTema">trocar</button></div>';
+  return '<div class="campo"><label>Tema</label><input type="search" data-busca="tema" placeholder="Buscar tema" aria-label="Buscar tema" autocomplete="off"></div>' +
+    '<div class="seg-chips" data-lista-tema="1">' + opcoes.map(function (o) { return '<button type="button" class="chip" data-acao="escolherTema" data-v="' + h(o.v) + '">' + h(o.t) + '</button>'; }).join('') + '</div>' +
+    '<p class="seg-sub" data-sem-tema="1" style="display:none">Nenhum tema com essa busca. Use "Outro assunto".</p>' +
+    '<button type="button" class="link-texto" data-acao="temaOutro">Outro assunto (digitar)</button>';
+}
+function filtrarTemas(texto) {
+  var q = normalizar(texto), algum = false;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-lista-tema] [data-acao="escolherTema"]'), function (b) {
+    var casa = !q || normalizar(b.textContent).indexOf(q) >= 0; b.style.display = casa ? '' : 'none'; if (casa) algum = true;
+  });
+  var aviso = document.querySelector('[data-sem-tema]'); if (aviso) aviso.style.display = algum ? 'none' : '';
+}
 function campoDaEquipe(f, campo, rotulo) {
   var l = equipesDaBase();
   if (!l.length) return '<div class="campo"><label>' + h(rotulo) + '</label><input data-campo="' + campo + '" value="' + h(f[campo]) + '"></div>';
@@ -702,12 +752,12 @@ function placasDaEquipe(f) {
   if (!pls.length) return '<p class="seg-sub">Nenhuma placa registrada ainda para este prefixo: digite, ou escolha da lista da base.</p>';
   return '<p class="seg-sub">Já saíram com este prefixo:</p><div class="seg-chips">' + pls.map(function (p) { return '<button type="button" class="chip' + (soPlaca(f.placa) === p ? ' ativo' : '') + '" data-acao="campo" data-c="placa" data-v="' + h(p) + '">' + h(p) + '</button>'; }).join('') + '</div>';
 }
-/* Fotos de um formulário com a câmera e a galeria lado a lado (o incidente rápido e a SQP usam o mesmo bloco). */
+/* Fotos de um formulário com um botão só, que deixa o celular perguntar câmera ou galeria (o incidente rápido e a SQP usam o mesmo bloco). */
 function blocoDeFotos(f, titulo, dica) {
   f.fotos = f.fotos || [];
   return '<div class="cartao"><b>' + h(titulo) + ' (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">' + h(dica) + '</p>' +
     f.fotos.map(function (id, i) { return '<span class="chip seg-ok">Foto ' + (i + 1) + ' ✓ <button type="button" class="link-texto" data-acao="tirarFotoRelato" data-i="' + i + '">tirar</button></span>'; }).join(' ') +
-    (f.fotos.length < FOTOS_POR_RELATO ? '<div class="seg-tres"><button type="button" class="btn secundario auto" data-acao="fotoRelato">Tirar foto</button><button type="button" class="btn secundario auto" data-acao="fotoGaleria">Escolher da galeria</button></div>' : '') + '</div>';
+    (f.fotos.length < FOTOS_POR_RELATO ? '<div class="seg-tres"><button type="button" class="btn secundario auto" data-acao="fotoAdicionar">Adicionar foto</button></div>' : '') + '</div>';
 }
 function chavesDoSqp(f) { return { prefixo: f.equipe, placa: f.placa, mats: matsDoTexto(f.integrantesTxt) }; }
 function placaDaBlitz(f) { return f.alvoTipo === 'veiculo' ? f.alvoId : f.alvoTipo === 'equipe' ? f.placa : ''; }
@@ -731,8 +781,8 @@ function telaBlitz() {
     '<div class="seg-chips">' + cats.map(function (c) { var n = S.pacote.blitz[c].filter(function (it) { return f.resp[chaveBlitz(c, it.item)]; }).length; return '<button type="button" class="chip' + (f.cat === c ? ' ativo' : '') + '" data-acao="campo" data-c="cat" data-v="' + h(c) + '">' + h(c) + ' <b>' + n + '/' + S.pacote.blitz[c].length + '</b></button>'; }).join('') + '</div>';
   (S.pacote.blitz[f.cat] || []).forEach(function (it, i) {
     var k = chaveBlitz(f.cat, it.item), r = f.resp[k];
-    html += '<div class="cartao seg-item"><b>' + h(it.item) + '</b><div class="seg-tres">' + ['C', 'NC', 'NA'].map(function (x) { return '<button type="button" class="chip' + (r === x ? ' ativo' : '') + '" data-acao="blitzResp" data-k="' + h(k) + '" data-v="' + x + '">' + { C: 'Conforme', NC: 'Não conforme', NA: 'Não se aplica' }[x] + '</button>'; }).join('') + '</div>' +
-      (r === 'NC' ? '<div class="seg-chips">' + S.pacote.motivosNaoConforme.map(function (m) { return '<button type="button" class="chip' + (f.motivo[k] === m ? ' ativo' : '') + '" data-acao="blitzMotivo" data-k="' + h(k) + '" data-v="' + h(m) + '">' + h(m) + '</button>'; }).join('') + '</div><button type="button" class="btn secundario auto" data-acao="blitzFoto" data-k="' + h(k) + '">' + (f.fotos[k] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
+    html += '<div class="cartao seg-item' + (r === 'NC' ? ' seg-problema' : '') + '"><b>' + h(it.item) + '</b><div class="seg-tres">' + ['C', 'NC', 'NA'].map(function (x) { return '<button type="button" class="chip' + (r === x ? ' ativo' : '') + '" data-acao="blitzResp" data-k="' + h(k) + '" data-v="' + x + '">' + { C: 'Conforme', NC: 'Não conforme', NA: 'Não se aplica' }[x] + '</button>'; }).join('') + '</div>' +
+      (r === 'NC' ? '<div class="seg-chips">' + S.pacote.motivosNaoConforme.map(function (m) { return '<button type="button" class="chip' + (f.motivo[k] === m ? ' ativo' : '') + '" data-acao="blitzMotivo" data-k="' + h(k) + '" data-v="' + h(m) + '">' + h(m) + '</button>'; }).join('') + '</div><button type="button" class="btn secundario auto' + (f.fotos[k] ? '' : ' seg-foto-obrig') + '" data-acao="blitzFoto" data-k="' + h(k) + '">' + (f.fotos[k] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
   });
   var nc = Object.keys(f.resp).filter(function (k) { return f.resp[k] === 'NC'; }), incompletos = nc.filter(function (k) { return !f.motivo[k] || !f.fotos[k]; }).length;
   return html + '<button type="button" class="btn" data-acao="salvarBlitz"' + (!Object.keys(f.resp).length || incompletos ? ' disabled' : '') + '>Concluir Blitz (' + nc.length + ' não conforme)</button>' + (incompletos ? '<p class="seg-sub">Não conforme precisa do motivo e da foto.</p>' : '');
@@ -752,10 +802,10 @@ function telaDds() {
   if (!listas.length) return aviso + '<div class="aviso atencao">Nenhuma lista do DDS dos últimos 7 dias chegou a este celular. A lista é gerada no sistema (tela "Lista do DDS"), impressa, e chega ao celular no próximo sinal.</div>' +
     '<button type="button" class="btn secundario" data-acao="buscarPacote">Buscar as listas agora</button>' + antigo;
   var html = aviso + '<div class="cartao"><b>Qual lista?</b>' + listas.map(function (l) { return '<button type="button" class="seg-opcao' + (f.lista === l.id ? ' ativo' : '') + '" data-acao="campo" data-c="lista" data-v="' + h(l.id) + '">' + h(l.base) + ' · ' + h(l.cab.data) + ' · ' + l.pessoas.length + ' pessoas</button>'; }).join('') +
-    campoDeLista(f, 'tema', 'Tema', temasDoDds().map(function (t) { return { v: t, t: t }; }), 'Escolha o tema', 'Outro assunto (digitar)') + '</div>';
+    campoDoTema(f) + '</div>';
   if (!f.lista) return html + antigo;
   var lista = listas.filter(function (l) { return l.id === f.lista; })[0], lays = FolhaLista.layout(lista.pessoas, lista.cab);
-  html += '<div class="cartao"><b>Fotografe cada página assinada</b><div class="seg-tres">' + lays.map(function (l, i) { return '<button type="button" class="btn ' + (f.paginas[i + 1] ? 'secundario' : '') + ' auto" data-acao="fotoPagina" data-p="' + (i + 1) + '">Página ' + (i + 1) + (f.paginas[i + 1] ? ' ✓' : '') + '</button>'; }).join('') + '</div>' +
+  html += '<div class="cartao"><b>Fotografe cada página assinada</b><p class="seg-sub">Toque na página: o celular pergunta se é para tirar a foto agora ou pegar da galeria.</p><div class="seg-tres">' + lays.map(function (l, i) { return '<button type="button" class="btn ' + (f.paginas[i + 1] ? 'secundario' : '') + ' auto" data-acao="fotoPagina" data-p="' + (i + 1) + '">Página ' + (i + 1) + (f.paginas[i + 1] ? ' ✓' : '') + '</button>'; }).join('') + '</div>' +
     (S.lido && S.lido.erro ? '<div class="aviso erro">' + h(S.lido.erro) + '</div>' : '') + '</div>';
   var linhas = [];
   Object.keys(f.paginas).forEach(function (p) { (f.paginas[p].linhas || []).forEach(function (l) { linhas.push(l); }); });
@@ -790,7 +840,7 @@ function telaDdsAntigo() {
     '<div class="cartao"><div class="campo"><label>Matrícula de quem ministrou' + (f.cliente === 'sim' ? ' (a do TST que estava presente)' : '') + '</label><input data-campo="ministrou" inputmode="numeric" value="' + h(f.ministrou) + '"></div>' +
     '<div class="seg-dois"><div class="campo"><label>Início</label><input type="time" data-campo="inicio" value="' + h(f.inicio) + '"></div>' +
     '<div class="campo"><label>Fim</label><input type="time" data-campo="fim" value="' + h(f.fim) + '"></div></div>' +
-    campoDeLista(f, 'tema', 'Tema', temasDoDds().map(function (t) { return { v: t, t: t }; }), 'Escolha o tema', 'Outro assunto (digitar)') + '</div>' +
+    campoDoTema(f) + '</div>' +
     '<div class="cartao"><b>Tipo do DDS</b>' + sel('tipoDds', [['pratico', 'Prático'], ['teorico', 'Teórico']]) +
     '<b>Houve participação do cliente?</b>' + sel('cliente', [['sim', 'Sim'], ['nao', 'Não']]) + '</div>' +
     '<div class="cartao"><b>Participantes</b><div class="seg-dois"><div class="campo"><label>Administrativos</label><input data-campo="adm" inputmode="numeric" value="' + h(f.adm) + '" placeholder="0"></div>' +
@@ -833,7 +883,7 @@ function lerPagina(arquivo, pagina) {
     if (!r.ok) { S.lido = r; return; }
     if (r.id && r.id !== lista.cab.id) { S.lido = { erro: 'Esta folha é de outra lista (' + r.id + '). Escolha a lista certa.' }; return; }
     S.lido = null; f.paginas[r.pagina || pagina] = r;
-    return Casca.foto(arquivo, { lados: [2000], teto: 450 * 1024, semGps: false }).then(function (ft) {
+    return Casca.foto(arquivo, { lados: [2000], teto: 450 * 1024, semGps: !fotoFeitaAgora(arquivo) }).then(function (ft) {
       var idF = novoId('lista');
       if (!f.fotoLista) f.fotoLista = idF;
       return segGuardarFoto({ id: idF, idRegistro: f.id, blob: ft.blob, meta: ft.meta });
@@ -938,6 +988,7 @@ function telaFila() {
 /* ---------- os toques ---------- */
 document.addEventListener('input', function (ev) {
   var t = ev.target, f = S.form; if (!f) return;
+  if (t.dataset.busca === 'tema') { filtrarTemas(t.value); return; }
   if (t.dataset.nova && f.nova) { f.nova[t.dataset.nova] = t.value; if (t.dataset.nova === 'obs' && f.nova.desvio === DESVIO_NAO_PREVISTO) redesenharMantendoFoco(t); }
   if (t.dataset.campo) {
     /* "Outro" nas listas de equipe e de tema: vira campo de digitar, vazio, para não gravar o texto interno da opção. */
@@ -980,7 +1031,7 @@ document.addEventListener('click', function (ev) {
   var b = ev.target.closest('[data-acao]'); if (!b || b.disabled) return;
   var a = b.dataset.acao, f = S.form, v = b.dataset.v;
   if (a === 'voltarApp') return Casca.voltar();
-  if (a === 'inicio') return ir(S.alvo ? 'equipe' : 'inicio');
+  if (a === 'inicio') return voltarDaTela();
   if (a === 'escolherBase') { S.baseDia = v; S.msg = ''; return segGravarConfig('baseDia:' + S.pessoa.matricula, { dia: hoje(), base: v }).then(desenhar); }
   if (a === 'abrir') return ir(b.dataset.tela);
   if (a === 'equipe') return ir('equipe');
@@ -991,9 +1042,13 @@ document.addEventListener('click', function (ev) {
   if (a === 'estadoItem') { f.estados[f._itens[+b.dataset.i]] = v; return desenhar(); }
   if (a === 'todosOk') { var bom = f.tipo === 'veicular' ? 'aprovado' : 'ok'; f._itens.forEach(function (it) { if (!f.estados[it]) f.estados[it] = bom; }); return desenhar(); }
   if (a === 'fotoItem') return pedirFoto(function (id) { f.fotos[f._itens[+b.dataset.i]] = id; });
-  if (a === 'fotoCampo') return pedirFoto(function (id) { f[b.dataset.c] = id; });
+  /* Luvas reprovadas continuam só com a câmera (a foto é do par naquele momento); a lista do DDS aceita a galeria (12/11/2026). */
+  if (a === 'fotoCampo') return pedirFoto(function (id) { f[b.dataset.c] = id; }, false, false, /^fotoLista2?$/.test(b.dataset.c || ''));
   if (a === 'rosto') return pedirFoto(function (id) { f.rosto = id; }, true);
   if (a === 'campo') { f[b.dataset.c] = v; return desenhar(); }
+  if (a === 'escolherTema') { f.tema = b.dataset.v; f._livre = f._livre || {}; f._livre.tema = false; guardarRascunho(); return desenhar(); }
+  if (a === 'trocarTema') { f.tema = ''; guardarRascunho(); return desenhar(); }
+  if (a === 'temaOutro') { f._livre = f._livre || {}; f._livre.tema = true; f.tema = ''; guardarRascunho(); return desenhar(); }
   if (a === 'voltarLista') { f._livre = f._livre || {}; f._livre[b.dataset.c] = false; f[b.dataset.c] = ''; return desenhar(); }
   if (a === 'alternar') { f.nova[b.dataset.c] = !f.nova[b.dataset.c]; return desenhar(); }
   if (a === 'novaIrr') { f.nova = { desvio: '', foto: '' }; f.busca = ''; return desenhar(); }
@@ -1017,7 +1072,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'blitzMotivo') { f.motivo[b.dataset.k] = v; return desenhar(); }
   if (a === 'blitzFoto') return pedirFoto(function (id) { f.fotos[b.dataset.k] = id; });
   if (a === 'conf') { f.conf[b.dataset.m] = v === '1'; return desenhar(); }
-  if (a === 'fotoPagina') { var pg = +b.dataset.p; fotoPendente = null; var i = $('arquivoFoto'); i.setAttribute('capture', 'environment'); i.value = ''; i.onchange = function () { i.onchange = null; lerPagina(i.files[0], pg); }; i.click(); return; }
+  if (a === 'fotoPagina') { var pg = +b.dataset.p; fotoPendente = null; var i = $('arquivoFoto'); i.removeAttribute('capture'); i.value = ''; i.onchange = function () { i.onchange = null; lerPagina(i.files[0], pg); }; i.click(); return; }
   if (a === 'salvarEpi') return concluir({ id: f.id, tipo: 'epi', funcao: (S.alvo || {}).funcao || (S.pacote && S.pacote.pessoa.funcao) || '', fotoRosto: f.rosto,
     itens: f._itens.map(function (it) { return { item: it, estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) }, 'Checklist de EPI/EPC salvo.');
   if (a === 'salvarLuvas' && (!String(f.esquerda).trim() || !String(f.direita).trim()) && falta('Digite o número das duas luvas, a esquerda e a direita.')) return;
@@ -1047,7 +1102,7 @@ document.addEventListener('click', function (ev) {
       'Blitz salva (' + irr.length + ' não conforme' + (antB.length ? ', ' + antB.length + ' da anterior conferido(s)' : '') + ').');
   }
   if (a === 'fotoRelato') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); });
-  if (a === 'fotoGaleria') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); }, false, true);
+  if (a === 'fotoAdicionar') return pedirFoto(function (id) { if (f.fotos.length < FOTOS_POR_RELATO) f.fotos.push(id); }, false, false, true);
   if (a === 'tirarFotoRelato') { f.fotos.splice(+b.dataset.i, 1); return desenhar(); }
   if (a === 'salvarIncidente') {
     if (oQueFaltaNoIncidente(f).length && falta('Para enviar, falta ' + oQueFaltaNoIncidente(f).join(', ') + '.')) return;
@@ -1061,7 +1116,7 @@ document.addEventListener('click', function (ev) {
       feridoMatricula: fer === 'outro' ? String(f.feridoMatricula).replace(/\D/g, '') : '', feridoNome: fer === 'outro' ? String(f.feridoNome).trim() : '',
       descricao: String(f.descricao).trim(), naHora: String(f.naHora).trim(), fotos: f.fotos.slice() } }, 'Relato salvo. Um técnico de segurança vai completar e investigar.');
   }
-  if (a === 'fotoDdsAntigo') { var iF = +b.dataset.i; return pedirFoto(function (id) { f.fotos[iF] = id; }); }
+  if (a === 'fotoDdsAntigo') { var iF = +b.dataset.i; return pedirFoto(function (id) { f.fotos[iF] = id; }, false, false, true); }
   if (a === 'salvarDdsAntigo') {
     var que = faltaNoDdsAntigo(f); if (que && falta('Para enviar, falta ' + que + '.')) return;
     return concluir({ id: f.id, tipo: 'dds', dds: { modelo: 'antigo', onde: 'base', ministrou: String(f.ministrou).replace(/\D/g, ''), inicio: f.inicio, fim: f.fim, tema: String(f.tema).trim(),
