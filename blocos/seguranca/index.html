@@ -58,6 +58,25 @@
   .seg-relatar { width: 100%; margin: 4px 0 10px; }
   /* 26/10/2026, tarde: o que ficou em aberto da Blitz anterior, para não se confundir com a inspeção de agora. */
   .seg-anterior { border-left: 4px solid var(--ambar, #B87400); }
+  /* 13/11/2026, desenho do App (§1, §6 e §7): SQP e Blitz em etapas. A barra de traços no alto, "ETAPA N DE 4", o quadro
+     cinza do que o app já sabe, "Voltar | Continuar" no pé e os três botões grandes da Blitz com os ícones de traço. */
+  .seg-etapas { display: flex; gap: 4px; margin: 2px 0 8px; }
+  .seg-etapas span { flex: 1; height: 4px; border-radius: 2px; background: #D9DBDF; }
+  .seg-etapas span.feita { background: #D3121A; }
+  .seg-etapa { font: 600 11px Inter, sans-serif; letter-spacing: .06em; color: var(--tinta-media, #5A5C63); margin: 0; }
+  .seg-h2-etapa { font: 700 20px/1.2 Inter, sans-serif; margin: 2px 0 12px; }
+  .seg-app { background: #EEF0F2; border-radius: 14px; padding: 10px 12px; margin: 8px 0 10px; }
+  .seg-app small { display: block; font: 600 11px Inter, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--tinta-media, #5A5C63); margin-bottom: 6px; }
+  .seg-app dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
+  .seg-app dt { color: var(--tinta-media, #5A5C63); } .seg-app dd { margin: 0; overflow-wrap: anywhere; }
+  .seg-rodape-etapas .seg-dois { gap: 8px; }
+  .seg-alvos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0 10px; }
+  .seg-alvo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 96px; padding: 8px 4px; border: 1.5px solid #D9DBDF; border-radius: 14px; background: #fff; font: 600 14px Inter, sans-serif; color: var(--tinta, #231F20); cursor: pointer; }
+  .seg-alvo.ativo { background: #FFF5F5; border-color: #D3121A; }
+  .seg-alvo svg { width: 32px; height: 32px; fill: none; stroke: #D3121A; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .seg-revisar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--linha, #E2E4E8); }
+  .seg-revisar:last-child { border-bottom: 0; }
+  .seg-revisar b { display: block; margin-bottom: 2px; }
 </style>
 </head>
 <body>

@@ -187,8 +187,8 @@ var AJUDAS = {
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Adicione cada luva que você testou: o número e a classe. Para cada uma, infle no dispositivo e faça o teste visual contra a luz. Se uma reprovar, só ela sai de uso: tire a foto do defeito e avise o almoxarifado. As outras seguem valendo. As luvas do seu último teste aparecem no alto, é só tocar para testar de novo.',
   veicular: 'O km é opcional: digite o que o painel mostra. Se for menor que o último km que a Frota tem para a placa (descontados 50 km), a tela avisa para você conferir; se estiver certo, pode seguir. Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
-  sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz; ao marcar o prefixo aparecem as placas que já saíram com ele. A matrícula do responsável da equipe vem da formação do mês, e você indica as pessoas inspecionadas. As fotos da inspeção são opcionais, com ou sem irregularidade. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
-  blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. O que ficou em aberto da Blitz anterior aparece logo abaixo: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo.',
+  sqp: 'Quatro etapas, com Continuar e Voltar no pé da tela. 1) A equipe (a formação do mês dá o encarregado e a matrícula do responsável), o local, a placa (aparecem as que já saíram com o prefixo) e quem conduz, e as pessoas inspecionadas. 2) As irregularidades: escolha o desvio no catálogo, porque o nível vem da Política e não de você; cada uma com foto e os envolvidos, e o sistema cruza com os checklists do dia de cada um. Aqui também aparece o que ficou em aberto da Blitz anterior desta equipe, para conferir. 3) Fotos da inspeção, opcionais. 4) Revise e envie; "alterar" volta à etapa.',
+  blitz: 'Quatro etapas, com Continuar e Voltar no pé da tela. 1) Escolha o que vai inspecionar (pessoa, veículo ou equipe) e diga quem ou qual. 2) Marque item por item, categoria por categoria: não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. 3) O que ficou em aberto da Blitz anterior: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo. 4) Revise e envie; "alterar" volta à etapa.',
   dds: 'Escolha a lista do DDS (a que foi impressa com todos da base), fotografe cada página assinada e confira o que ficou em amarelo. Presença só vale com a foto da lista — ela vai junto, como documento. Se o DDS foi feito com a folha antiga (a lista não saiu do sistema), use o botão "Informar no modelo antigo".',
   ddsAntigo: 'É o "Informe de Realização DDS_COMPEL" no celular: quem ministrou, horário, tema, tipo, participantes e as fotos da lista. A lista não foi emitida pelo sistema, então o informe vai para revisão: a Operação ou a Segurança confere a foto e dá a baixa, quem fizer primeiro.',
   meus: 'O que você fez neste mês, contado neste celular. Sem percentual: o número que vale para a Campanha é o do extrato.',
@@ -526,24 +526,90 @@ function telaVeicular() {
 }
 
 /* ---------- SQP ---------- */
+/* ---------- SQP e Blitz em etapas (bloco 0.6.9, 13/11/2026) ----------
+   O desenho do App (12/11/2026, §6 e §7, decisão do Dalton): as duas inspeções em quatro etapas, com a barra no alto e
+   "Voltar | Continuar" no pé. É só a forma: o registro que sobe é o mesmo de antes, campo por campo. As conferências que
+   já existiam continuam no mesmo lugar (no Enviar) e ganham uma cópia no Continuar da etapa a que pertencem, para o
+   inspetor saber do que falta antes de chegar ao fim. O Continuar só fica apagado pelo que se resolve com um toque
+   (irregularidade aberta, item sem motivo ou sem foto): o que depende de texto digitado é conferido no toque, porque o
+   texto não redesenha a tela e o botão ficaria apagado depois de a pessoa já ter digitado. A etapa fica no formulário,
+   então volta junto com o rascunho se a câmera matar a página; rascunho de antes desta versão abre na etapa 1. */
+var ETAPAS_SQP = ['Equipe e local', 'Irregularidades', 'Fotos da inspeção', 'Revisar e enviar'];
+var ETAPAS_BLITZ = ['O que você vai inspecionar?', 'Itens', 'Blitz anterior em aberto', 'Revisar e enviar'];
+function etapaDe(f) { f.etapa = Math.min(4, Math.max(1, Math.floor(+f.etapa) || 1)); return f.etapa; }
+function barraDeEtapas(nomes, n) {
+  return '<div class="seg-etapas" role="progressbar" aria-valuemin="1" aria-valuemax="' + nomes.length + '" aria-valuenow="' + n + '">' + nomes.map(function (x, i) { return '<span' + (i < n ? ' class="feita"' : '') + '></span>'; }).join('') + '</div>' +
+    '<p class="seg-etapa">ETAPA ' + n + ' DE ' + nomes.length + '</p><h2 class="seg-h2 seg-h2-etapa">' + h(nomes[n - 1]) + '</h2>';
+}
+/* O que o app já sabe, sem campo para digitar. A data e a hora que valem são as do envio (o gravar põe o dia e o carimbo
+   na hora de salvar); por isso a tela não mostra uma "hora de início" que ninguém grava. */
+function quadroDoApp() {
+  var b = baseEscolhida();
+  return '<div class="seg-app"><small>Preenchido pelo app</small><dl>' +
+    '<dt>Data</dt><dd>' + h(diaBr(hoje())) + ' · gravada no envio</dd>' +
+    '<dt>Inspetor</dt><dd>' + h((S.pessoa && S.pessoa.nome) || '') + (S.pessoa && S.pessoa.matricula ? ' (' + h(S.pessoa.matricula) + ')' : '') + '</dd>' +
+    '<dt>Base de hoje</dt><dd>' + (b ? h(b) : 'escolha no início') + '</dd></dl></div>';
+}
+function avisoDoAnterior(c, etapa) {
+  var n = S.pacote && S.pacote.anteriores ? anterioresDa(c).length : 0;
+  return n ? '<div class="aviso atencao">' + n + (n === 1 ? ' item em aberto' : ' itens em aberto') + ' da Blitz anterior desta equipe, pessoa ou placa. Você confere na etapa ' + etapa + '.</div>' : '';
+}
+function rodapeDeEtapas(n, total, trava, botaoFinal) {
+  return '<div class="seg-rodape seg-rodape-etapas"><div class="seg-dois">' +
+    (n > 1 ? '<button type="button" class="btn secundario" data-acao="etapaVoltar">Voltar</button>' : '<span></span>') +
+    (n < total ? '<button type="button" class="btn" data-acao="etapaSeguir"' + (trava ? ' disabled' : '') + '>Continuar</button>' : botaoFinal) +
+    '</div>' + (trava ? '<p class="seg-sub seg-falta">' + h(trava) + '</p>' : '') + '</div>';
+}
+function linhaDaRevisao(titulo, texto, etapa) {
+  return '<div class="seg-revisar"><div><b>' + h(titulo) + '</b><span class="seg-sub">' + texto + '</span></div><button type="button" class="link-texto" data-acao="irEtapa" data-v="' + etapa + '">alterar</button></div>';
+}
+/* O que apaga o Continuar (resolve-se com um toque) e o que o toque confere (depende de texto). */
+function travaDaEtapa(f) {
+  var n = etapaDe(f);
+  if (f.tipo === 'sqp' && n === 2 && f.nova) return 'Para continuar: acrescente ou cancele a irregularidade aberta.';
+  if (f.tipo === 'blitz' && n === 2) {
+    var nc = Object.keys(f.resp).filter(function (k) { return f.resp[k] === 'NC'; });
+    if (!Object.keys(f.resp).length) return 'Marque ao menos um item.';
+    if (nc.some(function (k) { return !f.motivo[k] || !f.fotos[k]; })) return 'Não conforme precisa do motivo e da foto.';
+  }
+  return '';
+}
+function conferirAoSeguir(f) {
+  var n = etapaDe(f);
+  if (f.tipo === 'sqp' && n === 2 && valeSemQuem(f, chavesDoSqp(f))) return 'Diga quem vai arcar com cada vale (a matrícula).';
+  if (f.tipo === 'blitz' && n === 1 && !String(f.alvoId || '').trim()) return 'Diga quem ou o que foi inspecionado (matrícula, placa ou prefixo).';
+  if (f.tipo === 'blitz' && n === 3 && valeSemQuem(f, chavesDaBlitz(f))) return 'Diga quem vai arcar com cada vale (a matrícula).';
+  return '';
+}
 function telaSqp() {
-  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', integrantesTxt: ((S.contexto && S.contexto.equipe) || []).map(function (p) { return p.matricula; }).join(', '), fotos: [], irr: [], busca: '', nova: null, anterior: {} };
+  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', etapa: 1, equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', integrantesTxt: ((S.contexto && S.contexto.equipe) || []).map(function (p) { return p.matricula; }).join(', '), fotos: [], irr: [], busca: '', nova: null, anterior: {} };
   f.fotos = f.fotos || []; if (f.integrantesTxt === undefined) f.integrantesTxt = ''; /* rascunho guardado antes da 0.6.5 não tem estes campos */
-  var html = seletorDeBase() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + responsavelDaEquipe(f) + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + placasDaEquipe(f) + sobreAPlaca(f.placa) +
-    campoCondutor(f, f.placa) + pessoasInspecionadas(f) + '</div>' + painelAnterior(f, chavesDoSqp(f));
-  html += '<h2 class="seg-h2">Irregularidades (' + f.irr.length + ')</h2>' + f.irr.map(function (x, i) {
-    var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
-  }).join('');
-  if (!f.nova) html += '<button type="button" class="btn secundario" data-acao="novaIrr">+ Irregularidade</button>';
-  else html += formIrregularidade(f);
-  /* As fotos da inspeção ficam sempre à mostra, com ou sem irregularidade, e nunca travam o botão (Dalton, 09/11/2026:
-     "mesmo não tendo irregularidade, mantenha o campo de fotos, mas sem ser obrigatório"). A foto de CADA irregularidade
-     continua obrigatória: é a prova do desvio. */
-  html += blocoDeFotos(f, 'Fotos da inspeção', 'Opcional: o local, a equipe, o veículo. Vale também sem irregularidade.');
-  html += '<button type="button" class="btn" data-acao="salvarSqp"' + (f.nova ? ' disabled' : '') + '>Concluir inspeção' + (f.irr.length ? '' : ' sem irregularidade') + '</button>';
-  // O botão apagado diz por quê (o teste do Dalton no celular, 25/10/2026: ele ficou sem saber o que faltava).
-  if (f.nova) html += '<p class="seg-sub seg-falta">Para concluir: acrescente ou cancele a irregularidade aberta acima.</p>';
-  return html;
+  var n = etapaDe(f), html = barraDeEtapas(ETAPAS_SQP, n);
+  if (n === 1) {
+    html += seletorDeBase() + quadroDoApp() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + responsavelDaEquipe(f) + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + placasDaEquipe(f) + sobreAPlaca(f.placa) +
+      campoCondutor(f, f.placa) + pessoasInspecionadas(f) + '</div>' + avisoDoAnterior(chavesDoSqp(f), 2);
+  } else if (n === 2) {
+    html += f.irr.map(function (x, i) {
+      var d = desvio(x.desvio); return '<div class="cartao seg-item"><b>' + h(x.desvio) + ' · ' + h(d ? d.desvio : '') + '</b><span class="selo">' + h(d ? d.nivel : '') + '</span><p class="seg-sub">Envolvidos: ' + h(x.envolvidos.join(', ') || '—') + (x.solucionadaNaHora ? ' · solucionada na hora' : '') + '</p><button type="button" class="link-texto" data-acao="tirarIrr" data-i="' + i + '">Tirar</button></div>';
+    }).join('');
+    if (!f.irr.length && !f.nova) html += '<p class="seg-sub">Nenhuma irregularidade até agora. Sem irregularidade, é só continuar.</p>';
+    if (!f.nova) html += '<button type="button" class="btn secundario" data-acao="novaIrr">+ Irregularidade</button>';
+    else html += formIrregularidade(f);
+    html += painelAnterior(f, chavesDoSqp(f));
+  } else if (n === 3) {
+    /* As fotos da inspeção nunca travam (Dalton, 09/11/2026: "mesmo não tendo irregularidade, mantenha o campo de fotos, mas
+       sem ser obrigatório"). A foto de CADA irregularidade continua obrigatória, na etapa 2: é a prova do desvio. */
+    html += blocoDeFotos(f, 'Fotos da inspeção', 'Opcional: o local, a equipe, o veículo. Vale também sem irregularidade.');
+  } else {
+    var antS = anteriorParaEnviar(f, chavesDoSqp(f)), pessoas = matsDoTexto(f.integrantesTxt), resp = matriculaDoResponsavel(f);
+    html += '<div class="cartao">' +
+      linhaDaRevisao('Equipe e local', h(f.equipe || 'sem equipe') + (f.local ? ' · ' + h(f.local) : '') + (soPlaca(f.placa) ? ' · placa ' + h(soPlaca(f.placa)) + (matsDoTexto(f.condutor)[0] ? ', conduz ' + h(matsDoTexto(f.condutor)[0]) : ', sem condutor') : '') +
+        '<br>' + (resp ? 'Responsável ' + h(resp) : 'Sem responsável') + ' · ' + (pessoas.length ? pessoas.length + ' pessoa(s) inspecionada(s)' : 'ninguém indicado'), 1) +
+      linhaDaRevisao('Irregularidades', (f.irr.length ? f.irr.map(function (x) { return h(x.desvio); }).join(', ') : 'nenhuma') + (antS.length ? '<br>' + antS.length + ' da Blitz anterior conferido(s)' : ''), 2) +
+      linhaDaRevisao('Fotos da inspeção', f.fotos.length ? f.fotos.length + ' foto(s)' : 'nenhuma (opcional)', 3) + '</div>';
+  }
+  return html + rodapeDeEtapas(n, ETAPAS_SQP.length, travaDaEtapa(f),
+    '<button type="button" class="btn" data-acao="salvarSqp">Enviar inspeção</button>');
 }
 function desvio(id) { return S.pacote && S.pacote.desvios.filter(function (d) { return d.id === id; })[0]; }
 /* A busca do desvio pelas palavras de quem está em campo (26/10/2026): o código, o texto, a área e as palavras de busca
@@ -800,30 +866,53 @@ function placaDaBlitz(f) { return f.alvoTipo === 'veiculo' ? f.alvoId : f.alvoTi
 function chavesDaBlitz(f) { return { prefixo: f.alvoTipo === 'equipe' ? f.alvoId : '', placa: placaDaBlitz(f), mats: f.alvoTipo === 'pessoa' ? matsDoTexto(f.alvoId) : f.alvoTipo === 'equipe' ? matsDoTexto(f.integrantesTxt) : [] }; }
 
 /* ---------- Blitz ---------- */
+/* Os três botões grandes com os ícones de traço da proposta (exceção pedida pelo Dalton em 12/11/2026: o resto do bloco
+   segue com emoji). Desenho em 24x24, traço 2, ponta redonda, como o quadro do App manda. O botão continua sendo o mesmo
+   "campo alvoTipo" de antes: só ganhou a forma. */
+var ICONES_DA_BLITZ = {
+  pessoa: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+  veiculo: '<rect x="2" y="7" width="12" height="9" rx="1"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/>',
+  equipe: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c2.4.3 4 2 4.5 5"/>'
+};
 function telaBlitz() {
-  var f = S.form = S.form || { id: novoId('blz'), tipo: 'blitz', alvoTipo: 'pessoa', alvoId: '', placa: '', condutor: '', integrantesTxt: '', cat: '', resp: {}, motivo: {}, fotos: {}, anterior: {} };
+  var f = S.form = S.form || { id: novoId('blz'), tipo: 'blitz', etapa: 1, alvoTipo: 'pessoa', alvoId: '', placa: '', condutor: '', integrantesTxt: '', cat: '', resp: {}, motivo: {}, fotos: {}, anterior: {} };
   if (!S.pacote) return '<div class="aviso atencao">A Blitz precisa do pacote (itens e catálogo). Abra com sinal uma vez.</div>';
   var cats = Object.keys(S.pacote.blitz).filter(function (c) { return f.alvoTipo === 'equipe' || S.pacote.blitz[c][0].alvo === f.alvoTipo; });
   if (cats.indexOf(f.cat) < 0) f.cat = cats[0] || '';
-  var equipe = (S.contexto && S.contexto.equipe) || [];
-  /* Na Blitz da equipe, a placa e quem estava presente. O Controle da Blitz de hoje não tem a placa em 1.071 das 1.111
-     linhas de equipe (contado em 24/10/2026), mesmo com item do caminhão; sem ela, o material não volta à placa. */
-  var daEquipe = f.alvoTipo !== 'equipe' ? '' : '<div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
-    '<div class="campo"><label>Matrículas de quem está presente (separadas por vírgula)</label><input data-campo="integrantesTxt" inputmode="numeric" value="' + h(f.integrantesTxt) + '"></div>' +
-    (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addIntegrante" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '');
-  var html = listaDePlacas() + '<div class="cartao"><div class="seg-tres">' + [['pessoa', 'Pessoa'], ['veiculo', 'Veículo'], ['equipe', 'Equipe']].map(function (x) { return '<button type="button" class="chip' + (f.alvoTipo === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="alvoTipo" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-    (f.alvoTipo === 'equipe' ? campoDaEquipe(f, 'alvoId', 'Prefixo da equipe') : '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa' }[f.alvoTipo] + '</label><input data-campo="alvoId"' + (f.alvoTipo === 'veiculo' ? ' list="segPlacas" autocapitalize="characters"' : '') + ' value="' + h(f.alvoId) + '"></div>') + (f.alvoTipo === 'veiculo' ? sobreAPlaca(f.alvoId) : '') + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
-    painelAnterior(f, chavesDaBlitz(f)) +
-    '<div class="seg-chips">' + cats.map(function (c) { var n = S.pacote.blitz[c].filter(function (it) { return f.resp[chaveBlitz(c, it.item)]; }).length; return '<button type="button" class="chip' + (f.cat === c ? ' ativo' : '') + '" data-acao="campo" data-c="cat" data-v="' + h(c) + '">' + h(c) + ' <b>' + n + '/' + S.pacote.blitz[c].length + '</b></button>'; }).join('') + '</div>';
-  (S.pacote.blitz[f.cat] || []).forEach(function (it, i) {
-    var k = chaveBlitz(f.cat, it.item), r = f.resp[k];
-    html += '<div class="cartao seg-item' + (r === 'NC' ? ' seg-problema' : '') + '"><b>' + h(it.item) + '</b><div class="seg-tres">' + ['C', 'NC', 'NA'].map(function (x) { return '<button type="button" class="chip' + (r === x ? ' ativo' : '') + '" data-acao="blitzResp" data-k="' + h(k) + '" data-v="' + x + '">' + { C: 'Conforme', NC: 'Não conforme', NA: 'Não se aplica' }[x] + '</button>'; }).join('') + '</div>' +
-      (r === 'NC' ? '<div class="seg-chips">' + S.pacote.motivosNaoConforme.map(function (m) { return '<button type="button" class="chip' + (f.motivo[k] === m ? ' ativo' : '') + '" data-acao="blitzMotivo" data-k="' + h(k) + '" data-v="' + h(m) + '">' + h(m) + '</button>'; }).join('') + '</div><button type="button" class="btn secundario auto' + (f.fotos[k] ? '' : ' seg-foto-obrig') + '" data-acao="blitzFoto" data-k="' + h(k) + '">' + (f.fotos[k] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
-  });
-  var nc = Object.keys(f.resp).filter(function (k) { return f.resp[k] === 'NC'; }), incompletos = nc.filter(function (k) { return !f.motivo[k] || !f.fotos[k]; }).length;
-  return html + '<button type="button" class="btn" data-acao="salvarBlitz"' + (!Object.keys(f.resp).length || incompletos ? ' disabled' : '') + '>Concluir Blitz (' + nc.length + ' não conforme)</button>' + (incompletos ? '<p class="seg-sub">Não conforme precisa do motivo e da foto.</p>' : '');
+  var n = etapaDe(f), html = barraDeEtapas(ETAPAS_BLITZ, n), equipe = (S.contexto && S.contexto.equipe) || [];
+  var nc = Object.keys(f.resp).filter(function (k) { return f.resp[k] === 'NC'; });
+  if (n === 1) {
+    /* Na Blitz da equipe, a placa e quem estava presente. O Controle da Blitz de hoje não tem a placa em 1.071 das 1.111
+       linhas de equipe (contado em 24/10/2026), mesmo com item do caminhão; sem ela, o material não volta à placa. */
+    var daEquipe = f.alvoTipo !== 'equipe' ? '' : '<div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + sobreAPlaca(f.placa) +
+      '<div class="campo"><label>Matrículas de quem está presente (separadas por vírgula)</label><input data-campo="integrantesTxt" inputmode="numeric" value="' + h(f.integrantesTxt) + '"></div>' +
+      (equipe.length ? '<div class="seg-chips">' + equipe.map(function (p) { return '<button type="button" class="chip" data-acao="addIntegrante" data-v="' + h(p.matricula) + '">' + h(p.nome) + '</button>'; }).join('') + '</div>' : '');
+    html += quadroDoApp() + listaDePlacas() + '<div class="seg-alvos">' + [['pessoa', 'Pessoa'], ['veiculo', 'Veículo'], ['equipe', 'Equipe']].map(function (x) {
+      return '<button type="button" class="seg-alvo' + (f.alvoTipo === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="alvoTipo" data-v="' + x[0] + '" aria-pressed="' + (f.alvoTipo === x[0]) + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + ICONES_DA_BLITZ[x[0]] + '</svg>' + x[1] + '</button>';
+    }).join('') + '</div><div class="cartao">' +
+      (f.alvoTipo === 'equipe' ? campoDaEquipe(f, 'alvoId', 'Prefixo da equipe') : '<div class="campo"><label>' + { pessoa: 'Matrícula', veiculo: 'Placa' }[f.alvoTipo] + '</label><input data-campo="alvoId"' + (f.alvoTipo === 'veiculo' ? ' list="segPlacas" autocapitalize="characters"' : ' inputmode="numeric"') + ' value="' + h(f.alvoId) + '"></div>') + (f.alvoTipo === 'veiculo' ? sobreAPlaca(f.alvoId) : '') + (f.alvoTipo === 'equipe' ? campoDoEncarregado(f, 'alvoId') : '') + daEquipe + campoCondutor(f, placaDaBlitz(f)) + '</div>' +
+      avisoDoAnterior(chavesDaBlitz(f), 3);
+  } else if (n === 2) {
+    html += '<div class="seg-chips">' + cats.map(function (c) { var k = S.pacote.blitz[c].filter(function (it) { return f.resp[chaveBlitz(c, it.item)]; }).length; return '<button type="button" class="chip' + (f.cat === c ? ' ativo' : '') + '" data-acao="campo" data-c="cat" data-v="' + h(c) + '">' + h(c) + ' <b>' + k + '/' + S.pacote.blitz[c].length + '</b></button>'; }).join('') + '</div>';
+    (S.pacote.blitz[f.cat] || []).forEach(function (it) {
+      var k = chaveBlitz(f.cat, it.item), r = f.resp[k];
+      html += '<div class="cartao seg-item' + (r === 'NC' ? ' seg-problema' : '') + '"><b>' + h(it.item) + '</b><div class="seg-tres">' + ['C', 'NC', 'NA'].map(function (x) { return '<button type="button" class="chip' + (r === x ? ' ativo' : '') + '" data-acao="blitzResp" data-k="' + h(k) + '" data-v="' + x + '">' + { C: 'Conforme', NC: 'Não conforme', NA: 'Não se aplica' }[x] + '</button>'; }).join('') + '</div>' +
+        (r === 'NC' ? '<div class="seg-chips">' + S.pacote.motivosNaoConforme.map(function (m) { return '<button type="button" class="chip' + (f.motivo[k] === m ? ' ativo' : '') + '" data-acao="blitzMotivo" data-k="' + h(k) + '" data-v="' + h(m) + '">' + h(m) + '</button>'; }).join('') + '</div><button type="button" class="btn secundario auto' + (f.fotos[k] ? '' : ' seg-foto-obrig') + '" data-acao="blitzFoto" data-k="' + h(k) + '">' + (f.fotos[k] ? 'Foto tirada ✓' : 'Tirar foto') + '</button>' : '') + '</div>';
+    });
+  } else if (n === 3) {
+    html += painelAnterior(f, chavesDaBlitz(f)) || '<p class="seg-sub">Nada em aberto da Blitz anterior para conferir.</p>';
+  } else {
+    var antB = anteriorParaEnviar(f, chavesDaBlitz(f)), placaB = soPlaca(placaDaBlitz(f)), cond = placaB ? matsDoTexto(f.condutor)[0] : '';
+    var nomeNc = nc.map(function (k) { return h(k.split(SEP_BLITZ).join(' · ')); });
+    html += '<div class="cartao">' +
+      linhaDaRevisao('O que foi inspecionado', { pessoa: 'Pessoa', veiculo: 'Veículo', equipe: 'Equipe' }[f.alvoTipo] + ' · ' + h(f.alvoId || '—') + (placaB && f.alvoTipo === 'equipe' ? ' · placa ' + h(placaB) : '') + (placaB ? (cond ? ' · conduz ' + h(cond) : ' · sem condutor') : '') +
+        (f.alvoTipo === 'equipe' ? '<br>' + (matsDoTexto(f.integrantesTxt).length ? matsDoTexto(f.integrantesTxt).length + ' pessoa(s) presente(s)' : 'ninguém indicado como presente') : ''), 1) +
+      linhaDaRevisao('Itens', Object.keys(f.resp).length + ' marcado(s) · ' + nc.length + ' não conforme' + (nc.length ? '<br>' + nomeNc.join('<br>') : ''), 2) +
+      linhaDaRevisao('Blitz anterior', antB.length ? antB.length + ' item(ns) conferido(s)' : 'nada conferido', 3) + '</div>';
+  }
+  return html + rodapeDeEtapas(n, ETAPAS_BLITZ.length, travaDaEtapa(f),
+    '<button type="button" class="btn" data-acao="salvarBlitz"' + (!Object.keys(f.resp).length || nc.some(function (k) { return !f.motivo[k] || !f.fotos[k]; }) ? ' disabled' : '') + '>Enviar Blitz</button>');
 }
-
 /* ---------- DDS ---------- */
 function telaDds() {
   /* Só o DDS NA BASE. O DDS em campo é da Operação: o diário marca a presença de toda a equipe e pede a foto da lista
@@ -1109,6 +1198,10 @@ document.addEventListener('click', function (ev) {
   if (a === 'blitzFoto') return pedirFoto(function (id) { f.fotos[b.dataset.k] = id; });
   if (a === 'conf') { f.conf[b.dataset.m] = v === '1'; return desenhar(); }
   if (a === 'fotoPagina') { var pg = +b.dataset.p; fotoPendente = null; var i = $('arquivoFoto'); i.removeAttribute('capture'); i.value = ''; i.onchange = function () { i.onchange = null; lerPagina(i.files[0], pg); }; i.click(); return; }
+  /* As etapas do SQP e da Blitz: a tela volta ao alto a cada troca, como quando a tela muda. */
+  if (a === 'etapaSeguir') { var fe = conferirAoSeguir(f); if (fe && falta(fe)) return; f.etapa = etapaDe(f) + 1; S.msg = ''; guardarRascunho(); desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'etapaVoltar') { f.etapa = etapaDe(f) - 1; S.msg = ''; guardarRascunho(); desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'irEtapa') { f.etapa = +v; etapaDe(f); S.msg = ''; guardarRascunho(); desenhar(); window.scrollTo(0, 0); return; }
   if (a === 'salvarEpi') return concluir({ id: f.id, tipo: 'epi', funcao: (S.alvo || {}).funcao || (S.pacote && S.pacote.pessoa.funcao) || '', fotoRosto: f.rosto,
     itens: f._itens.map(function (it) { return { item: it, estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) }, 'Checklist de EPI/EPC salvo.');
   if (a === 'luvaCampo') { luvasDaRodada(f)[+b.dataset.i][b.dataset.c] = v; return desenhar(); }
@@ -1132,6 +1225,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: kmDoCampo(f.km) }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
     itens: f._itens.map(function (it) { return { item: it.replace(/^Lataria /, 'Lataria '), estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) };
     return concluir(reg, reg.retido ? 'VEÍCULO RETIDO: não saia com ele até um superior liberar.' : 'Checklist veicular salvo.'); }
+  if (a === 'salvarSqp' && f.nova && falta('Acrescente ou cancele a irregularidade aberta, na etapa 2.')) return;
   if (a === 'salvarSqp' && valeSemQuem(f, chavesDoSqp(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
   if (a === 'salvarSqp') { var antS = anteriorParaEnviar(f, chavesDoSqp(f));
     return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS, integrantes: matsDoTexto(f.integrantesTxt), responsavel: matriculaDoResponsavel(f), fotos: f.fotos.slice() } },
