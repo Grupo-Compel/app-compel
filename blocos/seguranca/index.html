@@ -77,6 +77,22 @@
   .seg-revisar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--linha, #E2E4E8); }
   .seg-revisar:last-child { border-bottom: 0; }
   .seg-revisar b { display: block; margin-bottom: 2px; }
+  /* 13/11/2026, irregularidades no celular (desenho do App §10): a faixa à esquerda pela situação. Vermelho venceu, âmbar
+     vence hoje, azul no prazo, verde corrigida, cinza esperando a OM. */
+  .seg-irr { display: block; width: 100%; text-align: left; margin: 8px 0; padding: 10px 12px; border: 1px solid #E6E7EA; border-left: 5px solid #8A8D94; border-radius: 14px; background: #fff; font: 14px Inter, sans-serif; color: var(--tinta, #231F20); cursor: pointer; }
+  .seg-irr small { display: block; font: 600 11px Inter, sans-serif; letter-spacing: .04em; color: var(--tinta-media, #5A5C63); }
+  .seg-irr b { display: block; margin: 2px 0; }
+  .seg-irr-pe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; } .seg-irr-pe small { display: inline; font-weight: 400; letter-spacing: 0; }
+  .seg-irr-vencida { border-left-color: #D3121A; } .seg-irr-hoje { border-left-color: #B87400; } .seg-irr-prazo { border-left-color: #2a78d6; }
+  .seg-irr-corrigida, .seg-irr-verificada, .seg-irr-vale, .seg-irr-enviada { border-left-color: #0E7A47; } .seg-irr-om { border-left-color: #8A8D94; }
+  .seg-sel-vencida { background: #FDECEC; color: #A50E15; } .seg-sel-hoje { background: #FFF3DC; color: #6B4400; } .seg-sel-prazo { background: #E7F0FB; color: #1B4F8F; }
+  .seg-sel-corrigida, .seg-sel-verificada, .seg-sel-vale, .seg-sel-enviada { background: #E4F4EB; color: #0E5C36; } .seg-sel-om { background: #EEF0F2; color: #3C3F45; }
+  .seg-irr-numeros .chip { flex: 1; } .seg-irr-n b { margin-right: 4px; }
+  .seg-abas { margin: 8px 0; } .seg-abas .chip { width: 100%; min-height: 44px; border: 1.5px solid #D9DBDF; border-radius: 12px; background: #fff; color: var(--tinta, #231F20); }
+  .seg-abas .chip.ativo { background: #FFF5F5; border-color: #D3121A; color: var(--tinta, #231F20); }
+  .seg-irr-numeros { flex-wrap: nowrap; } .seg-irr-numeros .chip { padding: 0 8px; white-space: nowrap; }
+  .seg-irr-ficha { border-left: 5px solid #8A8D94; }
+  .seg-ficha { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0 0; font-size: 14px; } .seg-ficha dt { color: var(--tinta-media, #5A5C63); } .seg-ficha dd { margin: 0; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>

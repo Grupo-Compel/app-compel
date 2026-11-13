@@ -77,10 +77,10 @@ function carregarLocal() {
    virar uma tela que não existe. Os de quem inspeciona só abrem para quem inspeciona; sem o pacote ainda, vale o início.
    O bloco.json dá o padrão por perfil; depois do pacote, o bloco diz à casca quais a pessoa usa DE VERDADE pela função
    dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
-var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'sqp', 'blitz', 'dds'];
+var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'sqp', 'blitz', 'dds', 'irregularidades'];
 function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
 function podeAbrir(t) {
-  if (t === 'sqp' || t === 'blitz') return !!S.pacote && ehDe(INSPECIONA);
+  if (t === 'sqp' || t === 'blitz' || t === 'irregularidades') return !!S.pacote && ehDe(INSPECIONA);
   if (t === 'dds') return !!S.pacote && ehDe(INSPECIONA.concat(['ENCARREGADO']));
   return true;
 }
@@ -90,7 +90,7 @@ function atalhosDestaPessoa() {
   if (e.epi) l.push('epi');
   if (e.luvas === 'DIARIO' || e.luvas === 'SEMANAL') l.push('luvas');
   if (e.veicular) l.push('veicular');
-  if (ehDe(INSPECIONA)) l.push('sqp', 'blitz');
+  if (ehDe(INSPECIONA)) l.push('sqp', 'blitz', 'irregularidades');
   if (ehDe(INSPECIONA.concat(['ENCARREGADO']))) l.push('dds');
   return l;
 }
@@ -180,10 +180,11 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
 var AJUDAS = {
   incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Toque em "Adicionar foto" e escolha entre tirar na hora ou pegar da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
+  irregularidades: 'As irregularidades achadas no SQP e na Blitz das suas bases. Pendentes: as vermelhas venceram, as âmbar vencem hoje, as azuis estão no prazo; toque num número para filtrar. Corrigidas: as dos últimos 90 dias. Para ver o histórico de uma pessoa ou de um carro, digite a matrícula ou a placa na busca. Ao abrir uma pendente, registre a correção: o que foi feito e a foto. Quem confere a correção é outra pessoa, no computador. Só quem inspeciona vê esta tela.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Adicione cada luva que você testou: o número e a classe. Para cada uma, infle no dispositivo e faça o teste visual contra a luz. Se uma reprovar, só ela sai de uso: tire a foto do defeito e avise o almoxarifado. As outras seguem valendo. As luvas do seu último teste aparecem no alto, é só tocar para testar de novo.',
   veicular: 'O km é opcional: digite o que o painel mostra. Se for menor que o último km que a Frota tem para a placa (descontados 50 km), a tela avisa para você conferir; se estiver certo, pode seguir. Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
@@ -212,7 +213,7 @@ function desenhar() {
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
   else if (S.msg) avisos += '<div class="aviso erro">' + h(S.msg) + '</div>';
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
-  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
+  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, irregularidades: telaIrregularidades, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
   rodapeFixo(corpo);
   Casca.ajuda($('ajuda'), AJUDAS[t]);
@@ -223,7 +224,11 @@ function desenhar() {
 }
 /* O destino do "Voltar" da faixa: do início sai do bloco; de qualquer outra tela volta ao início (ou à equipe, quando se
    faz por outra pessoa). É o que o botão do corpo da tela fazia até a 0.6.6. */
-function voltarDaTela() { return S.tela === 'inicio' ? Casca.voltar() : ir(S.alvo ? 'equipe' : 'inicio'); }
+function voltarDaTela() {
+  // Na ficha de uma irregularidade, o Voltar da faixa volta à lista, e não ao início (13/11/2026).
+  if (S.tela === 'irregularidades' && S.form && S.form.aberta) { S.form.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  return S.tela === 'inicio' ? Casca.voltar() : ir(S.alvo ? 'equipe' : 'inicio');
+}
 /* O botão de salvar e a frase "Faltam N" ficam presos no pé da tela, como no desenho do App (12/11/2026): com 41 itens
    de EPI, quem terminou lá embaixo não precisa rolar de volta para saber o que falta. Embrulha o que já foi desenhado,
    em vez de mudar as dez telas: o botão continua o mesmo, só ganha o rodapé em volta. A frase só vai junto quando é
@@ -279,7 +284,9 @@ function telaInicio() {
   if (ehDe(INSPECIONA)) {
     var p = S.pacote, meta = p.meta || { sqp: 0 }, mes = hoje().slice(0, 7);
     var sqpMes = (p.feitasNoMes && p.feitasNoMes.sqp || 0) + S.registros.filter(function (r) { return r.tipo === 'sqp' && r.estado !== 'enviado' && r.dia.slice(0, 7) === mes; }).length;
-    html += '<div class="seg-tiles">' + tile('sqp', 'Inspeção SQP', 'em campo', '⚑') + tile('blitz', 'Blitz', 'na base', '✓') + tile('dds', 'DDS', 'presença pela lista', '☰') + '</div>';
+    var irrV = listaDeIrregularidades().filter(function (x) { return situacaoDaIrr(x) === 'vencida'; }).length, irrP = listaDeIrregularidades().filter(function (x) { return IRR_PENDENTE.indexOf(situacaoDaIrr(x)) >= 0; }).length;
+    html += '<div class="seg-tiles">' + tile('sqp', 'Inspeção SQP', 'em campo', '⚑') + tile('blitz', 'Blitz', 'na base', '✓') + tile('dds', 'DDS', 'presença pela lista', '☰') +
+      tile('irregularidades', 'Irregularidades', irrV ? irrV + ' vencida(s)' : irrP ? irrP + ' pendente(s)' : 'nada pendente', '🚩', irrV ? 'ruim' : irrP ? 'pend' : '') + '</div>';
     if (meta.sqp) html += '<div class="cartao seg-meta">' + anel(sqpMes, meta.sqp) + '<div><b>Sua meta do mês</b><br><span class="seg-sub">' + sqpMes + ' de ' + meta.sqp + ' inspeções SQP</span></div></div>';
     var hojeBase = p.hoje || {}, n = Object.keys(hojeBase).length;
     html += '<div class="cartao"><b>Checklists de hoje nas suas bases</b><p class="seg-sub">' + (n ? n + ' pessoa(s) já mandaram (até a última vez que o celular falou com o servidor).' : 'Nenhum checklist chegou ainda hoje.') + ' Quem não fez depende da equipe do dia, que vem da Operação.</p></div>';
@@ -334,10 +341,10 @@ function gravar(reg) {
     S.msg = ''; return carregarLocal().then(function () { return x; });
   });
 }
-function concluir(reg, frase) {
+function concluir(reg, frase, voltarPara) {
   gravar(reg).then(function (x) {
     if (x === false) return;
-    var ret = S.alvo ? 'equipe' : 'inicio'; S.tela = ret; S.alvo = null; S.form = null; S.recuperado = false; apagarRascunho(); desenhar();
+    var ret = voltarPara || (S.alvo ? 'equipe' : 'inicio'); S.tela = ret; S.alvo = null; S.form = null; S.recuperado = false; apagarRascunho(); desenhar();
     var c = $('corpo'), d = document.createElement('div');
     d.className = 'aviso ' + (reg.retido ? 'erro' : 'ok');
     d.textContent = frase + (x && x.esperando ? ' Guardado: sobe quando houver sinal.' : x && x.erro ? ' Guardado: ' + x.erro : ' Enviado.');
@@ -913,6 +920,97 @@ function telaBlitz() {
   return html + rodapeDeEtapas(n, ETAPAS_BLITZ.length, travaDaEtapa(f),
     '<button type="button" class="btn" data-acao="salvarBlitz"' + (!Object.keys(f.resp).length || nc.some(function (k) { return !f.motivo[k] || !f.fotos[k]; }) ? ' disabled' : '') + '>Enviar Blitz</button>');
 }
+/* ---------- irregularidades (bloco 0.7.0, 13/11/2026) ----------
+   O desenho do App (§10) com as decisões do Dalton de 13/11/2026: só quem inspeciona vê (INSPECIONA + administrador);
+   o inspetor REGISTRA a correção (o que foi feito e a foto) e não confere, porque a conferência é de outra pessoa, no
+   computador; a busca pela matrícula ou pela placa mostra o histórico da pessoa ou do carro; sem "teve custo?" e sem
+   "correção esperada". A lista vem no pacote (servidor seg-0.9.18): funciona sem sinal, e a correção sobe pela fila.
+   A situação é calculada aqui com a data de hoje, do mesmo jeito do servidor (situacaoCorrecao, 10_Regras.gs): vencida
+   é a ABERTA cujo limite já passou. A correção que este celular registrou e ainda não voltou no pacote aparece como
+   "enviada por você", para ninguém registrar duas vezes. */
+var IRR_PENDENTE = ['vencida', 'hoje', 'prazo', 'om'];
+var IRR_ROTULO = { vencida: 'Vencida', hoje: 'Vence hoje', prazo: 'No prazo', om: 'Esperando a OM', enviada: 'Enviada por você', corrigida: 'Corrigida · falta conferir', verificada: 'Corrigida e conferida', vale: 'Fechada com vale' };
+var IRR_GRAU = { ouro: 'Regra de Ouro', grave: 'Grave', moderado: 'Moderado', leve: 'Leve', sesmt: 'A classificar' };
+function listaDeIrregularidades() { return (S.pacote && S.pacote.irregularidades) || []; }
+function correcaoDoCelular(id) { return (S.registros || []).filter(function (r) { return r.tipo === 'correcao' && r.correcao && r.correcao.idIrregularidade === id && r.estado !== 'recusado'; })[0]; }
+function diasEntre(a, b) { var x = String(a).split('-'), y = String(b).split('-'); return Math.round((Date.UTC(+y[0], +y[1] - 1, +y[2]) - Date.UTC(+x[0], +x[1] - 1, +x[2])) / 864e5); }
+function situacaoDaIrr(x) {
+  if (x.s === 'ABERTA' && correcaoDoCelular(x.i)) return 'enviada';
+  if (x.s === 'AGUARDANDO_OM') return 'om';
+  if (x.s === 'ABERTA') { var hj = hoje(); return x.l && x.l < hj ? 'vencida' : x.l === hj ? 'hoje' : 'prazo'; }
+  return { CORRIGIDA: 'corrigida', VERIFICADA: 'verificada', VALE: 'vale' }[x.s] || 'corrigida';
+}
+function tempoDaIrr(x, sit) {
+  var n = x.l ? diasEntre(hoje(), x.l) : 0;
+  if (sit === 'vencida') return 'venceu há ' + (-n) + ' dia(s)';
+  if (sit === 'hoje') return 'vence hoje';
+  if (sit === 'prazo') return x.l ? 'vence em ' + n + ' dia(s)' : 'sem prazo';
+  if (sit === 'om') return 'esperando a OM da Frota';
+  if (sit === 'enviada') return 'correção enviada por você · sobe com sinal';
+  return x.c ? 'corrigida em ' + diaBr(x.c) + (x.cp ? ' por ' + x.cp : '') : IRR_ROTULO[sit];
+}
+/* A busca do histórico: matrícula (3 algarismos ou mais, a pessoa inteira), placa, equipe ou o desvio. */
+function irrCasaBusca(x, q) {
+  if (!q) return true;
+  var n = normalizar(q), dig = n.replace(/\D/g, '').replace(/^0+(?=\d)/, ''), pl = soPlaca(q);
+  if (dig.length >= 3 && /^\d+$/.test(n.replace(/\s/g, '')) && String(x.m || '').split(',').indexOf(dig) >= 0) return true;
+  if (pl.length >= 3 && String(x.p || '').indexOf(pl) >= 0) return true;
+  return normalizar([x.q, x.v, x.t].join(' ')).indexOf(n) >= 0;
+}
+function telaIrregularidades() {
+  var f = S.form = S.form || { id: novoId('cor'), tipo: 'irregularidades', aba: 'pendentes', sit: '', base: '', busca: '', aberta: '', oQueFoiFeito: '', foto: '' };
+  if (!S.pacote || !S.pacote.irregularidades) return '<div class="aviso atencao">A lista de irregularidades vem com o pacote do servidor (versão seg-0.9.18 ou mais nova). Abra a Segurança com sinal.</div>';
+  var todas = listaDeIrregularidades();
+  if (f.aberta) { var x = todas.filter(function (y) { return y.i === f.aberta; })[0]; if (x) return fichaDaIrr(f, x); f.aberta = ''; }
+  var bases = []; todas.forEach(function (x) { if (x.b && bases.indexOf(x.b) < 0) bases.push(x.b); }); bases.sort();
+  var daBase = todas.filter(function (x) { return !f.base || x.b === f.base; }), sits = daBase.map(situacaoDaIrr);
+  var conta = function (s) { return sits.filter(function (y) { return y === s; }).length; };
+  var nPend = sits.filter(function (y) { return IRR_PENDENTE.indexOf(y) >= 0; }).length;
+  var q = String(f.busca || '').trim();
+  var html = '<p class="seg-sub">🔒 Só quem inspeciona vê esta tela. O que o SQP e a Blitz do celular acharam nas suas bases.</p>' +
+    '<div class="campo"><label>Procurar matrícula, placa, equipe ou desvio</label><input data-campo="busca" value="' + h(f.busca) + '" placeholder="ex.: 90101 ou QWE7C20"></div>';
+  if (bases.length > 1) html += '<div class="seg-chips">' + [['', 'Todas as bases']].concat(bases.map(function (b) { return [b, b]; })).map(function (b) { return '<button type="button" class="chip' + (f.base === b[0] ? ' ativo' : '') + '" data-acao="irrBase" data-v="' + h(b[0]) + '">' + h(b[1]) + '</button>'; }).join('') + '</div>';
+  var lista;
+  if (q) {
+    lista = daBase.filter(function (x) { return irrCasaBusca(x, q); });
+    html += '<h2 class="seg-h2">Histórico de "' + h(q) + '": ' + lista.length + ' irregularidade(s)</h2><p class="seg-sub">As em aberto de qualquer data e as fechadas dos últimos 90 dias, só do que o celular registrou (as planilhas antigas não entram).</p>';
+  } else {
+    html += '<div class="seg-dois seg-abas">' + [['pendentes', 'Pendentes · ' + nPend], ['corrigidas', 'Corrigidas · ' + (sits.length - nPend)]].map(function (a) { return '<button type="button" class="chip' + (f.aba === a[0] ? ' ativo' : '') + '" data-acao="irrAba" data-v="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
+    if (f.aba === 'pendentes') html += '<div class="seg-tres seg-irr-numeros">' + [['vencida', 'vencidas'], ['hoje', 'hoje'], ['prazo', 'no prazo']].map(function (n) {
+      return '<button type="button" class="chip seg-irr-n seg-irr-' + n[0] + (f.sit === n[0] ? ' ativo' : '') + '" data-acao="irrSit" data-v="' + n[0] + '"><b>' + conta(n[0]) + '</b> ' + n[1] + '</button>'; }).join('') + '</div>';
+    lista = daBase.filter(function (x) { var s = situacaoDaIrr(x), pend = IRR_PENDENTE.indexOf(s) >= 0; return (f.aba === 'pendentes' ? pend : !pend) && (!f.sit || f.aba !== 'pendentes' || s === f.sit); });
+  }
+  if (!lista.length) html += '<p class="seg-sub">' + (q ? 'Nada com esse texto.' : f.aba === 'pendentes' ? 'Nenhuma irregularidade pendente' + (f.sit ? ' nesta situação' : '') + '.' : 'Nenhuma corrigida nos últimos 90 dias.') + '</p>';
+  return html + lista.map(function (x) {
+    var s = situacaoDaIrr(x);
+    return '<button type="button" class="seg-irr seg-irr-' + s + '" data-acao="irrAbrir" data-v="' + h(x.i) + '"><small>' + h(x.o.toUpperCase() + ' · ' + diaBr(x.d) + ' · ' + x.b) + '</small><b>' + h(x.v + (x.t ? ' · ' + x.t : '')) + '</b>' +
+      '<span class="seg-sub">' + h([x.m ? 'matrícula ' + x.m.split(',').join(', ') : '', x.p ? 'placa ' + x.p : '', x.q ? 'equipe ' + x.q : ''].filter(String).join(' · ') || 'sem pessoa nem placa') + '</span>' +
+      '<span class="seg-irr-pe"><span class="selo seg-sel-' + s + '">' + h(IRR_ROTULO[s]) + '</span>' + (x.n ? ' <span class="selo">' + h(IRR_GRAU[x.n] || x.n) + '</span>' : '') + ' <small>' + h(tempoDaIrr(x, s)) + '</small></span></button>';
+  }).join('');
+}
+function fichaDaIrr(f, x) {
+  var s = situacaoDaIrr(x), pode = ['vencida', 'hoje', 'prazo'].indexOf(s) >= 0;
+  var linha = function (k, v) { return v ? '<dt>' + h(k) + '</dt><dd>' + v + '</dd>' : ''; };
+  var html = '<button type="button" class="link-texto" data-acao="irrFechar">‹ Voltar à lista</button>' +
+    '<div class="cartao seg-irr-ficha seg-irr-' + s + '"><small>' + h(x.o.toUpperCase() + ' · ' + x.b) + '</small><h2 class="seg-h2">' + h(x.v + (x.t ? ' · ' + x.t : '')) + '</h2>' +
+    '<span class="selo seg-sel-' + s + '">' + h(IRR_ROTULO[s]) + '</span>' + (x.n ? ' <span class="selo">' + h(IRR_GRAU[x.n] || x.n) + '</span>' : '') + ' <small>' + h(tempoDaIrr(x, s)) + '</small>' +
+    '<dl class="seg-ficha">' + linha('Base', h(x.b)) + linha('Matrícula', h(String(x.m || '').split(',').filter(String).join(', '))) + linha('Placa', h(x.p)) + linha('Equipe', h(x.q)) +
+    linha('Quando', h(diaBr(x.d))) + linha('Apontado por', h(x.r)) + linha('Prazo', x.l ? h(diaBr(x.l)) : '') + linha('Foto do apontamento', x.f ? 'registrada no sistema' : '') + '</dl></div>';
+  html += '<div class="cartao"><b>Andamento</b><p class="seg-sub">Apontada em ' + h(diaBr(x.d)) + (x.r ? ' por ' + h(x.r) : '') + '.</p>' +
+    (x.c ? '<p class="seg-sub">Corrigida em ' + h(diaBr(x.c)) + (x.cp ? ' por ' + h(x.cp) : '') + (x.x ? ': ' + h(x.x) : '') + '.</p>' : '') +
+    (s === 'corrigida' ? '<p class="seg-sub">Falta outra pessoa conferir, na tela de correções do computador.</p>' : s === 'enviada' ? '<p class="seg-sub">Você registrou a correção; ela sobe quando houver sinal.</p>' : '') + '</div>';
+  /* O histórico daquela pessoa e daquele carro, a um toque (Dalton, 13/11/2026: "consultar as irregularidades de uma
+     matrícula ou carro para ver o histórico"). */
+  var chaves = String(x.m || '').split(',').filter(String).concat(x.p ? [x.p] : []);
+  if (chaves.length) html += '<div class="cartao"><b>Histórico</b><div class="seg-chips">' + chaves.map(function (k) { return '<button type="button" class="chip" data-acao="irrHistorico" data-v="' + h(k) + '">Ver ' + h(k) + '</button>'; }).join('') + '</div></div>';
+  if (!pode) return html;
+  var faltaFoto = !f.foto;
+  return html + seletorDeBase() + '<div class="cartao"><b>Registrar correção</b><p class="seg-sub">O que foi feito e a foto. Quem confere é outra pessoa, no computador.</p>' +
+    '<div class="campo"><label>O que foi feito</label><textarea class="seg-texto" rows="3" data-campo="oQueFoiFeito">' + h(f.oQueFoiFeito) + '</textarea></div>' +
+    '<button type="button" class="btn secundario' + (faltaFoto ? ' seg-foto-obrig' : '') + '" data-acao="irrFoto">' + (faltaFoto ? 'Adicionar foto da correção' : 'Foto da correção ✓') + '</button></div>' +
+    '<button type="button" class="btn" data-acao="salvarCorrecao"' + (faltaFoto ? ' disabled' : '') + '>Registrar correção</button>' + (faltaFoto ? '<p class="seg-sub">Falta a foto da correção.</p>' : '');
+}
+
 /* ---------- DDS ---------- */
 function telaDds() {
   /* Só o DDS NA BASE. O DDS em campo é da Operação: o diário marca a presença de toda a equipe e pede a foto da lista
@@ -1198,6 +1296,20 @@ document.addEventListener('click', function (ev) {
   if (a === 'blitzFoto') return pedirFoto(function (id) { f.fotos[b.dataset.k] = id; });
   if (a === 'conf') { f.conf[b.dataset.m] = v === '1'; return desenhar(); }
   if (a === 'fotoPagina') { var pg = +b.dataset.p; fotoPendente = null; var i = $('arquivoFoto'); i.removeAttribute('capture'); i.value = ''; i.onchange = function () { i.onchange = null; lerPagina(i.files[0], pg); }; i.click(); return; }
+  /* Irregularidades (0.7.0): filtros, ficha, histórico e a correção. */
+  if (a === 'irrAba') { f.aba = v; f.sit = ''; return desenhar(); }
+  if (a === 'irrSit') { f.sit = f.sit === v ? '' : v; return desenhar(); }
+  if (a === 'irrBase') { f.base = v; return desenhar(); }
+  if (a === 'irrAbrir') { f.aberta = v; f.id = novoId('cor'); f.oQueFoiFeito = ''; f.foto = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'irrFechar') { f.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'irrHistorico') { f.aberta = ''; f.busca = v; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'irrFoto') return pedirFoto(function (id) { f.foto = id; }, false, false, true);
+  if (a === 'salvarCorrecao') {
+    var txtC = String(f.oQueFoiFeito || '').trim();
+    if (txtC.length < 5 && falta('Escreva o que foi feito na correção.')) return;
+    if (!f.foto && falta('Falta a foto da correção.')) return;
+    return concluir({ id: f.id, tipo: 'correcao', correcao: { idIrregularidade: f.aberta, oQueFoiFeito: txtC, foto: f.foto } }, 'Correção registrada. Quem confere é outra pessoa, no computador.', 'irregularidades');
+  }
   /* As etapas do SQP e da Blitz: a tela volta ao alto a cada troca, como quando a tela muda. */
   if (a === 'etapaSeguir') { var fe = conferirAoSeguir(f); if (fe && falta(fe)) return; f.etapa = etapaDe(f) + 1; S.msg = ''; guardarRascunho(); desenhar(); window.scrollTo(0, 0); return; }
   if (a === 'etapaVoltar') { f.etapa = etapaDe(f) - 1; S.msg = ''; guardarRascunho(); desenhar(); window.scrollTo(0, 0); return; }

@@ -12,7 +12,7 @@
     "ADMIN"
   ],
   "servidor": "SEGURANCA",
-  "versao": "0.6.9",
+  "versao": "0.7.0",
   "entrada": "index.html",
   "arquivos": [
     "index.html",
@@ -99,6 +99,18 @@
       "icone": "☰",
       "perfis": [
         "ENCARREGADO",
+        "INSPETOR",
+        "SUPERVISOR",
+        "COORDENADOR",
+        "GERENTE",
+        "ADMIN"
+      ]
+    },
+    {
+      "id": "irregularidades",
+      "nome": "Irregularidades",
+      "icone": "🚩",
+      "perfis": [
         "INSPETOR",
         "SUPERVISOR",
         "COORDENADOR",
