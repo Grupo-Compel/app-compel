@@ -724,8 +724,10 @@ function cartaoDoModulo(m, i) {
   var breve = !m.url, defeito = !breve && !enderecoBom(m), travado = m.liberado === false, local = !!abreNoCelular(m), semRede = !comSinal() && !local;
   var motivo = travado ? (m.motivo || 'Ainda não liberado.') : breve ? 'Em breve.' : defeito ? 'O endereço deste sistema está com defeito na planilha. Avise a administração.' : semRede ? 'Precisa de sinal para abrir.' : '';
   return '<button type="button" class="n-modulo' + (motivo ? ' n-bloqueado' : '') + '" data-acao="abrirModulo" data-i="' + i + '"' + (motivo || E.ocupado ? ' disabled' : '') + '>' +
-    (m.icone ? '<span class="n-icone">' + esc(m.icone) + '</span>' : '') + '<span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
-    (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : local ? '<span class="n-perfil app-local">funciona sem sinal</span>' : '') + '</button>';
+    // Quadro pequeno, dois por linha, emoji num quadrinho cinza à esquerda (decisão do Dalton de 12/11/2026, 16h45:
+    // "emoji, mas com os quadros menores"). Sem emoji na MODULOS, o quadrinho fica com a inicial, para a coluna não dançar.
+    '<span class="n-icone" aria-hidden="true">' + esc(m.icone || String(m.nome || m.modulo || '?').charAt(0)) + '</span><span class="app-sis-texto"><span class="n-nome">' + esc(m.nome || m.modulo) + '</span>' +
+    (m.perfil ? '<span class="n-perfil">' + esc(m.perfil) + '</span>' : '') + (motivo ? '<span class="n-motivo">' + esc(motivo) + '</span>' : local ? '<span class="n-perfil app-local">funciona sem sinal</span>' : '') + '</span></button>';
 }
 function telaInicio() {
   var p = pessoaAtual(), mods = p.modulos || [];
