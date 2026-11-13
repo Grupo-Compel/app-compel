@@ -185,7 +185,7 @@ var AJUDAS = {
   incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Toque em "Adicionar foto" e escolha entre tirar na hora ou pegar da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
-  luvas: 'Infle a luva no dispositivo e faça o teste visual contra a luz. Se reprovar, diga qual luva reprovou (as duas, só a esquerda ou só a direita): o par sai de uso, tire a foto e avise o almoxarifado.',
+  luvas: 'Adicione cada luva que você testou: o número e a classe. Para cada uma, infle no dispositivo e faça o teste visual contra a luz. Se uma reprovar, só ela sai de uso: tire a foto do defeito e avise o almoxarifado. As outras seguem valendo. As luvas do seu último teste aparecem no alto, é só tocar para testar de novo.',
   veicular: 'O km é opcional: digite o que o painel mostra. Se for menor que o último km que a Frota tem para a placa (descontados 50 km), a tela avisa para você conferir; se estiver certo, pode seguir. Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
   sqp: 'Escolha o desvio no catálogo: o nível vem da Política, não de você. Cada irregularidade com foto e os envolvidos. O sistema cruza com os checklists do dia de cada envolvido. Com a placa, diga quem conduz; ao marcar o prefixo aparecem as placas que já saíram com ele. A matrícula do responsável da equipe vem da formação do mês, e você indica as pessoas inspecionadas. As fotos da inspeção são opcionais, com ou sem irregularidade. O que ficou em aberto da Blitz anterior desta equipe aparece para você conferir.',
   blitz: 'Escolha o que vai inspecionar (pessoa, veículo ou equipe) e marque item por item. Não conforme pede o motivo e a foto, e vira irregularidade com prazo de correção. O que ficou em aberto da Blitz anterior aparece logo abaixo: diga se foi resolvido, se continua, ou gere o vale de quem vai arcar com o prejuízo.',
@@ -402,22 +402,58 @@ function rostoSePreciso(f) {
   return '<div class="cartao"><b>A foto do seu rosto</b><p class="seg-sub">Você está fazendo por ' + h(S.alvo.nome) + '. O registro fica no nome dele, e a sua foto mostra quem fez (D20).</p><button type="button" class="btn secundario" data-acao="rosto">' + (f.rosto ? 'Foto do rosto tirada ✓' : 'Tirar a foto do meu rosto') + '</button></div>';
 }
 
-/* ---------- luvas ---------- */
+/* ---------- luvas, uma por uma (0.6.8, 12/11/2026) ----------
+   Decisão do Dalton: "se 1 der defeito, vai trocar só ela". A tela deixa de pedir esquerda/direita: cada luva testada é um
+   item da rodada, com o número, a classe e o seu próprio resultado, e só a reprovada sai de uso. A rodada continua sendo UM
+   registro (o servidor 0.9.16 grava uma linha por luva): a Campanha de Produtividade conta DIAS distintos por matrícula
+   (conferido em 12/11/2026), e não linhas, então a conta de quem recebe pela meta não muda. Registro antigo (esquerda/
+   direita) continua aceito pelo servidor, para o celular que ainda não atualizou. */
+var MAX_LUVAS_NA_RODADA = 8, CODIGO_DE_LUVA = /^[A-Za-z0-9._\/-]{1,30}$/, CLASSES_DE_LUVA = ['0', '2', '3', '4'];
+function matDoAlvoDeLuvas() { return String(S.alvo ? S.alvo.matricula : S.pessoa.matricula).trim().replace(/^0+(?=\d)/, ''); }
+function luvaReprovada(x) { return x.inflagem === 'reprovado' || x.visual === 'reprovado'; }
+/* As luvas do último teste anterior a hoje, que ainda não saíram de uso. O pacote traz as que o servidor viu; o que este
+   celular gravou depois (ou ainda não mandou) vale mais, porque o servidor só atualiza o pacote de tempos em tempos. Sem
+   pacote e sem registro local a lista é vazia e a pessoa digita: a sugestão ajuda, nunca é condição. */
+function luvasSugeridas(mat) {
+  var pac = (S.pacote && S.pacote.luvasDaPessoa) || {}, base = pac[mat], dia = base ? base.d : '', lista = base ? (base.l || []).map(function (x) { return { codigo: String(x.c), classe: String(x.k) }; }) : [];
+  var mias = (S.registros || []).filter(function (r) { return r.tipo === 'luvas' && r.luvas && Array.isArray(r.luvas.itens) && r.carimbo && r.carimbo.emNomeDe && String(r.carimbo.emNomeDe.matricula).trim().replace(/^0+(?=\d)/, '') === mat && r.dia; });
+  var retiradas = {};
+  mias.forEach(function (r) { if (r.dia >= dia) r.luvas.itens.forEach(function (x) { if (luvaReprovada(x)) retiradas[String(x.codigo).toUpperCase()] = true; }); });
+  var maisNovo = mias.filter(function (r) { return r.dia < hoje() && r.dia > dia; }).sort(function (x, y) { return x.dia < y.dia ? 1 : -1; })[0];
+  if (maisNovo) lista = maisNovo.luvas.itens.map(function (x) { return { codigo: String(x.codigo), classe: String(x.classe) }; });
+  return lista.filter(function (x) { return !retiradas[x.codigo.toUpperCase()]; });
+}
+function luvasDaRodada(f) { f.itens = Array.isArray(f.itens) ? f.itens : []; return f.itens; }
+function faltaDasLuvas(f) {
+  var it = luvasDaRodada(f), n = 0;
+  if (!it.length) return 'Adicione ao menos uma luva.';
+  it.forEach(function (x) { if (!x.inflagem || !x.visual || (luvaReprovada(x) && !x.foto)) n++; });
+  if (n) return 'Falta resultado ou foto em ' + n + ' luva(s).';
+  return (S.alvo && !f.rosto) ? 'Falta a foto do seu rosto.' : '';
+}
 function telaLuvas() {
-  var f = S.form = S.form || { id: novoId('luv'), tipo: 'luvas', classe: '', esquerda: '', direita: '', inflagem: '', visual: '' };
-  var sel = function (campo, op) { return '<div class="seg-tres">' + op.map(function (x) { return '<button type="button" class="chip' + (f[campo] === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="' + campo + '" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
-  var reprov = f.inflagem === 'reprovado' || f.visual === 'reprovado';
-  return '<div class="cartao"><b>Classe do par</b>' + sel('classe', [['0', '0'], ['2', '2'], ['3', '3'], ['4', '4']]) +
-    /* Esquerda e direita em campos separados (23/10/2026): a planilha de hoje tem uma coluna para cada, e a leitura por
-       letra do motor da Campanha desalinha a linha quando uma vem vazia (LEITURA §2.4 b). */
-    '<div class="seg-dois"><div class="campo"><label>Luva esquerda (nº)</label><input data-campo="esquerda" inputmode="numeric" value="' + h(f.esquerda) + '" placeholder="ex.: 1234"></div>' +
-    '<div class="campo"><label>Luva direita (nº)</label><input data-campo="direita" inputmode="numeric" value="' + h(f.direita) + '" placeholder="ex.: 1235"></div></div></div>' +
-    '<div class="cartao"><b>Inflagem</b>' + sel('inflagem', [['aprovado', 'Aprovada'], ['reprovado', 'Reprovada']]) + '<b>Teste visual contra a luz</b>' + sel('visual', [['aprovado', 'Aprovado'], ['reprovado', 'Reprovado']]) + '</div>' +
-    /* O formulário antigo perguntava qual luva reprovou (ambas / só a esquerda / só a direita); sem isso o almoxarifado
-       troca o par inteiro sem saber se bastava uma luva (decisão do Dalton, 07/11/2026). */
-    (reprov ? '<div class="cartao"><b>Qual luva reprovou?</b>' + sel('lado', [['ambas', 'As duas'], ['esquerda', 'Só a esquerda'], ['direita', 'Só a direita']]) + '</div>' : '') +
-    (reprov ? '<div class="aviso erro">Par reprovado: sai de uso hoje. Tire a foto e avise o almoxarifado.</div><button type="button" class="btn secundario' + (f.foto ? '' : ' seg-foto-obrig') + '" data-acao="fotoCampo" data-c="foto">' + (f.foto ? 'Foto tirada ✓' : 'Tirar foto do defeito') + '</button>' : '') +
-    rostoSePreciso(f) + '<button type="button" class="btn" data-acao="salvarLuvas"' + (!f.classe || !f.inflagem || !f.visual || (reprov && (!f.foto || !f.lado)) || (S.alvo && !f.rosto) ? ' disabled' : '') + '>Salvar teste</button>';
+  var f = S.form = S.form || { id: novoId('luv'), tipo: 'luvas', itens: [], novoCodigo: '', novaClasse: '' };
+  var it = luvasDaRodada(f);
+  var chips = function (i, campo, op) { return '<div class="seg-tres">' + op.map(function (x) { return '<button type="button" class="chip' + (it[i][campo] === x[0] ? ' ativo' : '') + '" data-acao="luvaCampo" data-i="' + i + '" data-c="' + campo + '" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
+  var ja = {}; it.forEach(function (x) { ja[x.codigo.toUpperCase()] = true; });
+  var sug = luvasSugeridas(matDoAlvoDeLuvas()).filter(function (x) { return !ja[x.codigo.toUpperCase()]; });
+  var cheia = it.length >= MAX_LUVAS_NA_RODADA;
+  var html = (sug.length && !cheia ? '<div class="cartao"><b>Luvas do último teste</b><p class="seg-sub">Toque para testar de novo. A que reprovou antes não aparece aqui.</p><div class="seg-chips">' +
+      sug.map(function (x) { return '<button type="button" class="chip" data-acao="luvaSugerida" data-v="' + h(x.codigo) + '" data-k="' + h(x.classe) + '">' + h(x.codigo) + ' · classe ' + h(x.classe) + '</button>'; }).join('') + '</div></div>' : '');
+  it.forEach(function (x, i) {
+    var rep = luvaReprovada(x);
+    html += '<div class="cartao seg-item' + (rep ? ' seg-problema' : '') + '"><b>Luva ' + h(x.codigo) + ' · classe ' + h(x.classe) + '</b> ' +
+      '<button type="button" class="btn secundario" data-acao="luvaTirar" data-i="' + i + '" aria-label="Tirar a luva ' + h(x.codigo) + ' da lista">Tirar</button>' +
+      '<p class="seg-sub">Inflagem</p>' + chips(i, 'inflagem', [['aprovado', 'Aprovada'], ['reprovado', 'Reprovada']]) +
+      '<p class="seg-sub">Teste visual contra a luz</p>' + chips(i, 'visual', [['aprovado', 'Aprovado'], ['reprovado', 'Reprovado']]) +
+      (rep ? '<div class="aviso erro">Só esta luva sai de uso. Tire a foto do defeito e avise o almoxarifado.</div><button type="button" class="btn secundario' + (x.foto ? '' : ' seg-foto-obrig') + '" data-acao="luvaFoto" data-i="' + i + '">' + (x.foto ? 'Foto tirada ✓' : 'Tirar foto do defeito') + '</button>' : '') + '</div>';
+  });
+  html += (cheia ? '<div class="aviso">Máximo de ' + MAX_LUVAS_NA_RODADA + ' luvas por vez. Salve e faça outra rodada, se tiver mais.</div>' :
+    '<div class="cartao"><b>Adicionar uma luva</b><div class="campo"><label>Número da luva</label><input data-campo="novoCodigo" value="' + h(f.novoCodigo) + '" placeholder="ex.: 1234" autocapitalize="characters"></div>' +
+    '<p class="seg-sub">Classe</p><div class="seg-tres">' + CLASSES_DE_LUVA.map(function (c) { return '<button type="button" class="chip' + (f.novaClasse === c ? ' ativo' : '') + '" data-acao="campo" data-c="novaClasse" data-v="' + c + '">' + c + '</button>'; }).join('') + '</div>' +
+    '<button type="button" class="btn secundario" data-acao="luvaAdicionar">Adicionar à lista</button></div>');
+  var falta1 = faltaDasLuvas(f);
+  return html + rostoSePreciso(f) + '<button type="button" class="btn" data-acao="salvarLuvas"' + (falta1 ? ' disabled' : '') + '>Salvar teste</button>' + (falta1 ? '<p class="seg-sub">' + h(falta1) + '</p>' : '');
 }
 
 /* ---------- veicular ---------- */
@@ -1075,10 +1111,23 @@ document.addEventListener('click', function (ev) {
   if (a === 'fotoPagina') { var pg = +b.dataset.p; fotoPendente = null; var i = $('arquivoFoto'); i.removeAttribute('capture'); i.value = ''; i.onchange = function () { i.onchange = null; lerPagina(i.files[0], pg); }; i.click(); return; }
   if (a === 'salvarEpi') return concluir({ id: f.id, tipo: 'epi', funcao: (S.alvo || {}).funcao || (S.pacote && S.pacote.pessoa.funcao) || '', fotoRosto: f.rosto,
     itens: f._itens.map(function (it) { return { item: it, estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) }, 'Checklist de EPI/EPC salvo.');
-  if (a === 'salvarLuvas' && (!String(f.esquerda).trim() || !String(f.direita).trim()) && falta('Digite o número das duas luvas, a esquerda e a direita.')) return;
-  if (a === 'salvarLuvas' && (f.inflagem === 'reprovado' || f.visual === 'reprovado') && !f.lado && falta('Diga qual luva reprovou: as duas, só a esquerda ou só a direita.')) return;
-  if (a === 'salvarLuvas') return concluir({ id: f.id, tipo: 'luvas', fotoRosto: f.rosto, luvas: { classe: f.classe, esquerda: String(f.esquerda).trim(), direita: String(f.direita).trim(), par: String(f.esquerda).trim() + ' / ' + String(f.direita).trim(), inflagem: f.inflagem, visual: f.visual, lado: f.inflagem === 'reprovado' || f.visual === 'reprovado' ? f.lado : '', foto: f.foto || '' } },
-    f.inflagem === 'reprovado' || f.visual === 'reprovado' ? 'Par reprovado registrado: ele sai de uso.' : 'Teste de luvas salvo.');
+  if (a === 'luvaCampo') { luvasDaRodada(f)[+b.dataset.i][b.dataset.c] = v; return desenhar(); }
+  if (a === 'luvaTirar') { luvasDaRodada(f).splice(+b.dataset.i, 1); return desenhar(); }
+  if (a === 'luvaFoto') return pedirFoto(function (id) { luvasDaRodada(f)[+b.dataset.i].foto = id; });
+  if (a === 'luvaSugerida') { if (luvasDaRodada(f).length < MAX_LUVAS_NA_RODADA) f.itens.push({ codigo: v, classe: b.dataset.k, inflagem: '', visual: '', foto: '' }); return desenhar(); }
+  if (a === 'luvaAdicionar') {
+    var cod = String(f.novoCodigo || '').trim();
+    if (!CODIGO_DE_LUVA.test(cod) && falta('Digite o número da luva (letras, números, ponto, barra ou hífen, sem espaço).')) return;
+    if (!f.novaClasse && falta('Escolha a classe da luva.')) return;
+    if (luvasDaRodada(f).some(function (x) { return x.codigo.toUpperCase() === cod.toUpperCase(); }) && falta('Essa luva já está na lista.')) return;
+    f.itens.push({ codigo: cod, classe: f.novaClasse, inflagem: '', visual: '', foto: '' }); f.novoCodigo = ''; S.msg = ''; return desenhar();
+  }
+  if (a === 'salvarLuvas' && faltaDasLuvas(f) && falta(faltaDasLuvas(f))) return;
+  if (a === 'salvarLuvas') {
+    var reprovadas = luvasDaRodada(f).filter(luvaReprovada).map(function (x) { return x.codigo; });
+    return concluir({ id: f.id, tipo: 'luvas', fotoRosto: f.rosto, luvas: { itens: f.itens.map(function (x) { return { codigo: x.codigo, classe: x.classe, inflagem: x.inflagem, visual: x.visual, foto: x.foto || '' }; }) } },
+      reprovadas.length ? 'Reprovada(s): ' + reprovadas.join(', ') + '. Só ela(s) sai(em) de uso.' : 'Teste de luvas salvo.');
+  }
   if (a === 'salvarVeicular' && !String(f.placa).trim() && falta('Digite a placa do veículo.')) return;
   if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: kmDoCampo(f.km) }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
     itens: f._itens.map(function (it) { return { item: it.replace(/^Lataria /, 'Lataria '), estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) };
