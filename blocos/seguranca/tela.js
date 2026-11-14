@@ -77,7 +77,7 @@ function carregarLocal() {
    virar uma tela que não existe. Os de quem inspeciona só abrem para quem inspeciona; sem o pacote ainda, vale o início.
    O bloco.json dá o padrão por perfil; depois do pacote, o bloco diz à casca quais a pessoa usa DE VERDADE pela função
    dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
-var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'sqp', 'blitz', 'dds', 'irregularidades'];
+var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'sqp', 'blitz', 'dds', 'irregularidades'];
 function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
 function podeAbrir(t) {
   if (t === 'sqp' || t === 'blitz' || t === 'irregularidades') return !!S.pacote && ehDe(INSPECIONA);
@@ -86,7 +86,7 @@ function podeAbrir(t) {
 }
 function atalhosDestaPessoa() {
   if (!S.pacote) return null;
-  var e = S.pacote.exigencias || { epi: true, luvas: 'NAO', veicular: false }, l = ['inicio', 'incidente'];
+  var e = S.pacote.exigencias || { epi: true, luvas: 'NAO', veicular: false }, l = ['inicio', 'relato', 'incidente'];
   if (e.epi) l.push('epi');
   if (e.luvas === 'DIARIO' || e.luvas === 'SEMANAL') l.push('luvas');
   if (e.veicular) l.push('veicular');
@@ -180,7 +180,7 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou quase acidente' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou ocorrência' };
 var AJUDAS = {
   incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Toque em "Adicionar foto" e escolha entre tirar na hora ou pegar da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
@@ -195,7 +195,7 @@ var AJUDAS = {
   meus: 'O que você fez neste mês, contado neste celular. Sem percentual: o número que vale para a Campanha é o do extrato.',
   equipe: 'Cada pessoa da equipe com o que a função dela pede. Toque no que falta para fazer por ela: o registro fica no nome dela, marcado "feito no celular do encarregado", e no fim pede a foto do SEU rosto.',
   fila: 'Tudo o que foi feito neste celular e ainda não subiu, e o que o servidor recusou (com o motivo). O que espera sobe sozinho quando houver sinal.',
-  relato: 'Conte o que aconteceu com as suas palavras: o que foi, quando, onde, quem se machucou. Fotos ajudam. Funciona sem sinal: o relato sobe sozinho depois, e um técnico de segurança completa e investiga. Relatar quase acidente também conta: é ele que evita o próximo acidente.'
+  relato: 'Escolha o que aconteceu: alguém se machucou, quase acidente, acidente de trânsito, dano, incidente ou condição insegura (algo que pode causar acidente, como um fio solto ou um buraco). Depois conte com as suas palavras: quando, onde e o que foi. Fotos ajudam. Funciona sem sinal: o relato sobe sozinho depois, e um técnico de segurança completa e investiga. Relatar quase acidente também conta: é ele que evita o próximo acidente.'
 };
 function desenhar() {
   var corpo = $('corpo'), t = S.tela;
@@ -279,8 +279,8 @@ function telaInicio() {
   var html = '<p class="n-saudacao">Olá, ' + h(eu.nome.split(' ')[0]) + '.</p>' + seletorDeBase();
   /* Para todo mundo, e no alto (26/10/2026): o relato não depende da função nem do perfil, e quem precisa dele está com
      pressa. Escondido no fim da lista, ele pareceria coisa só do técnico. */
-  html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou quase acidente</button>';
-  html += '<button type="button" class="btn secundario" data-acao="abrir" data-tela="incidente">Incidente rápido: onde, o quê e a foto</button>';
+  /* Uma porta só (desenho do App §9; Dalton, 13/11/2026): o incidente rápido virou uma das escolhas dentro do relato. */
+  html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou ocorrência</button>';
   if (ehDe(INSPECIONA)) {
     var p = S.pacote, meta = p.meta || { sqp: 0 }, mes = hoje().slice(0, 7);
     var sqpMes = (p.feitasNoMes && p.feitasNoMes.sqp || 0) + S.registros.filter(function (r) { return r.tipo === 'sqp' && r.estado !== 'enviado' && r.dia.slice(0, 7) === mes; }).length;
@@ -1121,7 +1121,13 @@ function lerPagina(arquivo, pagina) {
 
    O aviso do alto vem primeiro de propósito: quem se machucou precisa de socorro e do supervisor agora, por telefone. O
    relato no celular não substitui isso, e pode demorar a subir se não houver sinal. */
-var TIPOS_RELATO = [['lesao', 'Alguém se machucou'], ['quase', 'Quase acidente (ninguém se machucou)'], ['transito', 'Acidente de trânsito'], ['dano', 'Dano a veículo, equipamento ou instalação']];
+/* AS SEIS ESCOLHAS DO RELATO (bloco 0.7.1; decisões do Dalton de 13/11/2026). Acidente de trânsito continua tipo próprio
+   (um é o tipo do acidente, o outro é se alguém se machucou); dano e incidente continuam separados; e entra a condição
+   insegura, "qualquer coisa que não é um incidente ou acidente em si", que a engenharia vê fora das contas de acidente
+   (servidor seg-0.9.19). O incidente abre a tela rápida dele (onde, o quê e a foto, com a hora de agora). */
+var TIPOS_RELATO = [['lesao', 'Alguém se machucou'], ['quase', 'Quase acidente (ninguém se machucou)'], ['transito', 'Acidente de trânsito'], ['dano', 'Dano a veículo, equipamento ou instalação'], ['condicao', 'Condição insegura']];
+var ESCOLHAS_DO_RELATO = [['lesao', '🩹', 'Alguém se machucou', ''], ['quase', '⚠️', 'Quase acidente', 'ninguém se machucou'], ['transito', '🚗', 'Acidente de trânsito', ''],
+  ['dano', '🔧', 'Dano', 'a veículo, equipamento ou instalação'], ['incidente', '📍', 'Incidente rápido', 'onde, o quê e a foto'], ['condicao', '🚧', 'Condição insegura', 'fio solto, buraco, sinalização faltando']];
 var FOTOS_POR_RELATO = 6;
 function agoraHHMM() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 function oQueFaltaNoRelato(f) {
@@ -1136,19 +1142,26 @@ function oQueFaltaNoRelato(f) {
 function telaRelato() {
   var f = S.form = S.form || { id: novoId('rel'), tipo: 'relato', tipoRelato: '', data: hoje(), hora: agoraHHMM(), local: '', ferido: '', feridoMatricula: '', feridoNome: '', descricao: '', naHora: '', fotos: [] };
   var sel = function (campo, op) { return '<div class="seg-chips">' + op.map(function (x) { return '<button type="button" class="chip' + (f[campo] === x[0] ? ' ativo' : '') + '" data-acao="campo" data-c="' + campo + '" data-v="' + x[0] + '">' + h(x[1]) + '</button>'; }).join('') + '</div>'; };
-  var html = '<div class="aviso atencao"><div><b>Se alguém se machucou:</b> primeiro o socorro, e avise o supervisor agora, por telefone. Este relato não substitui o aviso na hora.</div></div>';
-  html += '<div class="cartao"><b>O que aconteceu?</b>' + sel('tipoRelato', TIPOS_RELATO) + '</div>';
+  var cond = f.tipoRelato === 'condicao';
+  // O aviso do socorro aparece antes da escolha e nos tipos em que pode haver alguém machucado.
+  var html = !f.tipoRelato || f.tipoRelato === 'lesao' || f.tipoRelato === 'transito' ? '<div class="aviso atencao"><div><b>Se alguém se machucou:</b> primeiro o socorro, e avise o supervisor agora, por telefone. Este relato não substitui o aviso na hora.</div></div>' : '';
+  html += '<h2 class="seg-h2">O que aconteceu?</h2><div class="seg-escolhas">' + ESCOLHAS_DO_RELATO.map(function (x) {
+    var marcado = f.tipoRelato === x[0];
+    return '<button type="button" class="seg-escolha' + (marcado ? ' ativo' : '') + '" ' + (x[0] === 'incidente' ? 'data-acao="abrir" data-tela="incidente"' : 'data-acao="campo" data-c="tipoRelato" data-v="' + x[0] + '"') +
+      ' aria-pressed="' + marcado + '"><span class="seg-ico" aria-hidden="true">' + x[1] + '</span><b>' + h(x[2]) + '</b>' + (x[3] ? '<small>' + h(x[3]) + '</small>' : '') + '</button>';
+  }).join('') + '</div>';
+  if (cond) html += '<p class="seg-sub">Condição insegura é o que ainda não virou acidente nem incidente, mas pode virar. Vai para a engenharia de segurança, que confirma o que será feito.</p>';
   html += '<div class="cartao"><div class="seg-dois"><div class="campo"><label>Dia</label><input type="date" data-campo="data" max="' + h(hoje()) + '" value="' + h(f.data) + '"></div>' +
     '<div class="campo"><label>Hora (mais ou menos)</label><input type="time" data-campo="hora" value="' + h(f.hora) + '"></div></div>' +
-    '<div class="campo"><label>Onde (endereço, poste, trecho ou a base)</label><input data-campo="local" value="' + h(f.local) + '"></div></div>';
+    '<div class="campo"><label>' + (cond ? 'Onde está' : 'Onde') + ' (endereço, poste, trecho ou a base)</label><input data-campo="local" value="' + h(f.local) + '"></div></div>';
   if (f.tipoRelato === 'lesao' || f.tipoRelato === 'transito') {
     html += '<div class="cartao"><b>Quem se machucou?</b>' + sel('ferido', [['eu', 'Eu'], ['outro', 'Outra pessoa'], ['ninguem', 'Ninguém']]) +
       (f.ferido === 'outro' ? '<div class="seg-dois"><div class="campo"><label>Matrícula (se souber)</label><input data-campo="feridoMatricula" inputmode="numeric" value="' + h(f.feridoMatricula) + '"></div>' +
         '<div class="campo"><label>Nome</label><input data-campo="feridoNome" value="' + h(f.feridoNome) + '"></div></div>' : '') + '</div>';
   }
-  html += '<div class="cartao"><div class="campo"><label>Conte o que aconteceu</label><textarea data-campo="descricao" rows="5" class="seg-texto">' + h(f.descricao) + '</textarea></div>' +
-    '<div class="campo"><label>O que foi feito na hora (se algo foi feito)</label><textarea data-campo="naHora" rows="2" class="seg-texto">' + h(f.naHora) + '</textarea></div></div>';
-  html += '<div class="cartao"><b>Fotos (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">Do lugar, do equipamento ou do veículo. Não precisa fotografar ferimento.</p>' +
+  html += '<div class="cartao"><div class="campo"><label>' + (cond ? 'O que você viu' : 'Conte o que aconteceu') + '</label><textarea data-campo="descricao" rows="5" class="seg-texto">' + h(f.descricao) + '</textarea></div>' +
+    '<div class="campo"><label>' + (cond ? 'O que já foi feito (se algo foi feito)' : 'O que foi feito na hora (se algo foi feito)') + '</label><textarea data-campo="naHora" rows="2" class="seg-texto">' + h(f.naHora) + '</textarea></div></div>';
+  html += '<div class="cartao"><b>Fotos (' + f.fotos.length + ' de ' + FOTOS_POR_RELATO + ')</b><p class="seg-sub">' + (cond ? 'Do lugar e do que está inseguro.' : 'Do lugar, do equipamento ou do veículo. Não precisa fotografar ferimento.') + '</p>' +
     f.fotos.map(function (id, i) { return '<span class="chip seg-ok">Foto ' + (i + 1) + ' ✓ <button type="button" class="link-texto" data-acao="tirarFotoRelato" data-i="' + i + '">tirar</button></span>'; }).join(' ') +
     (f.fotos.length < FOTOS_POR_RELATO ? '<button type="button" class="btn secundario auto" data-acao="fotoRelato">Tirar foto</button>' : '') + '</div>';
   var faltam = oQueFaltaNoRelato(f);

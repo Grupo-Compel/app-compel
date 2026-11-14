@@ -12,7 +12,7 @@
     "ADMIN"
   ],
   "servidor": "SEGURANCA",
-  "versao": "0.7.0",
+  "versao": "0.7.1",
   "entrada": "index.html",
   "arquivos": [
     "index.html",
@@ -65,6 +65,14 @@
       "id": "incidente",
       "nome": "Incidente rápido",
       "icone": "⚠",
+      "perfis": [
+        "*"
+      ]
+    },
+    {
+      "id": "relato",
+      "nome": "Relatar acidente ou ocorrência",
+      "icone": "⚠️",
       "perfis": [
         "*"
       ]
