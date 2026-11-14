@@ -36,6 +36,7 @@ var LOGIN = 'https://login.teste.invalid/exec';
 var SERVIDOR_EXEMPLO = 'https://exemplo.teste.invalid/exec';
 var SERVIDOR_OUTRO = 'https://outro.teste.invalid/exec';
 var SERVIDOR_OPERACAO = 'https://operacao.teste.invalid/exec';
+var SERVIDOR_CONVERSA = 'https://conversa.teste.invalid/exec';
 
 /* ---------- a cópia do site, com o bloco de exemplo ---------- */
 function prepararSite() {
@@ -71,6 +72,13 @@ function prepararSite() {
     atalhos: [{ id: 'diario', nome: 'Diário da equipe', perfis: ['*'] }], completo: ['SUPERVISOR'] }));
   fs.copyFileSync(path.join(outro, 'index.html'), path.join(terceiro, 'index.html'));
   fs.writeFileSync(path.join(terceiro, 'tela.js'), fs.readFileSync(path.join(outro, 'tela.js'), 'utf8').replace("Casca.iniciar('outro')", "Casca.iniciar('terceiro')"));
+  // Um quarto bloco, que só conversa com o servidor, sem fila (`posta`, casca 1.20.0; T60): é a forma do chat do Suporte.
+  var conversa = path.join(raiz, 'blocos', 'conversa'); fs.mkdirSync(conversa, { recursive: true });
+  fs.writeFileSync(path.join(conversa, 'bloco.json'), JSON.stringify({ nome: 'Conversa', dono: 'App Compel (só na bateria)', especie: 'celular', quemVe: ['*'],
+    servidor: 'CONVERSA', versao: '1', entrada: 'index.html', arquivos: ['index.html', 'tela.js'], cache: 'conversa-bloco-', posta: { app: 'conversa' } }));
+  fs.writeFileSync(path.join(conversa, 'servidor.sha256'), crypto.createHash('sha256').update(SERVIDOR_CONVERSA).digest('hex') + '\n');
+  fs.copyFileSync(path.join(outro, 'index.html'), path.join(conversa, 'index.html'));
+  fs.writeFileSync(path.join(conversa, 'tela.js'), fs.readFileSync(path.join(outro, 'tela.js'), 'utf8').replace("Casca.iniciar('outro')", "Casca.iniciar('conversa')"));
   // Uma página vazia do mesmo site, para a bateria preparar o celular antes de o app abrir (T26).
   fs.writeFileSync(path.join(raiz, 'vazio.html'), '<!doctype html><title>vazio</title>');
   var r = require(path.join(REPOSITORIO, 'conferencia', 'indice.js')).montar(raiz);
@@ -270,6 +278,12 @@ async function rotearServidores(ctx, S) {
     var corpo = JSON.parse(r.request().postData() || '{}');
     (S.operacao = S.operacao || []).push(corpo);
     var resposta = S.responderOperacao ? S.responderOperacao(corpo) : { ok: true };
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify(resposta) }).catch(function () { });
+  });
+  await ctx.route(SERVIDOR_CONVERSA + '*', function (r) {
+    var corpo = JSON.parse(r.request().postData() || '{}');
+    (S.conversa = S.conversa || []).push(corpo);
+    var resposta = S.responderConversa ? S.responderConversa(corpo) : { ok: true };
     r.fulfill({ contentType: 'application/json', body: JSON.stringify(resposta) }).catch(function () { });
   });
   await ctx.route(SERVIDOR_OUTRO + '*', function (r) { S.noOutro.push(r.request().postData()); r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
@@ -1588,6 +1602,54 @@ var TESTES = {
     afirmar(!(await d.page.$('#matricula')), 'com a chave desligada não há campo de matrícula');
     await entrarCpf(d.page, z.cpf, 'senha-da-ana'); await esperarTexto(d.page, 'Olá, Ana');
     await d.ctx.close();
+  },
+  /* O pedido da tela COM a sessão (Casca.postarComSessao, casca 1.20.0; o chat do Suporte): a sessão entra na casca e não
+     passa pela tela; sem sessão, ou com sessaoExpirada, a casca pede outra e repete UMA vez; sem sinal, nada sai. E o
+     bloco que só conversa (`posta`, sem fila) fala com o servidor dele pela mesma conferência de endereço. */
+  T60_postar_com_sessao_e_o_bloco_sem_fila: async function () {
+    var S = novoServidor(), x = anaComExemplo(), a = await abrir(x.L, { servidor: S }), n = 0;
+    S.responder = function (c) {
+      if (c.acao === 'sessaoDoNucleo') { n++; return { ok: true, sessao: 'sb-' + n, valeAte: Date.now() + 6 * 36e5 }; }
+      if (c.acao === 'perguntar') return S.expira && S.expira(c) ? { ok: false, sessaoExpirada: true, erro: 'Sessão vencida.' } : { ok: true, texto: 'resposta para ' + c.texto, sessao: 'nao-devia-voltar' };
+      return { ok: true };
+    };
+    await entrarNoExemplo(a, x);
+    // Sem sessão guardada: entra primeiro, depois pergunta com a sessão que o servidor deu, e não com a que a tela mandou.
+    var r = await a.page.evaluate(function () { return Casca.postarComSessao({ acao: 'perguntar', texto: 'oi', sessao: 'falsa', token: 'falso' }); });
+    var perg = S.pedidos.filter(function (p) { return p.acao === 'perguntar'; }), ses = S.pedidos.filter(function (p) { return p.acao === 'sessaoDoNucleo'; });
+    afirmar(ses.length === 1 && perg.length === 1 && perg[0].sessao === 'sb-1' && perg[0].token === undefined, 'sem sessão: entra e pergunta com a sessão do servidor: ' + JSON.stringify(S.pedidos.map(function (p) { return [p.acao, p.sessao]; })));
+    afirmar(perg[0].app === 'exemplo' && perg[0].texto === 'oi', 'o pedido leva o app do bloco e o que a tela mandou');
+    afirmar(r.ok === true && r.texto === 'resposta para oi' && r.sessao === undefined, 'a tela recebe a resposta sem a sessão: ' + JSON.stringify(r));
+    // Com sessão guardada: não gasta token.
+    S.pedidos.length = 0;
+    await a.page.evaluate(function () { return Casca.postarComSessao({ acao: 'perguntar', texto: 'dois' }); });
+    afirmar(S.pedidos.length === 1 && S.pedidos[0].sessao === 'sb-1', 'com a sessão guardada, um pedido só: ' + JSON.stringify(S.pedidos.map(function (p) { return p.acao; })));
+    // A sessão venceu no servidor: renova uma vez e repete.
+    S.pedidos.length = 0; S.expira = function (c) { return c.sessao === 'sb-1'; };
+    r = await a.page.evaluate(function () { return Casca.postarComSessao({ acao: 'perguntar', texto: 'tres' }); });
+    afirmar(S.pedidos.map(function (p) { return p.acao + ':' + (p.sessao || ''); }).join(',') === 'perguntar:sb-1,sessaoDoNucleo:,perguntar:sb-2' && r.ok === true,
+      'sessão vencida: renova e repete: ' + JSON.stringify(S.pedidos.map(function (p) { return p.acao + ':' + (p.sessao || ''); })));
+    // O servidor recusa sempre: uma renovação só, e a recusa volta para a tela.
+    S.pedidos.length = 0; S.expira = function () { return true; };
+    r = await a.page.evaluate(function () { return Casca.postarComSessao({ acao: 'perguntar', texto: 'quatro' }); });
+    afirmar(S.pedidos.filter(function (p) { return p.acao === 'sessaoDoNucleo'; }).length === 1 && S.pedidos.filter(function (p) { return p.acao === 'perguntar'; }).length === 2 && r.sessaoExpirada === true,
+      'recusa sem fim: uma renovação só: ' + JSON.stringify(S.pedidos.map(function (p) { return p.acao; })));
+    // Sem sinal: nada sai.
+    S.pedidos.length = 0; await a.ctx.setOffline(true);
+    r = await a.page.evaluate(function () { return Casca.postarComSessao({ acao: 'perguntar', texto: 'cinco' }); });
+    afirmar(r.ok === false && r.semSinal === true && S.pedidos.length === 0, 'sem sinal: nada sai: ' + JSON.stringify(r));
+    await a.ctx.close();
+    // O bloco que só conversa (posta): o mesmo caminho, com o app dele, sem fila.
+    var S2 = novoServidor(), y = loginComAna({ modulos: MODULOS_DA_ANA.concat([{ modulo: 'CONVERSA', nome: 'Conversa', url: SERVIDOR_CONVERSA, perfil: 'COLABORADOR', liberado: true }]) });
+    S2.responderConversa = function (c) { return c.acao === 'sessaoDoNucleo' ? { ok: true, sessao: 'sc-1', valeAte: Date.now() + 6 * 36e5 } : { ok: true, texto: 'olá' }; };
+    var b = await abrir(y.L, { servidor: S2 });
+    await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await esperarTexto(b.page, 'Olá, Ana');
+    await b.page.goto(base + '/blocos/conversa/index.html'); await b.page.waitForSelector('#pronto');
+    r = await b.page.evaluate(function () { return Casca.postarComSessao({ acao: 'perguntar', texto: 'oi' }); });
+    var cv = S2.conversa || [];
+    afirmar(cv.map(function (p) { return p.acao; }).join(',') === 'sessaoDoNucleo,perguntar' && cv[1].sessao === 'sc-1' && cv[1].app === 'conversa' && r.texto === 'olá',
+      'o bloco sem fila conversa com o servidor dele: ' + JSON.stringify(cv.map(function (p) { return [p.acao, p.app, p.sessao]; })));
+    await b.ctx.close();
   },
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;

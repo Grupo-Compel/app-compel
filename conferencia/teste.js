@@ -97,6 +97,17 @@ var casos = [
       'blocos/seguranca/bloco.json': declaracao({ nome: 'Segurança', servidor: 'SEGURANCA', cache: 'seguranca-' }),
       'blocos/seguranca/index.html': '<p>x</p>', 'blocos/seguranca/fila.js': '//', 'blocos/seguranca/servidor.sha256': RESUMO }), regras: [4] },
   { nome: 'bloco que envia sem o resumo do servidor', arquivos: sem('blocos/operacao/servidor.sha256'), regras: [4] },
+  // O bloco que só conversa (`posta`, casca 1.20.0): a mesma trava do endereço, e não junto com o `envia`.
+  { nome: 'bloco que conversa, com o resumo, passa', arquivos: com({
+      'blocos/suporte/bloco.json': declaracao({ nome: 'Suporte', servidor: 'SUPORTE', cache: 'suporte-', envia: undefined, posta: { app: 'suporte' } }),
+      'blocos/suporte/index.html': '<p>x</p>', 'blocos/suporte/fila.js': '//', 'blocos/suporte/servidor.sha256': RESUMO }), regras: [] },
+  { nome: 'bloco que conversa sem o resumo do servidor', arquivos: com({
+      'blocos/suporte/bloco.json': declaracao({ nome: 'Suporte', servidor: 'SUPORTE', cache: 'suporte-', envia: undefined, posta: { app: 'suporte' } }),
+      'blocos/suporte/index.html': '<p>x</p>', 'blocos/suporte/fila.js': '//' }), regras: [4] },
+  { nome: 'bloco que conversa sem o app', arquivos: com({
+      'blocos/suporte/bloco.json': declaracao({ nome: 'Suporte', servidor: 'SUPORTE', cache: 'suporte-', envia: undefined, posta: {} }),
+      'blocos/suporte/index.html': '<p>x</p>', 'blocos/suporte/fila.js': '//', 'blocos/suporte/servidor.sha256': RESUMO }), regras: [4] },
+  { nome: 'bloco com envia e posta juntos', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ posta: { app: 'campo' } }) }), regras: [4] },
   { nome: 'resumo com dois valores (a segunda porta)', arquivos: com({ 'blocos/operacao/servidor.sha256': RESUMO + 'b'.repeat(64) + '\n' }), regras: [4] },
   { nome: 'resumo que não é SHA-256', arquivos: com({ 'blocos/operacao/servidor.sha256': 'abc\n' }), regras: [4] },
   { nome: 'envio sem o app que o servidor espera', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ envia: { etiqueta: 'enviar-diarios', script: 'fila.js' } }) }), regras: [4] },

@@ -246,6 +246,9 @@ function cascaDesenharBarra() {
   function semSegredos(r) { var c = Object.assign({}, r || {}); delete c.sessao; delete c.token; return c; }
   // Campos que o `extra` do sessaoNova não troca: são o pedido em si, e o resto a casca põe em todo postar.
   var DA_CASCA = ['acao', 'token', 'sessao', 'app', 'versao', 'relogio', 'fuso'];
+  /* O `app` que o servidor do bloco espera vem do `envia` (bloco com fila) ou do `posta` (bloco que só conversa, casca
+     1.20.0). Sem nenhum dos dois, o bloco não tem servidor para a casca falar. */
+  function appDoBloco(b) { return b && (b.envia ? b.envia.app : b.posta ? b.posta.app : '') || ''; }
   return {
     versao: VERSAO_APP,
     /* Confere a entrada de hoje e devolve { pessoa, bloco, contexto, de }. Sem ela, volta para a entrada da casca, e a
@@ -309,7 +312,7 @@ function cascaDesenharBarra() {
     sessaoNova: function (extra) {
       exigir();
       var b = estado.bloco, mat = cascaMatricula(estado.pessoa.matricula);
-      if (!b.envia) return Promise.resolve({ ok: false, erro: 'Este bloco não tem servidor para entrar.' });
+      if (!appDoBloco(b)) return Promise.resolve({ ok: false, erro: 'Este bloco não tem servidor para entrar.' });
       if (!mat) return Promise.resolve({ ok: false, semMatricula: true, erro: 'O seu cadastro não tem matrícula, e este sistema precisa dela. Avise a administração.' });
       if (navigator.onLine === false) return Promise.resolve({ ok: false, semSinal: true, erro: 'Sem sinal: a entrada neste sistema precisa de sinal.' });
       // O endereço é conferido antes de pedir o token: com o resumo errado, nenhum token é gasto nem vai a lugar nenhum.
@@ -322,7 +325,7 @@ function cascaDesenharBarra() {
             var corpo = {};
             Object.keys(extra || {}).forEach(function (k) { if (DA_CASCA.indexOf(k) < 0) corpo[k] = extra[k]; });
             corpo.acao = 'sessaoDoNucleo'; corpo.token = t.token;
-            return cascaPostar(s.url, corpo, { app: b.envia.app, versao: b.versao }).then(function (r) {
+            return cascaPostar(s.url, corpo, { app: appDoBloco(b), versao: b.versao }).then(function (r) {
               // Token já usado ou vencido no caminho (a Operação, carta nº 9): um outro, uma vez só.
               if (r && r.tokenRecusado && vez === 1) return tentar(2);
               if (!r || r.ok !== true || !r.sessao) return Object.assign(semSegredos(r), { ok: false, erro: (r && r.erro) || 'O sistema não abriu a sua entrada.' });
@@ -348,12 +351,48 @@ function cascaDesenharBarra() {
     postar: function (corpo, ms) {
       exigir();
       var b = estado.bloco;
-      if (!b.envia) return Promise.reject({ msg: 'Este bloco não tem servidor.' });
+      if (!appDoBloco(b)) return Promise.reject({ msg: 'Este bloco não tem servidor.' });
       if (!corpo || typeof corpo !== 'object') return Promise.reject({ msg: 'O pedido é um objeto.' });
       return cascaServidorDe(b).then(function (s) {
         if (!s.ok) throw { servidorRecusado: !!s.enderecoMudou, enderecoMudou: !!s.enderecoMudou, semEndereco: !!s.semEndereco, msg: s.erro };
-        return cascaPostar(s.url, corpo, { app: b.envia.app, versao: b.versao, ms: ms });
+        return cascaPostar(s.url, corpo, { app: appDoBloco(b), versao: b.versao, ms: ms });
       });
+    },
+    /* Um pedido da tela ao servidor do bloco COM a sessão da pessoa (casca 1.20.0, 13/11/2026; o chat do Suporte, cartas nº 5
+       do App e nº 2 do Suporte). A sessão sai do que a casca guardou pela matrícula e entra no pedido aqui dentro: ela nunca
+       passa pela tela (FRONTEIRA §2.1, regra 1), como no sessaoNova. Sem sessão guardada, ou com o servidor dizendo
+       `sessaoExpirada`, a casca pede uma nova (sessaoNova, um token do Núcleo) e repete o pedido UMA vez: repetir sem limite
+       gastaria um token a cada volta se o servidor recusasse sempre. Sem sinal, nada sai e nada fica guardado: é pergunta de
+       conversa, e uma resposta que chega horas depois confunde mais do que ajuda (proposta do Suporte, aceita). A resposta
+       chega sem a sessão, e o erro de rede volta como { ok:false, semRede | servidorFora }, nunca como exceção. */
+    postarComSessao: function (corpo, ms) {
+      exigir();
+      var b = estado.bloco, mat = cascaMatricula(estado.pessoa.matricula), api = this;
+      if (!appDoBloco(b)) return Promise.resolve({ ok: false, erro: 'Este bloco não tem servidor.' });
+      if (!corpo || typeof corpo !== 'object') return Promise.resolve({ ok: false, erro: 'O pedido é um objeto.' });
+      if (!mat) return Promise.resolve({ ok: false, semMatricula: true, erro: 'O seu cadastro não tem matrícula, e este sistema precisa dela. Avise a administração.' });
+      if (navigator.onLine === false) return Promise.resolve({ ok: false, semSinal: true, erro: 'Sem sinal: esta conversa precisa de sinal.' });
+      var pedido = {};
+      Object.keys(corpo).forEach(function (k) { if (k !== 'sessao' && k !== 'token') pedido[k] = corpo[k]; });
+      function comSessao(sessao) {
+        return cascaServidorDe(b).then(function (s) {
+          if (!s.ok) return Object.assign({ ok: false }, s);
+          var c = Object.assign({}, pedido, { sessao: sessao });
+          return cascaPostar(s.url, c, { app: appDoBloco(b), versao: b.versao, ms: ms }).then(function (r) { return r || { ok: false, erro: 'O sistema não respondeu.' }; }, function (e) {
+            return { ok: false, semRede: !!(e && e.rede && !e.comSinal), servidorFora: !!(e && (e.servidor || (e.rede && e.comSinal))), erro: (e && e.msg) || 'Não consegui falar com o sistema.' };
+          });
+        });
+      }
+      function renovarERepetir() {
+        return api.sessaoNova({}).then(function (n) {
+          if (!n || n.ok !== true) return n;
+          return cascaSessaoDoBloco(b.id, mat).then(comSessao);
+        });
+      }
+      return cascaSessaoDoBloco(b.id, mat).then(function (sessao) {
+        if (!sessao) return renovarERepetir();
+        return comSessao(sessao).then(function (r) { return r && r.sessaoExpirada ? renovarERepetir() : r; });
+      }).then(semSegredos);
     },
     /* Quais dos atalhos DECLARADOS no bloco.json esta pessoa pode usar, pela permissão que o servidor do bloco mandou
        (casca 1.12.1; ver cascaGuardarAtalhosDaPessoa). Id que o bloco.json não declara é ignorado: o botão do Início

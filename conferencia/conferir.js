@@ -129,7 +129,10 @@ function conferirArvore(raiz) {
  *     toca nos outros (§5.5, cuidado 2). Dois blocos com o mesmo prefixo apagariam um ao outro;
  *   - o bloco que envia diz a etiqueta do envio em segundo plano (única no app), o `app` que o servidor dele espera e o
  *     arquivo com as funções de envio; e publica `servidor.sha256`, com o resumo do endereço do servidor dele, numa
- *     linha só (cartas nº 10 e nº 11 do Núcleo; nº 8 do App à Operação: um resumo só, o do servidor de verdade).
+ *     linha só (cartas nº 10 e nº 11 do Núcleo; nº 8 do App à Operação: um resumo só, o do servidor de verdade);
+ *   - o bloco que só conversa com o servidor, sem fila (casca 1.20.0, 13/11/2026; o chat do Suporte, carta nº 2 do Suporte
+ *     ao App), declara `posta: { app }` em vez de `envia`, e publica o mesmo `servidor.sha256`: a conferência do endereço
+ *     é a mesma, só não existe envio em segundo plano.
  */
 var NOME_DO_RESUMO = 'servidor.sha256';
 var FORMA_DO_ID = /^[a-z0-9][a-z0-9-]*$/;
@@ -225,11 +228,23 @@ function lerBlocos(raiz) {
       else if (linhas.length !== 1 || !/^[0-9a-f]{64}$/.test(linhas[0].trim())) anotar(rr, 'o resumo é uma linha só, com os 64 caracteres do SHA-256 em minúsculas: um segundo resumo seria uma segunda porta');
       envia = { etiqueta: v.etiqueta, app: v.app, script: base + v.script, resumo: linhas && linhas[0] ? linhas[0].trim() : '' };
     }
+    var posta = null;
+    if (d.posta !== undefined) {
+      var w = d.posta || {};
+      if (!celular) anotar(rel, 'só a tela do celular conversa com o servidor (espécie celular ou ambas)');
+      if (d.envia !== undefined) anotar(rel, '"posta" é para o bloco sem fila; o bloco que já tem "envia" conversa com o servidor por ela');
+      if (!w.app) anotar(rel, '"posta.app" é o que o servidor do bloco espera no campo app');
+      var rp = base + NOME_DO_RESUMO, lp = fs.existsSync(path.join(raiz, rp)) ? fs.readFileSync(path.join(raiz, rp), 'utf8').split(/\r?\n/).filter(function (l) { return l.trim(); }) : null;
+      if (!lp) anotar(rp, 'o bloco que conversa com o servidor publica o resumo do endereço dele (FRONTEIRA §5.1)');
+      else if (lp.length !== 1 || !/^[0-9a-f]{64}$/.test(lp[0].trim())) anotar(rp, 'o resumo é uma linha só, com os 64 caracteres do SHA-256 em minúsculas: um segundo resumo seria uma segunda porta');
+      posta = { app: w.app, resumo: lp && lp[0] ? lp[0].trim() : '' };
+    }
     if (achados.length > erros) return;
     blocos.push({ id: id, nome: d.nome, icone: d.icone || '', servidor: d.servidor, especie: d.especie, quemVe: d.quemVe, versao: String(d.versao),
                   entrada: celular ? base + d.entrada : '', arquivos: celular ? arquivos.map(function (a) { return base + a; }) : [],
                   cache: celular ? d.cache : '', envia: envia ? { etiqueta: envia.etiqueta, app: envia.app, script: envia.script } : null,
-                  resumo: envia ? envia.resumo : '', atalhos: atalhos, completo: Array.isArray(d.completo) ? d.completo : null });
+                  posta: posta ? { app: posta.app } : null,
+                  resumo: envia ? envia.resumo : posta ? posta.resumo : '', atalhos: atalhos, completo: Array.isArray(d.completo) ? d.completo : null });
   });
   return { blocos: blocos, achados: achados };
 }
