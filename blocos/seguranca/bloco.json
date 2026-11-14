@@ -12,7 +12,7 @@
     "ADMIN"
   ],
   "servidor": "SEGURANCA",
-  "versao": "0.7.1",
+  "versao": "0.7.2",
   "entrada": "index.html",
   "arquivos": [
     "index.html",
@@ -30,46 +30,6 @@
   },
   "atalhos": [
     {
-      "id": "inicio",
-      "nome": "Segurança: meus checklists",
-      "icone": "⛑",
-      "perfis": [
-        "*"
-      ]
-    },
-    {
-      "id": "epi",
-      "nome": "Checklist EPI/EPC",
-      "icone": "🦺",
-      "perfis": [
-        "*"
-      ]
-    },
-    {
-      "id": "luvas",
-      "nome": "Teste de luvas",
-      "icone": "🧤",
-      "perfis": [
-        "*"
-      ]
-    },
-    {
-      "id": "veicular",
-      "nome": "Checklist veicular",
-      "icone": "🚚",
-      "perfis": [
-        "*"
-      ]
-    },
-    {
-      "id": "incidente",
-      "nome": "Incidente rápido",
-      "icone": "⚠",
-      "perfis": [
-        "*"
-      ]
-    },
-    {
       "id": "relato",
       "nome": "Relatar acidente ou ocorrência",
       "icone": "⚠️",
@@ -78,8 +38,16 @@
       ]
     },
     {
-      "id": "sqp",
-      "nome": "Inspeção SQP",
+      "id": "inicio",
+      "nome": "Meus checklists",
+      "icone": "⛑️",
+      "perfis": [
+        "*"
+      ]
+    },
+    {
+      "id": "inspecoes",
+      "nome": "Inspeções",
       "icone": "⚑",
       "perfis": [
         "INSPETOR",
@@ -90,20 +58,8 @@
       ]
     },
     {
-      "id": "blitz",
-      "nome": "Blitz",
-      "icone": "✓",
-      "perfis": [
-        "INSPETOR",
-        "SUPERVISOR",
-        "COORDENADOR",
-        "GERENTE",
-        "ADMIN"
-      ]
-    },
-    {
       "id": "dds",
-      "nome": "DDS: presença pela lista",
+      "nome": "DDS",
       "icone": "☰",
       "perfis": [
         "ENCARREGADO",
@@ -125,6 +81,68 @@
         "GERENTE",
         "ADMIN"
       ]
+    },
+    {
+      "id": "epi",
+      "nome": "Checklist EPI/EPC",
+      "icone": "🦺",
+      "perfis": [
+        "*"
+      ],
+      "noInicio": false
+    },
+    {
+      "id": "luvas",
+      "nome": "Teste de luvas",
+      "icone": "🧤",
+      "perfis": [
+        "*"
+      ],
+      "noInicio": false
+    },
+    {
+      "id": "veicular",
+      "nome": "Checklist veicular",
+      "icone": "🚚",
+      "perfis": [
+        "*"
+      ],
+      "noInicio": false
+    },
+    {
+      "id": "incidente",
+      "nome": "Incidente rápido",
+      "icone": "⚠",
+      "perfis": [
+        "*"
+      ],
+      "noInicio": false
+    },
+    {
+      "id": "sqp",
+      "nome": "Inspeção SQP",
+      "icone": "⚑",
+      "perfis": [
+        "INSPETOR",
+        "SUPERVISOR",
+        "COORDENADOR",
+        "GERENTE",
+        "ADMIN"
+      ],
+      "noInicio": false
+    },
+    {
+      "id": "blitz",
+      "nome": "Blitz",
+      "icone": "✓",
+      "perfis": [
+        "INSPETOR",
+        "SUPERVISOR",
+        "COORDENADOR",
+        "GERENTE",
+        "ADMIN"
+      ],
+      "noInicio": false
     }
   ],
   "completo": [

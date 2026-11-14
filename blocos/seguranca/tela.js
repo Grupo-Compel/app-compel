@@ -67,7 +67,7 @@ function carregarLocal() {
        em silêncio é o erro que o campo existe para evitar. */
     S.baseDia = v[3] && v[3].dia === hoje() && baseValida(v[3].base) ? v[3].base : '';
     if (!marcaValida(v[2])) S.sessaoOk = false;
-    avisarAtalhos();
+    avisarAtalhos(); avisarResumo();
   });
 }
 
@@ -77,10 +77,10 @@ function carregarLocal() {
    virar uma tela que não existe. Os de quem inspeciona só abrem para quem inspeciona; sem o pacote ainda, vale o início.
    O bloco.json dá o padrão por perfil; depois do pacote, o bloco diz à casca quais a pessoa usa DE VERDADE pela função
    dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
-var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'sqp', 'blitz', 'dds', 'irregularidades'];
+var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'inspecoes', 'sqp', 'blitz', 'dds', 'irregularidades'];
 function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
 function podeAbrir(t) {
-  if (t === 'sqp' || t === 'blitz' || t === 'irregularidades') return !!S.pacote && ehDe(INSPECIONA);
+  if (t === 'sqp' || t === 'blitz' || t === 'irregularidades' || t === 'inspecoes') return !!S.pacote && ehDe(INSPECIONA);
   if (t === 'dds') return !!S.pacote && ehDe(INSPECIONA.concat(['ENCARREGADO']));
   return true;
 }
@@ -90,7 +90,7 @@ function atalhosDestaPessoa() {
   if (e.epi) l.push('epi');
   if (e.luvas === 'DIARIO' || e.luvas === 'SEMANAL') l.push('luvas');
   if (e.veicular) l.push('veicular');
-  if (ehDe(INSPECIONA)) l.push('sqp', 'blitz', 'irregularidades');
+  if (ehDe(INSPECIONA)) l.push('inspecoes', 'sqp', 'blitz', 'irregularidades');
   if (ehDe(INSPECIONA.concat(['ENCARREGADO']))) l.push('dds');
   return l;
 }
@@ -101,6 +101,36 @@ function avisarAtalhos() {
   if (S._atalhosAvisados === k) return;
   S._atalhosAvisados = k;
   try { Casca.atalhosDaPessoa(l); } catch (e) { S._atalhosAvisados = ''; } /* casca sem a função: vale o padrão do bloco.json */
+}
+/* O NÚMERO E A LINHA DE BAIXO DOS CARTÕES DO INÍCIO DO APP (bloco 0.7.2; casca 1.22.0, Casca.resumoDosAtalhos; desenho do
+   App §2 e §10, decidido pelo Dalton em 12/11/2026): "1 de 3 hoje" com a barrinha, a meta das inspeções e as vencidas.
+   As contas são as mesmas da tela de início deste bloco, para o cartão e a tela nunca dizerem números diferentes. Vai a
+   cada leitura do banco (a de 20 em 20 s incluída), só quando mudou, e ao sair do bloco. Casca sem a função: nada. */
+function sqpNoMes() {
+  var p = S.pacote || {}, mes = hoje().slice(0, 7);
+  return (p.feitasNoMes && p.feitasNoMes.sqp || 0) + S.registros.filter(function (r) { return r.tipo === 'sqp' && r.estado !== 'enviado' && r.dia.slice(0, 7) === mes; }).length;
+}
+function contaDasIrregularidades() {
+  var l = listaDeIrregularidades();
+  return { vencidas: l.filter(function (x) { return situacaoDaIrr(x) === 'vencida'; }).length, pendentes: l.filter(function (x) { return IRR_PENDENTE.indexOf(situacaoDaIrr(x)) >= 0; }).length };
+}
+function resumoParaACasca() {
+  if (!S.pacote || !S.pessoa) return null;
+  var eu = S.pessoa, dev = devidosHoje(eu.matricula), feitos = dev.filter(function (t) { return feitoHoje(t, eu.matricula); }).length;
+  var r = { inicio: dev.length ? { linha: feitos + ' de ' + dev.length + ' hoje', progresso: feitos / dev.length } : { linha: 'nenhum checklist hoje' } };
+  if (ehDe(INSPECIONA)) {
+    var meta = (S.pacote.meta || {}).sqp || 0, irr = contaDasIrregularidades();
+    r.inspecoes = { linha: meta ? 'SQP e Blitz · meta ' + sqpNoMes() + ' de ' + meta : 'SQP e Blitz' };
+    r.irregularidades = { numero: irr.vencidas, linha: irr.vencidas ? irr.vencidas + ' vencida(s)' : irr.pendentes ? irr.pendentes + ' pendente(s)' : 'nada pendente' };
+  }
+  return r;
+}
+function avisarResumo() {
+  if (typeof Casca.resumoDosAtalhos !== 'function') return;
+  var r = resumoParaACasca(); if (!r) return;
+  var k = JSON.stringify(r); if (S._resumoAvisado === k) return;
+  S._resumoAvisado = k;
+  try { var pr = Casca.resumoDosAtalhos(r); if (pr && typeof pr.catch === 'function') pr.catch(function () { S._resumoAvisado = ''; }); } catch (e) { S._resumoAvisado = ''; } /* vigia: falhar aqui só deixa o cartão com o número antigo */
 }
 
 /* A sessão no servidor do módulo. Quem a cria é a CASCA (1.7): ela confere o endereço, pede o token do Núcleo e o posta
@@ -180,8 +210,9 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou ocorrência' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou ocorrência', inspecoes: 'Inspeções' };
 var AJUDAS = {
+  inspecoes: 'Escolha a inspeção. SQP: em campo, com a equipe trabalhando; as irregularidades saem do catálogo de desvios. Blitz: na base, de uma pessoa, de um veículo ou de uma equipe, item por item.',
   incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Toque em "Adicionar foto" e escolha entre tirar na hora ou pegar da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   irregularidades: 'As irregularidades achadas no SQP e na Blitz das suas bases. Pendentes: as vermelhas venceram, as âmbar vencem hoje, as azuis estão no prazo; toque num número para filtrar. Corrigidas: as dos últimos 90 dias. Para ver o histórico de uma pessoa ou de um carro, digite a matrícula ou a placa na busca. Ao abrir uma pendente, registre a correção: o que foi feito e a foto. Quem confere a correção é outra pessoa, no computador. Só quem inspeciona vê esta tela.',
@@ -213,7 +244,7 @@ function desenhar() {
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
   else if (S.msg) avisos += '<div class="aviso erro">' + h(S.msg) + '</div>';
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
-  var tela = ({ inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, irregularidades: telaIrregularidades, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
+  var tela = ({ inspecoes: telaInspecoes, inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, irregularidades: telaIrregularidades, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
   rodapeFixo(corpo);
   Casca.ajuda($('ajuda'), AJUDAS[t]);
@@ -227,7 +258,8 @@ function desenhar() {
 function voltarDaTela() {
   // Na ficha de uma irregularidade, o Voltar da faixa volta à lista, e não ao início (13/11/2026).
   if (S.tela === 'irregularidades' && S.form && S.form.aberta) { S.form.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
-  return S.tela === 'inicio' ? Casca.voltar() : ir(S.alvo ? 'equipe' : 'inicio');
+  if (S.tela === 'inicio') { avisarResumo(); return Casca.voltar(); }
+  return ir(S.alvo ? 'equipe' : 'inicio');
 }
 /* O botão de salvar e a frase "Faltam N" ficam presos no pé da tela, como no desenho do App (12/11/2026): com 41 itens
    de EPI, quem terminou lá embaixo não precisa rolar de volta para saber o que falta. Embrulha o que já foi desenhado,
@@ -282,9 +314,7 @@ function telaInicio() {
   /* Uma porta só (desenho do App §9; Dalton, 13/11/2026): o incidente rápido virou uma das escolhas dentro do relato. */
   html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou ocorrência</button>';
   if (ehDe(INSPECIONA)) {
-    var p = S.pacote, meta = p.meta || { sqp: 0 }, mes = hoje().slice(0, 7);
-    var sqpMes = (p.feitasNoMes && p.feitasNoMes.sqp || 0) + S.registros.filter(function (r) { return r.tipo === 'sqp' && r.estado !== 'enviado' && r.dia.slice(0, 7) === mes; }).length;
-    var irrV = listaDeIrregularidades().filter(function (x) { return situacaoDaIrr(x) === 'vencida'; }).length, irrP = listaDeIrregularidades().filter(function (x) { return IRR_PENDENTE.indexOf(situacaoDaIrr(x)) >= 0; }).length;
+    var p = S.pacote, meta = p.meta || { sqp: 0 }, sqpMes = sqpNoMes(), irrC = contaDasIrregularidades(), irrV = irrC.vencidas, irrP = irrC.pendentes;
     html += '<div class="seg-tiles">' + tile('sqp', 'Inspeção SQP', 'em campo', '⚑') + tile('blitz', 'Blitz', 'na base', '✓') + tile('dds', 'DDS', 'presença pela lista', '☰') +
       tile('irregularidades', 'Irregularidades', irrV ? irrV + ' vencida(s)' : irrP ? irrP + ' pendente(s)' : 'nada pendente', '🚩', irrV ? 'ruim' : irrP ? 'pend' : '') + '</div>';
     if (meta.sqp) html += '<div class="cartao seg-meta">' + anel(sqpMes, meta.sqp) + '<div><b>Sua meta do mês</b><br><span class="seg-sub">' + sqpMes + ' de ' + meta.sqp + ' inspeções SQP</span></div></div>';
@@ -297,6 +327,12 @@ function telaInicio() {
   dev.forEach(function (t) { var f = feitoHoje(t, eu.matricula); html += tile(t, TITULOS[t], f ? 'feito às ' + hora(f.carimbo.feitoEm) + (f.retido ? ' · RETIDO' : '') : 'falta fazer', { epi: '⛑', luvas: '✋', veicular: '🚚' }[t], f ? (f.retido ? 'ruim' : 'ok') : 'pend'); });
   html += tile('meus', 'Meus dados', 'o que você fez no mês', '☺') + '</div>';
   return html;
+}
+/* A escolha SQP ou Blitz, aberta pelo cartão "Inspeções" do Início do app (bloco 0.7.2; desenho do App §2, item 4). */
+function telaInspecoes() {
+  var meta = (S.pacote && S.pacote.meta || {}).sqp || 0;
+  return '<div class="seg-tiles">' + tile('sqp', 'Inspeção SQP', meta ? 'em campo · meta ' + sqpNoMes() + ' de ' + meta : 'em campo, com o catálogo', '⚑') +
+    tile('blitz', 'Blitz', 'na base: pessoa, veículo ou equipe', '✓') + '</div>';
 }
 function tile(t, nome, sub, icone, estado) { return '<button type="button" class="seg-tile ' + (estado || '') + '" data-acao="abrir" data-tela="' + t + '"><span class="seg-ico">' + h(icone || '•') + '</span><b>' + h(nome) + '</b><small>' + h(sub) + '</small></button>'; }
 function anel(n, de) {
@@ -991,7 +1027,8 @@ function telaIrregularidades() {
 function fichaDaIrr(f, x) {
   var s = situacaoDaIrr(x), pode = ['vencida', 'hoje', 'prazo'].indexOf(s) >= 0;
   var linha = function (k, v) { return v ? '<dt>' + h(k) + '</dt><dd>' + v + '</dd>' : ''; };
-  var html = '<button type="button" class="link-texto" data-acao="irrFechar">‹ Voltar à lista</button>' +
+  /* Um Voltar só (App nº 24, 13/11/2026): o da faixa já volta à lista. O do corpo fica só para a casca sem Casca.barra. */
+  var html = (typeof Casca.barra === 'function' ? '' : '<button type="button" class="link-texto" data-acao="irrFechar">‹ Voltar à lista</button>') +
     '<div class="cartao seg-irr-ficha seg-irr-' + s + '"><small>' + h(x.o.toUpperCase() + ' · ' + x.b) + '</small><h2 class="seg-h2">' + h(x.v + (x.t ? ' · ' + x.t : '')) + '</h2>' +
     '<span class="selo seg-sel-' + s + '">' + h(IRR_ROTULO[s]) + '</span>' + (x.n ? ' <span class="selo">' + h(IRR_GRAU[x.n] || x.n) + '</span>' : '') + ' <small>' + h(tempoDaIrr(x, s)) + '</small>' +
     '<dl class="seg-ficha">' + linha('Base', h(x.b)) + linha('Matrícula', h(String(x.m || '').split(',').filter(String).join(', '))) + linha('Placa', h(x.p)) + linha('Equipe', h(x.q)) +
@@ -1266,7 +1303,7 @@ function redesenharMantendoFoco(el) {
 document.addEventListener('click', function (ev) {
   var b = ev.target.closest('[data-acao]'); if (!b || b.disabled) return;
   var a = b.dataset.acao, f = S.form, v = b.dataset.v;
-  if (a === 'voltarApp') return Casca.voltar();
+  if (a === 'voltarApp') { avisarResumo(); return Casca.voltar(); }
   if (a === 'inicio') return voltarDaTela();
   if (a === 'escolherBase') { S.baseDia = v; S.msg = ''; return segGravarConfig('baseDia:' + S.pessoa.matricula, { dia: hoje(), base: v }).then(desenhar); }
   if (a === 'abrir') return ir(b.dataset.tela);
