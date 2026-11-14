@@ -206,7 +206,12 @@ function lerBlocos(raiz) {
           if (typeof a.nome !== 'string' || !a.nome.trim()) anotar(rel, onde + ': falta o "nome" que aparece no botão');
           if (!Array.isArray(a.perfis) || !a.perfis.length || a.perfis.some(function (p) { return typeof p !== 'string' || !p.trim(); }))
             anotar(rel, onde + ': "perfis" diz quem vê o botão (os perfis do módulo na ACESSOS, ou "*" para todos)');
-          atalhos.push({ id: a.id, nome: a.nome, icone: typeof a.icone === 'string' ? a.icone : '', perfis: a.perfis });
+          /* "noInicio": false (casca 1.21.0; desenho das telas da Segurança §2, 12/11/2026): o atalho continua declarado, para a
+             tarefa da agenda abrir o formulário por ele, mas não ganha botão no Início. Sem o campo, aparece como sempre. */
+          if (a.noInicio !== undefined && typeof a.noInicio !== 'boolean') anotar(rel, onde + ': "noInicio" é true ou false (false tira o botão do Início, e a agenda continua abrindo)');
+          var at = { id: a.id, nome: a.nome, icone: typeof a.icone === 'string' ? a.icone : '', perfis: a.perfis };
+          if (a.noInicio === false) at.noInicio = false;
+          atalhos.push(at);
         });
       }
     }

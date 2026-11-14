@@ -734,7 +734,8 @@ function telaInicio() {
   var h = '<p class="n-saudacao">Olá, ' + esc(primeiroNome(p.nome)) + '.</p>' + mensagens();
   var n = quantosNovos();
   if (n) h += '<div class="aviso info" id="avisoNovo">' + (n === 1 ? 'Há 1 aviso novo.' : 'Há ' + n + ' avisos novos.') + ' <a href="#" data-aba="avisos">Ver</a></div>';
-  var atalhos = atalhosDe(p);
+  // O atalho com "noInicio": false não vira botão aqui, mas continua em atalhosDe: a agenda abre o formulário por ele.
+  var atalhos = atalhosDe(p).filter(function (x) { return x.atalho.noInicio !== false; });
   if (atalhos.length) h += '<p class="etiqueta n-secao">Acesso rápido</p><div class="app-atalhos" id="atalhos">' + atalhos.map(function (x) {
     return '<button type="button" class="app-atalho" data-acao="atalho" data-bloco="' + esc(x.bloco.id) + '" data-atalho="' + esc(x.atalho.id) + '"' + (E.ocupado ? ' disabled' : '') + '>' +
       (x.atalho.icone ? '<span class="app-atalho-icone" aria-hidden="true">' + esc(x.atalho.icone) + '</span>' : '') +

@@ -57,7 +57,9 @@ function prepararSite() {
   fs.writeFileSync(path.join(outro, 'bloco.json'), JSON.stringify({ nome: 'Outro', dono: 'App Compel (só na bateria)', especie: 'celular', quemVe: ['ELETRICISTA'],
     servidor: 'OUTRO', versao: '1', entrada: 'index.html', arquivos: ['index.html', 'tela.js'], cache: 'outro-bloco-',
     // O acesso rápido (T43): um formulário de todos, um só do inspetor, e o sistema completo só para o inspetor.
-    atalhos: [{ id: 'epi', nome: 'Checklist EPI/EPC', icone: '🦺', perfis: ['*'] }, { id: 'sqp', nome: 'Inspeção SQP', perfis: ['inspetor'] }],
+    atalhos: [{ id: 'epi', nome: 'Checklist EPI/EPC', icone: '🦺', perfis: ['*'] }, { id: 'sqp', nome: 'Inspeção SQP', perfis: ['inspetor'] },
+      // Fora do Início, mas declarado (casca 1.21.0, T43): a agenda ainda abre o formulário por ele.
+      { id: 'luvas', nome: 'Teste de luvas', perfis: ['*'], noInicio: false }],
     completo: ['INSPETOR'] }));
   fs.writeFileSync(path.join(outro, 'index.html'), fs.readFileSync(path.join(raiz, 'blocos', 'exemplo', 'index.html'), 'utf8')
     .replace('<title>Exemplo', '<title>Outro').replace('<script src="envio.js"></script>\n', ''));
@@ -1171,7 +1173,9 @@ var TESTES = {
     var x = loginComAna({ modulos: mods }), a = await abrir(x.L), p = a.page;
     await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
     var nomes = await p.$$eval('#atalhos .app-atalho .app-atalho-nome', function (bs) { return bs.map(function (b) { return b.textContent; }); });
-    afirmar(nomes.join('|') === 'Checklist EPI/EPC', 'o eletricista devia ver só o checklist de todos, e viu ' + nomes.join('|'));
+    afirmar(nomes.join('|') === 'Checklist EPI/EPC', 'o eletricista devia ver só o checklist de todos (o de luvas tem noInicio false), e viu ' + nomes.join('|'));
+    var naAgenda = await p.evaluate(function () { return !!agAtalhoDaTela({ modulo: 'OUTRO', id: 'luvas' }); });
+    afirmar(naAgenda, 'o atalho fora do Início continua valendo para a tarefa da agenda abrir o formulário');
     var partes = await p.$$eval('#modulos .app-grupo, #modulos .n-modulo .n-nome', function (es) { return es.map(function (e) { return e.textContent; }); });
     afirmar(partes.join('|') === 'Operação|Gestão de DP/RH|Treinamentos|Benefícios', 'os completos: os soltos primeiro, depois cada grupo com os dele, sem a Segurança do eletricista; veio ' + partes.join('|'));
     afirmar((await texto(p)).indexOf('Sistemas completos') >= 0, 'com acesso rápido, a parte de baixo se chama Sistemas completos');

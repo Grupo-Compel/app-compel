@@ -107,6 +107,7 @@ var casos = [
   { nome: 'bloco que conversa sem o app', arquivos: com({
       'blocos/suporte/bloco.json': declaracao({ nome: 'Suporte', servidor: 'SUPORTE', cache: 'suporte-', envia: undefined, posta: {} }),
       'blocos/suporte/index.html': '<p>x</p>', 'blocos/suporte/fila.js': '//', 'blocos/suporte/servidor.sha256': RESUMO }), regras: [4] },
+  { nome: 'noInicio que não é sim nem não', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ atalhos: [{ id: 'diario', nome: 'Diário', perfis: ['*'], noInicio: 'nao' }] }) }), regras: [4] },
   { nome: 'bloco com envia e posta juntos', arquivos: com({ 'blocos/operacao/bloco.json': declaracao({ posta: { app: 'campo' } }) }), regras: [4] },
   { nome: 'resumo com dois valores (a segunda porta)', arquivos: com({ 'blocos/operacao/servidor.sha256': RESUMO + 'b'.repeat(64) + '\n' }), regras: [4] },
   { nome: 'resumo que não é SHA-256', arquivos: com({ 'blocos/operacao/servidor.sha256': 'abc\n' }), regras: [4] },
