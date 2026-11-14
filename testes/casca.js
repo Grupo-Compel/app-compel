@@ -59,7 +59,9 @@ function prepararSite() {
     // O acesso rápido (T43): um formulário de todos, um só do inspetor, e o sistema completo só para o inspetor.
     atalhos: [{ id: 'epi', nome: 'Checklist EPI/EPC', icone: '🦺', perfis: ['*'] }, { id: 'sqp', nome: 'Inspeção SQP', perfis: ['inspetor'] },
       // Fora do Início, mas declarado (casca 1.21.0, T43): a agenda ainda abre o formulário por ele.
-      { id: 'luvas', nome: 'Teste de luvas', perfis: ['*'], noInicio: false }],
+      { id: 'luvas', nome: 'Teste de luvas', perfis: ['*'], noInicio: false },
+      // O "relato" vai para o topo do Início, fora da grade (casca 1.22.0, T61).
+      { id: 'relato', nome: 'Relatar acidente ou ocorrência', icone: '⚠️', perfis: ['*'] }],
     completo: ['INSPETOR'] }));
   fs.writeFileSync(path.join(outro, 'index.html'), fs.readFileSync(path.join(raiz, 'blocos', 'exemplo', 'index.html'), 'utf8')
     .replace('<title>Exemplo', '<title>Outro').replace('<script src="envio.js"></script>\n', ''));
@@ -1654,6 +1656,31 @@ var TESTES = {
     afirmar(cv.map(function (p) { return p.acao; }).join(',') === 'sessaoDoNucleo,perguntar' && cv[1].sessao === 'sc-1' && cv[1].app === 'conversa' && r.texto === 'olá',
       'o bloco sem fila conversa com o servidor dele: ' + JSON.stringify(cv.map(function (p) { return [p.acao, p.app, p.sessao]; })));
     await b.ctx.close();
+  },
+  /* O "Relatar" no topo e o resumo de cada cartão (casca 1.22.0; desenho §2 e §11 de 12/11/2026): o atalho "relato" sai da
+     grade e vira o botão largo do alto; o bloco manda número, linha e barrinha por Casca.resumoDosAtalhos, só para ids que
+     ele declarou, e o Início mostra o que ficou guardado. */
+  T61_relatar_no_topo_e_o_resumo_dos_atalhos: async function () {
+    var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true };
+    var x = loginComAna({ modulos: [OUTRO] }), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    afirmar(!!(await p.$('#relatarTopo[data-atalho="relato"]')) && !(await p.$('#atalhos [data-atalho="relato"]')), 'o relato fica no topo, fora da grade');
+    var ordem = await p.evaluate(function () { var r = document.getElementById('relatarTopo'), g = document.getElementById('atalhos'); return !!(r.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING); });
+    afirmar(ordem, 'o botão de relatar vem antes da grade');
+    await p.click('#relatarTopo'); await p.waitForURL(/\/blocos\/outro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
+    var ctx = await p.evaluate(function () { return window.INICIO_DO_BLOCO.contexto; });
+    afirmar(ctx && ctx.abrir === 'relato', 'o toque abre o bloco no relato: ' + JSON.stringify(ctx));
+    // O bloco manda o resumo: o id que ele não declarou some, e o texto comprido é cortado.
+    var r = await p.evaluate(function () { return Casca.resumoDosAtalhos({ epi: { numero: 3, linha: '1 de 3 hoje', progresso: 0.33 }, inventado: { numero: 9 }, sqp: { linha: 'x'.repeat(100) } }); });
+    afirmar(r.ok === true && r.atalhos.join(',') === 'epi,sqp', 'só os ids declarados entram: ' + JSON.stringify(r));
+    await p.click('#voltar'); await esperarTexto(p, 'Acesso rápido');
+    var cartao = await p.$eval('#atalhos [data-atalho="epi"]', function (b) { return { n: (b.querySelector('.app-atalho-numero') || {}).textContent, linha: b.querySelector('.app-atalho-de').textContent, barra: (b.querySelector('.app-atalho-barra i') || { style: {} }).style.width }; });
+    afirmar(cartao.n === '3' && cartao.linha === '1 de 3 hoje' && cartao.barra === '33%', 'o cartão mostra o número, a linha e a barra que o bloco mandou: ' + JSON.stringify(cartao));
+    afirmar(!(await p.$('#atalhos [data-atalho="sqp"]')), 'o sqp não aparece para o eletricista, com ou sem resumo');
+    // Outra pessoa no mesmo celular não vê o resumo da Ana.
+    var guardado = await p.evaluate(function () { return cascaLer('resumos'); });
+    afirmar(Object.keys(guardado.outro).join(',') === '99901' && guardado.outro['99901'].itens.sqp.linha.length === 60, 'guardado por bloco e matrícula, com o texto cortado em 60: ' + JSON.stringify(Object.keys(guardado.outro)));
+    await a.ctx.close();
   },
   T52_matricula_na_entrada_pelo_nome: async function () {
     var x = loginComAna(), a = await abrir(x.L), p = a.page;

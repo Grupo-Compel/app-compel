@@ -397,6 +397,28 @@ function cascaDesenharBarra() {
     /* Quais dos atalhos DECLARADOS no bloco.json esta pessoa pode usar, pela permissão que o servidor do bloco mandou
        (casca 1.12.1; ver cascaGuardarAtalhosDaPessoa). Id que o bloco.json não declara é ignorado: o botão do Início
        só nasce da declaração. Sem esta chamada, vale o `perfis` do bloco.json. */
+    /* O número e a linha de baixo de cada cartão do Acesso rápido (casca 1.22.0; desenho das telas da Segurança §2 e §11,
+       decidido pelo Dalton em 12/11/2026): { inicio: { linha: '1 de 3 hoje', progresso: 0.33 }, irregularidades: { numero: 7,
+       linha: '7 vencidas' } }. O bloco chama quando lê o pacote; a casca guarda por bloco e por matrícula e o Início mostra
+       mesmo sem sinal, até o bloco mandar outro. Só ids DECLARADOS no bloco.json entram, e o texto é cortado: o Início não
+       pode virar um painel que cada bloco desenha do seu jeito. Chamar com {} apaga o resumo da pessoa nesse bloco. */
+    resumoDosAtalhos: function (mapa) {
+      exigir();
+      if (!mapa || typeof mapa !== 'object' || Array.isArray(mapa)) return Promise.resolve({ ok: false, erro: 'O resumo é um objeto { idDoAtalho: { numero, linha, progresso } }.' });
+      var declarados = (estado.bloco.atalhos || []).map(function (a) { return a.id; }), limpo = {};
+      Object.keys(mapa).forEach(function (id) {
+        var r = mapa[id]; if (declarados.indexOf(id) < 0 || !r || typeof r !== 'object') return;
+        var x = {};
+        if (typeof r.numero === 'number' && isFinite(r.numero) && r.numero >= 0) x.numero = Math.min(999, Math.floor(r.numero));
+        if (typeof r.linha === 'string' && r.linha.trim()) x.linha = r.linha.trim().slice(0, 60);
+        if (typeof r.progresso === 'number' && isFinite(r.progresso)) x.progresso = Math.max(0, Math.min(1, r.progresso));
+        if (Object.keys(x).length) limpo[id] = x;
+      });
+      return cascaLer('resumos').then(function (t) {
+        t = t || {}; t[estado.id] = t[estado.id] || {}; t[estado.id][cascaMatricula(estado.pessoa.matricula)] = { itens: limpo, em: new Date().toISOString() };
+        return cascaGravar('resumos', t);
+      }).then(function () { return { ok: true, atalhos: Object.keys(limpo) }; });
+    },
     atalhosDaPessoa: function (ids) {
       exigir();
       if (!Array.isArray(ids)) return Promise.resolve({ ok: false, erro: 'A lista dos atalhos é uma lista de ids.' });

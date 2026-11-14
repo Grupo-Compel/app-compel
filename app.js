@@ -735,11 +735,20 @@ function telaInicio() {
   var n = quantosNovos();
   if (n) h += '<div class="aviso info" id="avisoNovo">' + (n === 1 ? 'Há 1 aviso novo.' : 'Há ' + n + ' avisos novos.') + ' <a href="#" data-aba="avisos">Ver</a></div>';
   // O atalho com "noInicio": false não vira botão aqui, mas continua em atalhosDe: a agenda abre o formulário por ele.
-  var atalhos = atalhosDe(p).filter(function (x) { return x.atalho.noInicio !== false; });
+  var todos = atalhosDe(p).filter(function (x) { return x.atalho.noInicio !== false; });
+  /* O atalho "relato" vai para o topo, em largura toda (casca 1.22.0; desenho §2 e §11, Dalton 12/11/2026): quem precisa
+     relatar um acidente está com pressa, e o botão no meio da grade parece mais um formulário. O primeiro que aparecer vale. */
+  var relatar = todos.filter(function (x) { return x.atalho.id === 'relato'; })[0], atalhos = todos.filter(function (x) { return x !== relatar; });
+  if (relatar) h += '<button type="button" class="app-relatar" id="relatarTopo" data-acao="atalho" data-bloco="' + esc(relatar.bloco.id) + '" data-atalho="relato"' + (E.ocupado ? ' disabled' : '') + '>' +
+    '<span class="app-relatar-icone" aria-hidden="true">' + esc(relatar.atalho.icone || '⚠️') + '</span><span><b>' + esc(relatar.atalho.nome) + '</b><small>Funciona sem sinal</small></span></button>';
+  var mat = cascaMatricula(p.matricula);
   if (atalhos.length) h += '<p class="etiqueta n-secao">Acesso rápido</p><div class="app-atalhos" id="atalhos">' + atalhos.map(function (x) {
+    var rb = ((E.resumos || {})[x.bloco.id] || {})[mat], r = rb && rb.itens && rb.itens[x.atalho.id];
     return '<button type="button" class="app-atalho" data-acao="atalho" data-bloco="' + esc(x.bloco.id) + '" data-atalho="' + esc(x.atalho.id) + '"' + (E.ocupado ? ' disabled' : '') + '>' +
+      (r && r.numero ? '<span class="app-atalho-numero" aria-label="' + r.numero + ' pendente(s)">' + (r.numero > 99 ? '99+' : r.numero) + '</span>' : '') +
       (x.atalho.icone ? '<span class="app-atalho-icone" aria-hidden="true">' + esc(x.atalho.icone) + '</span>' : '') +
-      '<span class="app-atalho-nome">' + esc(x.atalho.nome) + '</span><span class="app-atalho-de">' + esc(x.modulo.nome || x.bloco.nome) + '</span></button>';
+      '<span class="app-atalho-nome">' + esc(x.atalho.nome) + '</span><span class="app-atalho-de">' + esc(r && r.linha ? r.linha : (x.modulo.nome || x.bloco.nome)) + '</span>' +
+      (r && typeof r.progresso === 'number' ? '<span class="app-atalho-barra" aria-hidden="true"><i style="width:' + Math.round(r.progresso * 100) + '%"></i></span>' : '') + '</button>';
   }).join('') + '</div>';
   var completos = [];
   mods.forEach(function (m, i) { if (vaiAosCompletos(m)) completos.push({ m: m, i: i }); });
@@ -1322,7 +1331,8 @@ function registrarServiceWorker() {
 
 /* ---------- abrir ---------- */
 function iniciar() {
-  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos'), lerKv('relatoLigado'), lerKv('pedeMatricula')]).then(function (v) {
+  return Promise.all([lerKv('aparelho'), lerKv('pessoas'), lerKv('atual'), cascaLer('atalhos'), lerKv('relatoLigado'), lerKv('pedeMatricula'), cascaLer('resumos')]).then(function (v) {
+    E.resumos = v[6] || {};
     E.relatoLigado = v[4] === true; E.pedeMatricula = typeof v[5] === 'boolean' ? v[5] : null;
     E.aparelho = v[0]; E.pessoas = v[1] || {}; E.atual = v[2] || null; E.atalhosDaPessoa = v[3] || {};
     if (!E.aparelho) { E.aparelho = { id: sorteio(16), chave: sorteio(16) }; return gravarKv('aparelho', E.aparelho); }
