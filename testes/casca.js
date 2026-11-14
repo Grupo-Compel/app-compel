@@ -454,6 +454,9 @@ var TESTES = {
     // 00h30 de Brasília = 23h30 em Campo Grande: ainda é o dia dela.
     await a.page.clock.setSystemTime(new Date('2026-10-22T00:30:00-03:00'));
     await a.page.click('[data-aba="perfil"]'); await esperarTexto(a.page, 'Matrícula');
+    // O quadro "Como está este celular" (1.23.0) termina de conferir e redesenha: espera-se ele antes de mexer no relógio,
+    // senão o redesenho cai depois das 00h10 e já mostra a entrada antes do toque no Início.
+    await a.page.waitForFunction(function () { var s = document.getElementById('saude'); return s && s.textContent.indexOf('Conferindo') < 0; });
     // 01h10 de Brasília = 00h10 em Campo Grande: o dia dela acabou.
     await a.page.clock.setSystemTime(new Date('2026-10-22T01:10:00-03:00'));
     await a.page.click('[data-aba="inicio"]');
@@ -1781,6 +1784,41 @@ var TESTES = {
     await p.waitForSelector('#senha');
     afirmar((await estado('senha')).tipo === 'password', 'a senha apareceu à vista ao voltar para a entrada');
     await a.ctx.close();
+  },
+  /* "Como está este celular" no Perfil (casca 1.23.0, proposta na carta nº 5 à Linha, 13/11/2026): a versão do app, a de
+     cada bloco da pessoa, o servidor que confere ou mudou e o bloco guardado para sem sinal; o endereço nunca aparece.
+     E a faixa dos blocos com rótulo comprido continua com uma linha só (achado de 13/11/2026). */
+  T62_como_esta_este_celular_e_a_faixa_com_rotulo_comprido: async function () {
+    var x = anaComExemplo(), a = await abrir(x.L, { comServiceWorker: true }), p = a.page;
+    await p.evaluate(function () { return navigator.serviceWorker.ready; });
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="perfil"]');
+    await p.waitForFunction(function () { var s = document.getElementById('saude'); return s && s.textContent.indexOf('Exemplo') >= 0; });
+    var t = await texto(p, '#saude'), versao = await p.evaluate(function () { return VERSAO_APP; });
+    afirmar(t.indexOf(versao) >= 0, 'a versão do app devia estar no quadro; veio: ' + t);
+    afirmar(t.indexOf('versão 1 · servidor confere · abre sem sinal') >= 0, 'o bloco Exemplo devia dizer versão, servidor que confere e guardado; veio: ' + t);
+    afirmar(t.indexOf('https://') < 0 && t.indexOf('teste.invalid') < 0, 'o endereço do servidor não pode aparecer na tela');
+    afirmar(t.indexOf('Treinamentos') < 0, 'módulo sem tela no celular não entra no quadro');
+    // A hora da guarda no fuso da pessoa (o da base dela, que fecha o dia da entrada), e não em UTC (o service worker grava em UTC).
+    var esperada = await p.evaluate(function () { var f = fusoDe(pessoaAtual()); return cascaLer('instalacao').then(function (i) { return new Date(i.quando).toLocaleString('pt-BR', { timeZone: f, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ''); }); });
+    afirmar(t.indexOf('Guardado' + esperada) >= 0, 'a hora da guarda devia estar no fuso da pessoa (' + esperada + '); veio: ' + t);
+    await a.ctx.close();
+    // O login manda outro endereço para o módulo: o quadro diz "mudou", em destaque; sem service worker, nada guardado.
+    var y = anaComExemplo(SERVIDOR_OUTRO), b = await abrir(y.L, { largura: 360 }), q = b.page;
+    await entrarCpf(q, y.cpf, 'senha-da-ana'); await esperarTexto(q, 'Olá, Ana');
+    await q.click('[data-aba="perfil"]');
+    await q.waitForFunction(function () { var s = document.getElementById('saude'); return s && s.textContent.indexOf('Exemplo') >= 0; });
+    t = await texto(q, '#saude');
+    afirmar(t.indexOf('servidor mudou · ainda não guardado') >= 0, 'com o endereço que não bate, devia dizer "mudou"; veio: ' + t);
+    afirmar(!!(await q.$('#saude .app-saude-ruim')), 'o servidor que mudou devia ficar em destaque');
+    // A faixa do bloco, num celular estreito, com o rótulo mais comprido que a casca aceita (40 letras).
+    await q.click('[data-aba="inicio"]'); await esperarTexto(q, 'Olá, Ana');
+    await q.click('#modulos .n-modulo[data-i="5"]'); await q.waitForURL(/\/blocos\/exemplo\/index\.html$/); await q.waitForSelector('#casca-barra');
+    var antes = await q.$eval('#casca-barra', function (e) { return e.offsetHeight; });
+    await q.evaluate(function () { Casca.barra({ rotulo: 'Voltar à lista de irregularidades da base' }); });
+    var depois = await q.$eval('#casca-barra', function (e) { return e.offsetHeight; });
+    afirmar(depois === antes, 'o rótulo comprido mudou a altura da faixa de ' + antes + ' para ' + depois + ' px');
+    await b.ctx.close();
   }
 };
 

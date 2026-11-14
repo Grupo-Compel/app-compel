@@ -226,7 +226,10 @@ function cascaDesenharBarra() {
     var st = document.createElement('style');
     st.textContent = '#casca-barra{position:sticky;top:0;z-index:1000;display:flex;align-items:center;gap:10px;background:#231F20;color:#fff;padding:8px 12px;min-height:48px;font:600 15px Inter,system-ui,sans-serif}' +
       '#casca-barra button{font:inherit;color:#fff;background:#3A3639;border:0;border-radius:8px;min-height:40px;padding:0 12px;cursor:pointer}' +
-      '#casca-barra .cb-marca{flex:1;letter-spacing:.04em}#casca-barra .cb-rel{width:44px;padding:0;font-size:22px;font-weight:700}' +
+      // Rótulo comprido (até 40 letras) cortava a marca em duas linhas e a faixa dobrava de altura (achado de 13/11/2026):
+      // o "Voltar" fica numa linha só, com reticências, e a marca some antes de quebrar.
+      '#casca-barra .cb-voltar{flex:0 1 auto;max-width:60%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '#casca-barra .cb-marca{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.04em}#casca-barra .cb-rel{width:44px;padding:0;font-size:22px;font-weight:700}' +
       '#casca-barra .cb-sinal{font-size:12px;padding:3px 9px;border-radius:12px;background:#FFF1D6;color:#8A5A00;white-space:nowrap}#casca-barra .cb-sinal.on{background:#DDF3E4;color:#1B7F3B}';
     document.head.appendChild(st);
     el = document.createElement('header'); el.id = 'casca-barra';
@@ -394,9 +397,6 @@ function cascaDesenharBarra() {
         return comSessao(sessao).then(function (r) { return r && r.sessaoExpirada ? renovarERepetir() : r; });
       }).then(semSegredos);
     },
-    /* Quais dos atalhos DECLARADOS no bloco.json esta pessoa pode usar, pela permissão que o servidor do bloco mandou
-       (casca 1.12.1; ver cascaGuardarAtalhosDaPessoa). Id que o bloco.json não declara é ignorado: o botão do Início
-       só nasce da declaração. Sem esta chamada, vale o `perfis` do bloco.json. */
     /* O número e a linha de baixo de cada cartão do Acesso rápido (casca 1.22.0; desenho das telas da Segurança §2 e §11,
        decidido pelo Dalton em 12/11/2026): { inicio: { linha: '1 de 3 hoje', progresso: 0.33 }, irregularidades: { numero: 7,
        linha: '7 vencidas' } }. O bloco chama quando lê o pacote; a casca guarda por bloco e por matrícula e o Início mostra
@@ -419,6 +419,9 @@ function cascaDesenharBarra() {
         return cascaGravar('resumos', t);
       }).then(function () { return { ok: true, atalhos: Object.keys(limpo) }; });
     },
+    /* Quais dos atalhos DECLARADOS no bloco.json esta pessoa pode usar, pela permissão que o servidor do bloco mandou
+       (casca 1.12.1; ver cascaGuardarAtalhosDaPessoa). Id que o bloco.json não declara é ignorado: o botão do Início
+       só nasce da declaração. Sem esta chamada, vale o `perfis` do bloco.json. */
     atalhosDaPessoa: function (ids) {
       exigir();
       if (!Array.isArray(ids)) return Promise.resolve({ ok: false, erro: 'A lista dos atalhos é uma lista de ids.' });

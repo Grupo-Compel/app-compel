@@ -595,7 +595,7 @@ var AJUDAS = {
   envio: 'O que foi feito no celular e ainda não chegou ao sistema. Fica guardado aqui e sobe sozinho quando houver sinal; "Enviar agora" manda na hora. Nada é apagado enquanto não chega. Se aparecer que o endereço do servidor mudou, avise a administração: o celular não manda para um endereço que não reconhece.',
   avisos: 'Em cima, o que é só para você (o problema que você relatou e foi corrigido, por exemplo): "Marcar como lido" tira o aviso daqui. Embaixo, as comunicações da Compel dos últimos 30 dias; as marcadas como "novo" chegaram depois da última vez que você abriu esta tela. Precisa de sinal.',
   relato: 'Algo deu errado no app, ou você tem uma ideia para ele? Marque "Deu erro" ou "Tenho uma sugestão" e conte com as suas palavras: no erro, o que você tentou fazer e o que apareceu; na sugestão, o que poderia melhorar. A tela, a versão do app e a hora vão junto, sozinhas. Se quiser, anexe um print (tire o print com o botão do celular antes de abrir aqui). Precisa de sinal. Quando o problema for corrigido, o aviso aparece em Avisos.',
-  perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal.'
+  perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal. "Como está este celular" mostra a versão do app e de cada sistema que abre no celular, se o servidor confere e se o sistema abre sem sinal.'
 };
 function ajuda(tela) {
   return '<button type="button" class="link-texto" data-acao="ajuda">' + (E.ajuda ? 'Fechar a ajuda' : 'Como funciona esta tela') + '</button>' +
@@ -881,7 +881,51 @@ function telaPerfil() {
     '<dt>Sem sinal</dt><dd>' + (p.verif ? 'entra com a senha, até ' + par.diasSemSinal + ' dias sem falar com o login' : 'só entra com sinal') + '</dd>' +
     (p.sessaoAte ? '<dt>Aparelho</dt><dd>registrado até ' + esc(brDe(p.sessaoAte)) + ' (renova a cada entrada com sinal)</dd>' : '') + '</dl>' +
     botao('sair', 'Trocar de pessoa') + botao('esquecer', 'Tirar meus dados deste celular', false, true) + '</div>' +
-    ajuda('perfil') + '<p class="app-versao">App Compel · versão ' + esc(VERSAO_APP) + '</p></div>';
+    saudeDoCelular() + ajuda('perfil') + '<p class="app-versao">App Compel · versão ' + esc(VERSAO_APP) + '</p></div>';
+}
+/* "COMO ESTÁ ESTE CELULAR" (casca 1.23.0, proposta do App na carta nº 5 à Linha, 13/11/2026). Do shell, o App não alcança
+   o site nem o celular: cada "já está no ar?" virava pergunta ao Dalton, e o mapa ficava em "instalado, uso a conferir".
+   Uma foto desta parte responde: a versão do app, a de cada bloco que a pessoa usa, se o endereço do servidor confere
+   com o resumo publicado e se o bloco ficou guardado para abrir sem sinal. O endereço nunca aparece: só "confere". */
+function lerSaude() {
+  var p = pessoaAtual(); if (!p) return Promise.resolve();
+  var vistos = {}, blocos = (p.modulos || []).map(telaDoCelular).filter(function (b) { if (!b || vistos[b.id]) return false; return (vistos[b.id] = true); });
+  return Promise.all([cascaLer('instalacao').catch(function () { return null; })].concat(blocos.map(function (b) {
+    // Bloco sem servidor (só do celular, sem fila nem conversa) não tem o que conferir: não aparece "mudou" à toa.
+    var servidor = (b.envia || b.posta) ? cascaServidorDe(b).then(function (r) { return r.ok ? 'confere' : r.semEndereco ? 'ainda não chegou' : 'mudou'; }, function () { return 'não deu para conferir'; }) : Promise.resolve('');
+    var guardado = (typeof caches === 'undefined' || !b.cache || !b.arquivos || !b.arquivos.length) ? Promise.resolve(null) :
+      caches.has(b.cache + b.versao).then(function (tem) {
+        // has antes de open: o open criaria um cache vazio com o nome da versão (a mesma cautela do sw.js).
+        return tem ? caches.open(b.cache + b.versao).then(function (c) { return c.keys(); }).then(function (k) { return k.length >= b.arquivos.length; }) : false;
+      }).catch(function () { return null; });
+    return Promise.all([servidor, guardado]).then(function (v) { return { nome: b.nome || b.id, versao: b.versao, servidor: v[0], guardado: v[1] }; });
+  }))).then(function (v) {
+    E.saude = { instalacao: v[0] || null, blocos: v.slice(1) };
+    // Só redesenha se a pessoa ainda está no Perfil: em outra aba, o redesenho poderia apagar o que ela digita.
+    if (E.tela === 'perfil') desenharSeLogado();
+  });
+}
+function horaNoFuso(iso, fuso) {
+  var d = new Date(iso); if (isNaN(d)) return '';
+  try { return d.toLocaleString('pt-BR', { timeZone: fuso, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ''); }
+  catch (e) { return brDe(iso); }
+}
+function saudeDoCelular() {
+  var s = E.saude;
+  var h = '<p class="etiqueta n-secao">Como está este celular</p><div class="cartao" id="saude"><dl class="app-resumo">' +
+    '<dt>App</dt><dd>' + esc(VERSAO_APP) + '</dd>';
+  if (!s) return h + '</dl><p class="app-texto">Conferindo…</p></div>';
+  var i = s.instalacao;
+  // A hora gravada pelo service worker é UTC: mostrada crua, a guarda das 22h50 aparecia como 01h50 do dia seguinte (visto no
+  // teste de 13/11/2026). Vai no fuso da pessoa, o mesmo que fecha o dia da entrada.
+  if (i && i.quando) h += '<dt>Guardado</dt><dd>' + esc(horaNoFuso(i.quando, fusoDe(pessoaAtual()))) + (i.problemas && i.problemas.length ? ' · faltou uma parte' : ' · completo') + '</dd>';
+  s.blocos.forEach(function (b) {
+    var partes = ['versão ' + b.versao];
+    if (b.servidor) partes.push('servidor ' + b.servidor);
+    if (b.guardado !== null) partes.push(b.guardado ? 'abre sem sinal' : 'ainda não guardado');
+    h += '<dt>' + esc(b.nome) + '</dt><dd class="app-saude-bloco' + (b.servidor === 'mudou' ? ' app-saude-ruim' : '') + '">' + esc(partes.join(' · ')) + '</dd>';
+  });
+  return h + '</dl><p class="app-texto app-saude-dica">Se o suporte pedir, mande uma foto desta parte.</p></div>';
 }
 
 function desenhar() {
@@ -928,6 +972,7 @@ function irPara(tela, ok) {
   if (tela === 'inicio' && !E.avisos) buscarAvisos();
   if (tela !== 'avisos') delete E.avisosNovosAntes;
   if (tela === 'envio') lerEnvio();
+  if (tela === 'perfil') { E.saude = null; lerSaude(); }
   if (tela === 'agenda') { E.agenda.form = null; E.agenda.confirma = null; E.agenda.sel = null; E.agenda.erro = ''; E.agenda.ancora = agHoje(); E.agenda.carregada = false; desenhar(); window.scrollTo(0, 0); return agCarregar(); }
   desenhar();
   window.scrollTo(0, 0);
