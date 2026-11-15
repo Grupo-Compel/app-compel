@@ -354,6 +354,14 @@ function abreNoCelular(m) {
   var b = telaDoCelular(m);
   return b && !(b.especie === 'ambas' && Array.isArray(b.atalhos) && b.atalhos.length) ? b : null;
 }
+/* A ABA "DÚVIDAS" (casca 1.24.0; decisão do Dalton, 14/11/2026, 22h: o chat do Suporte numa aba da barra de baixo, e não num
+   cartão). Só existe para quem tem o módulo SUPORTE liberado e o bloco dele neste app; a aba abre a tela do bloco (guardada no
+   celular), como o cartão de "Sistemas completos" abriria. O bloco precisa de sinal e diz isso na própria tela. */
+function blocoDeDuvidas() {
+  var p = pessoaAtual(), ms = (p && p.modulos) || [];
+  for (var i = 0; i < ms.length; i++) { if (ms[i].modulo === 'SUPORTE' && ms[i].liberado !== false && ms[i].url) { var b = telaDoCelular(ms[i]); if (b) return b; } }
+  return null;
+}
 function abrirModulo(i) {
   var p = pessoaAtual(), m = p && p.modulos[i];
   if (!m || !m.url || m.liberado === false || !/^https:\/\/\S+$/.test(m.url)) return;
@@ -942,6 +950,7 @@ function desenhar() {
   // A aba de Envio só existe quando algum bloco deste app envia; a bolinha dela é o que espera para subir.
   $('abaEnvio').classList.toggle('oculto', !blocosQueEnviam().length);
   $('abaAgenda').classList.toggle('oculto', E.agenda.semAcesso === true);
+  $('abaDuvidas').classList.toggle('oculto', !(logado && blocoDeDuvidas()));
   var pe = logado ? totalPendente() : 0, bolE = $('bolinhaEnvio'); bolE.classList.toggle('oculto', !pe); bolE.textContent = pe > 9 ? '9+' : pe;
   // O que a pessoa já digitou no CPF e no e-mail sobrevive ao redesenho (um erro não a obriga a digitar de novo).
   // A senha não: depois de um erro, ela é digitada outra vez.
@@ -1277,6 +1286,7 @@ function agExcluir() {
 /* ---------- os toques ---------- */
 document.addEventListener('click', function (ev) {
   var aba = ev.target.closest('[data-aba]');
+  if (aba && aba.getAttribute('data-aba') === 'duvidas') { ev.preventDefault(); var bd = blocoDeDuvidas(); if (bd) location.href = bd.entrada; return; }
   if (aba) { ev.preventDefault(); return irPara(aba.getAttribute('data-aba')); }
   var b = ev.target.closest('[data-acao]');
   if (!b || b.disabled) return;

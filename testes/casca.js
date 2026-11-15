@@ -1819,6 +1819,27 @@ var TESTES = {
     var depois = await q.$eval('#casca-barra', function (e) { return e.offsetHeight; });
     afirmar(depois === antes, 'o rótulo comprido mudou a altura da faixa de ' + antes + ' para ' + depois + ' px');
     await b.ctx.close();
+  },
+  /* A aba "Dúvidas" (casca 1.24.0; Dalton, 14/11/2026): só para quem tem o módulo SUPORTE liberado; abre o bloco dele. */
+  T63_aba_duvidas_so_para_quem_tem_o_suporte: async function () {
+    var SUP = { modulo: 'SUPORTE', nome: 'Dúvidas', url: SERVIDOR_OUTRO, perfil: 'COLABORADOR', liberado: true };
+    var x = loginComAna({ modulos: [SUP] }), a = await abrir(x.L, { largura: 360 }), p = a.page;
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    // As seis abas (com o Envio, que aparece quando algum bloco envia) cabem num celular estreito, sem cortar nem rolar.
+    await p.evaluate(function () { document.getElementById('abaEnvio').classList.remove('oculto'); });
+    afirmar(await p.$eval('#abas', function (n) { return n.scrollWidth <= n.clientWidth && Array.prototype.every.call(n.querySelectorAll('button'), function (b) { return b.scrollWidth <= b.clientWidth; }); }), 'seis abas num celular de 360 px: alguma estourou a largura');
+    await p.evaluate(function () { document.getElementById('abaEnvio').classList.add('oculto'); });
+    afirmar(await p.isVisible('#abaDuvidas'), 'com o módulo SUPORTE liberado, a aba Dúvidas devia aparecer');
+    await p.click('#abaDuvidas'); await p.waitForURL(/\/blocos\/suporte\/index\.html$/);
+    await a.ctx.close();
+    var y = loginComAna({ modulos: [Object.assign({}, SUP, { liberado: false, motivo: 'Complete o cadastro' })] }), b = await abrir(y.L);
+    await entrarCpf(b.page, y.cpf, 'senha-da-ana'); await esperarTexto(b.page, 'Olá, Ana');
+    afirmar(!(await b.page.isVisible('#abaDuvidas')), 'módulo não liberado: a aba não pode aparecer');
+    await b.ctx.close();
+    var z = anaComExemplo(), c = await abrir(z.L);
+    await entrarCpf(c.page, z.cpf, 'senha-da-ana'); await esperarTexto(c.page, 'Olá, Ana');
+    afirmar(!(await c.page.isVisible('#abaDuvidas')), 'sem o módulo SUPORTE: a aba não pode aparecer');
+    await c.ctx.close();
   }
 };
 
