@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dúvidas · App Compel</title>
+<!-- A conversa com o assistente do Suporte (13/11/2026; Dalton 12/11: "quero um chat mesmo no app, como uma outra aba
+     muito mais intuitiva"). O estilo é o da casca; o que o bloco inventou leva o prefixo spt- e fica aqui, curto, sem
+     redefinir classe da folha (blocos/README.md, "O estilo do bloco"). -->
+<link rel="stylesheet" href="../../estilo/fontes.css">
+<link rel="stylesheet" href="../../estilo/nucleo.css">
+<style>
+  .spt-h1 { font: 700 26px/1.15 Inter, sans-serif; margin: 6px 0 2px; }
+  .spt-sub { color: var(--tinta-media, #5A5C63); font-size: 13px; margin: 0 0 12px; }
+  /* A conversa: o assistente à esquerda em branco, a pessoa à direita em vermelho bem claro com contorno. O texto
+     é sempre a tinta escura: vermelho da marca não é cor de letra (4,38:1, abaixo do mínimo). */
+  .spt-conversa { display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+  .spt-bolha { max-width: 92%; align-self: flex-start; padding: 12px 14px; border-radius: 16px 16px 16px 4px; background: var(--superficie, #fff); box-shadow: 0 2px 8px rgba(15,31,46,.06); font: 16px/1.45 Inter, sans-serif; color: var(--tinta, #231F20); overflow-wrap: anywhere; white-space: pre-line; }
+  .spt-bolha.spt-eu { align-self: flex-end; background: #FFF5F5; border: 1.5px solid #F2B8BB; border-radius: 16px 16px 4px 16px; box-shadow: none; }
+  .spt-selo { display: block; font: 600 11px Inter, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--tinta-media, #5A5C63); margin-bottom: 4px; white-space: normal; }
+  .spt-nota { display: block; color: var(--tinta-media, #5A5C63); font-size: 13px; margin-top: 6px; white-space: normal; }
+  .spt-escolhas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 2px 0 4px; }
+  .spt-escolha { min-height: 52px; padding: 8px 10px; border: 1.5px solid #D9DBDF; border-radius: 14px; background: #fff; font: 600 14px/1.25 Inter, sans-serif; color: var(--tinta, #231F20); text-align: left; cursor: pointer; }
+  .spt-escolha:active { background: #FFF5F5; border-color: #D3121A; }
+  .spt-escolha:focus-visible, .spt-acao:focus-visible { outline: 3px solid #1B4F8F; outline-offset: 2px; }
+  .spt-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; white-space: normal; }
+  .spt-acao { min-height: 48px; padding: 0 14px; border: 1.5px solid #D9DBDF; border-radius: 12px; background: #fff; font: 600 14px Inter, sans-serif; color: var(--tinta, #231F20); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .spt-acao:disabled { color: #8B8E96; cursor: default; }
+  .spt-acao.spt-forte { border-color: #B2101F; color: #B2101F; }
+  .spt-trecho { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: #F4F5F7; white-space: normal; }
+  .spt-trecho b { display: block; font-size: 14px; }
+  .spt-trecho small { display: block; color: var(--tinta-media, #5A5C63); font-size: 12px; margin: 2px 0 6px; }
+  .spt-trecho p { margin: 0; font-size: 14px; white-space: pre-line; }
+  .spt-trecho a { display: inline-block; margin-top: 6px; color: #B2101F; font-weight: 600; min-height: 32px; line-height: 32px; }
+  .spt-setor { padding: 8px 0; border-bottom: 1px solid #E6E7EA; white-space: normal; } .spt-setor:last-child { border-bottom: 0; }
+  .spt-setor a { color: #B2101F; font-weight: 600; }
+  .spt-pensando { display: flex; align-items: center; gap: 10px; color: var(--tinta-media, #5A5C63); white-space: normal; }
+  .spt-pontos { display: inline-flex; gap: 4px; } .spt-pontos i { width: 7px; height: 7px; border-radius: 50%; background: #B2101F; opacity: .3; animation: spt-pulo 1.2s infinite; }
+  .spt-pontos i:nth-child(2) { animation-delay: .2s; } .spt-pontos i:nth-child(3) { animation-delay: .4s; }
+  @keyframes spt-pulo { 0%, 80%, 100% { opacity: .3; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .spt-pontos i { animation: none; opacity: .7; } }
+  /* A caixa de escrever presa no pé, com o fundo da página para a conversa que rola por baixo não aparecer através. */
+  .spt-pe { position: sticky; bottom: 0; z-index: 5; margin-top: 10px; padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--fundo, #F4F5F7); box-shadow: 0 -10px 10px -10px rgba(35,31,32,.25); }
+  .spt-pe label { display: block; font: 600 13px Inter, sans-serif; color: var(--tinta-media, #5A5C63); margin-bottom: 4px; }
+  .spt-linha { display: flex; gap: 8px; align-items: flex-end; }
+  .spt-texto { flex: 1; min-width: 0; min-height: 52px; max-height: 140px; box-sizing: border-box; padding: 12px 14px; border: 1.5px solid #D9DBDF; border-radius: 14px; font: 16px/1.4 Inter, sans-serif; color: var(--tinta, #231F20); background: #fff; resize: none; }
+  .spt-texto:focus { outline: none; border-color: #B2101F; box-shadow: 0 0 0 3px #FDEBEC; }
+  .spt-enviar { min-width: 92px; min-height: 52px; }
+  .spt-conta { display: block; text-align: right; color: var(--tinta-media, #5A5C63); font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main class="conteudo" id="corpo"><div class="carregando">Abrindo…</div></main>
+<script src="../../config/login.js"></script>
+<script src="../../servicos.js"></script>
+<script src="../indice.js"></script>
+<script src="../../casca.js"></script>
+<script src="tela.js"></script>
+</body>
+</html>
