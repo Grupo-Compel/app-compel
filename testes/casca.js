@@ -1840,6 +1840,21 @@ var TESTES = {
     await entrarCpf(c.page, z.cpf, 'senha-da-ana'); await esperarTexto(c.page, 'Olá, Ana');
     afirmar(!(await c.page.isVisible('#abaDuvidas')), 'sem o módulo SUPORTE: a aba não pode aparecer');
     await c.ctx.close();
+  },
+  T64_toque_no_cartao_muda_a_cada_toque_e_sobrevive_a_recarga: async function () {
+    // Cada toque no cartão leva um `toque` novo; recarregar a página do bloco mantém o mesmo endereço e, com ele, o mesmo número.
+    var x = loginComAna({ modulos: [{ modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true }] }), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    var lerToque = function () { return p.evaluate(function () { var c = window.INICIO_DO_BLOCO && window.INICIO_DO_BLOCO.contexto; return c ? c.toque : null; }); };
+    await p.click('#atalhos [data-atalho="epi"]'); await p.waitForURL(/\/blocos\/outro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
+    var t1 = await lerToque();
+    afirmar(typeof t1 === 'number' && t1 > 1700000000000, 'o contexto devia levar o toque (um número de tempo), e levou ' + t1);
+    await p.reload(); await p.waitForSelector('#pronto');
+    afirmar((await lerToque()) === t1, 'recarregar a página do bloco devia manter o mesmo toque');
+    await p.click('#voltar'); await esperarTexto(p, 'Acesso rápido'); await p.waitForTimeout(5);
+    await p.click('#atalhos [data-atalho="epi"]'); await p.waitForURL(/\/blocos\/outro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
+    afirmar((await lerToque()) > t1, 'um novo toque no cartão devia trazer um toque maior que o anterior');
+    await a.ctx.close();
   }
 };
 

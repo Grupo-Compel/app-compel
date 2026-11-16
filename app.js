@@ -783,7 +783,10 @@ function telaInicio() {
 function abrirAtalho(id, atalho) {
   var b = cascaBloco(id);
   if (!b || !b.entrada || !Array.isArray(b.atalhos) || !b.atalhos.some(function (a) { return a.id === atalho; })) return;
-  location.href = b.entrada + '#ctx=' + cascaB64Url(JSON.stringify({ abrir: atalho }));
+  /* O `toque` muda a cada toque no cartão e fica igual quando o navegador reabre a página morta (a câmera mata a página no
+     Android e o navegador a restaura com o MESMO endereço). O bloco compara com o do rascunho e sabe se é restauração ou
+     toque novo, sem depender de o celular contar a reabertura como recarga (carta nº 29 da Segurança, 16/11/2026). */
+  location.href = b.entrada + '#ctx=' + cascaB64Url(JSON.stringify({ abrir: atalho, toque: Date.now() }));
 }
 function telaAvisos() {
   var p = pessoaAtual(), h = '<p class="etiqueta n-secao app-sem-margem">Avisos</p>' + mensagens();
