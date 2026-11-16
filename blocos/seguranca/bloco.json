@@ -12,7 +12,7 @@
     "ADMIN"
   ],
   "servidor": "SEGURANCA",
-  "versao": "0.7.2",
+  "versao": "0.7.3",
   "entrada": "index.html",
   "arquivos": [
     "index.html",
@@ -39,7 +39,7 @@
     },
     {
       "id": "inicio",
-      "nome": "Meus checklists",
+      "nome": "Segurança",
       "icone": "⛑️",
       "perfis": [
         "*"
@@ -55,7 +55,8 @@
         "COORDENADOR",
         "GERENTE",
         "ADMIN"
-      ]
+      ],
+      "noInicio": false
     },
     {
       "id": "dds",
@@ -68,7 +69,8 @@
         "COORDENADOR",
         "GERENTE",
         "ADMIN"
-      ]
+      ],
+      "noInicio": false
     },
     {
       "id": "irregularidades",
@@ -80,7 +82,8 @@
         "COORDENADOR",
         "GERENTE",
         "ADMIN"
-      ]
+      ],
+      "noInicio": false
     },
     {
       "id": "epi",

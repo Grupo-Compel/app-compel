@@ -42,8 +42,15 @@ Casca.iniciar('seguranca').then(function (r) {
   S.contexto = lerContexto(r.contexto);
   var abrir = telaDoAtalho(r.contexto);
   return segGravarConfig('ultimaMatricula', r.pessoa.matricula).then(carregarLocal).then(recuperarRascunho).then(function () {
-    // O formulário pela metade vence o atalho: quem voltou da câmera continua onde estava.
-    if (abrir && !S.recuperado && podeAbrir(abrir)) S.tela = abrir;
+    /* O cartão tocado vence o rascunho (App nº 28, 14/11/2026: o Dalton saiu do DDS pela barra de baixo, que não passa
+       pelo Voltar e deixa o rascunho; tocou em Blitz e caiu de novo no DDS, com o aviso "o app foi fechado no meio").
+       O rascunho só vence quando a página foi RECARREGADA (a câmera matou a página e o navegador a restaurou) ou quando
+       o cartão é a mesma tela do rascunho. Se a casca restaura a página morta como abertura nova, o rascunho se perde
+       aqui: pedi ao App que diga como ela restaura (carta nº 28 da Segurança). */
+    if (abrir && podeAbrir(abrir)) {
+      if (!S.recuperado) S.tela = abrir;
+      else if (S.tela !== abrir && !foiRecarga()) { S.tela = abrir; S.alvo = null; S.form = null; S.recuperado = false; apagarRascunho(); }
+    }
     desenhar();
     /* Quando o sinal volta, a casca já manda a fila sozinha; a tela pede de novo para saber o resultado e mostrar o
        contador certo (a casca não avisa a tela quando termina um envio). E a cada 20 s a tela relê o banco do bloco: o
@@ -78,6 +85,7 @@ function carregarLocal() {
    O bloco.json dá o padrão por perfil; depois do pacote, o bloco diz à casca quais a pessoa usa DE VERDADE pela função
    dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
 var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'inspecoes', 'sqp', 'blitz', 'dds', 'irregularidades'];
+function foiRecarga() { try { var n = performance.getEntriesByType('navigation')[0]; return !!n && (n.type === 'reload' || n.type === 'back_forward'); } catch (e) { return false; } /* vigia: sem a medida, vale a abertura nova (o cartão vence) */ }
 function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
 function podeAbrir(t) {
   if (t === 'sqp' || t === 'blitz' || t === 'irregularidades' || t === 'inspecoes') return !!S.pacote && ehDe(INSPECIONA);
@@ -117,12 +125,12 @@ function contaDasIrregularidades() {
 function resumoParaACasca() {
   if (!S.pacote || !S.pessoa) return null;
   var eu = S.pessoa, dev = devidosHoje(eu.matricula), feitos = dev.filter(function (t) { return feitoHoje(t, eu.matricula); }).length;
-  var r = { inicio: dev.length ? { linha: feitos + ' de ' + dev.length + ' hoje', progresso: feitos / dev.length } : { linha: 'nenhum checklist hoje' } };
-  if (ehDe(INSPECIONA)) {
-    var meta = (S.pacote.meta || {}).sqp || 0, irr = contaDasIrregularidades();
-    r.inspecoes = { linha: meta ? 'SQP e Blitz · meta ' + sqpNoMes() + ' de ' + meta : 'SQP e Blitz' };
-    r.irregularidades = { numero: irr.vencidas, linha: irr.vencidas ? irr.vencidas + ' vencida(s)' : irr.pendentes ? irr.pendentes + ' pendente(s)' : 'nada pendente' };
-  }
+  /* Um cartão só no Início do app (App nº 28, Dalton 14/11/2026): "Segurança" leva a linha dos checklists e, para quem
+     inspeciona, as irregularidades vencidas; os cartões de Inspeções, DDS e Irregularidades saíram da grade
+     (noInicio: false) e seus números moram dentro da tela de início do bloco. */
+  var linha = dev.length ? feitos + ' de ' + dev.length + ' hoje' : 'nenhum checklist hoje';
+  if (ehDe(INSPECIONA)) { var irr = contaDasIrregularidades(); if (irr.vencidas) linha += ' · ' + irr.vencidas + ' vencida(s)'; }
+  var r = { inicio: dev.length ? { linha: linha, progresso: feitos / dev.length } : { linha: linha } };
   return r;
 }
 function avisarResumo() {
