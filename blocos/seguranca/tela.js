@@ -11,7 +11,7 @@
  * que nasce aqui: o servidor não grava duas vezes o mesmo ID.
  */
 'use strict';
-var S = { tela: 'inicio', pessoa: null, pacote: null, sessaoOk: false, msg: '', form: null, alvo: null, contexto: null, registros: [], lido: null, baseDia: '' };
+var S = { toque: 0, toqueRascunho: 0, tela: 'inicio', pessoa: null, pacote: null, sessaoOk: false, msg: '', form: null, alvo: null, contexto: null, registros: [], lido: null, baseDia: '' };
 
 function $(id) { return document.getElementById(id); }
 /* Escapa também as aspas: o texto entra em atributos (data-m, data-k, value). O textContent→innerHTML não escapa
@@ -40,16 +40,18 @@ var INSPECIONA = ['INSPETOR', 'SUPERVISOR', 'COORDENADOR', 'GERENTE', 'ADMIN'], 
 Casca.iniciar('seguranca').then(function (r) {
   S.pessoa = r.pessoa;
   S.contexto = lerContexto(r.contexto);
+  S.toque = toqueDoContexto(r.contexto);
   var abrir = telaDoAtalho(r.contexto);
   return segGravarConfig('ultimaMatricula', r.pessoa.matricula).then(carregarLocal).then(recuperarRascunho).then(function () {
     /* O cartão tocado vence o rascunho (App nº 28, 14/11/2026: o Dalton saiu do DDS pela barra de baixo, que não passa
        pelo Voltar e deixa o rascunho; tocou em Blitz e caiu de novo no DDS, com o aviso "o app foi fechado no meio").
        O rascunho só vence quando a página foi RECARREGADA (a câmera matou a página e o navegador a restaurou) ou quando
        o cartão é a mesma tela do rascunho. Se a casca restaura a página morta como abertura nova, o rascunho se perde
-       aqui: pedi ao App que diga como ela restaura (carta nº 28 da Segurança). */
+       aqui. Desde a 0.7.4 (16/11/2026, casca 1.25.0, App nº 30) o `toque` do contexto decide sem depender do tipo de
+       navegação do celular, que ninguém mediu fora do Chromium: ver eRestauracao. */
     if (abrir && podeAbrir(abrir)) {
       if (!S.recuperado) S.tela = abrir;
-      else if (S.tela !== abrir && !foiRecarga()) { S.tela = abrir; S.alvo = null; S.form = null; S.recuperado = false; apagarRascunho(); }
+      else if (S.tela !== abrir && !eRestauracao()) { S.tela = abrir; S.alvo = null; S.form = null; S.recuperado = false; apagarRascunho(); }
     }
     desenhar();
     /* Quando o sinal volta, a casca já manda a fila sozinha; a tela pede de novo para saber o resultado e mostrar o
@@ -86,6 +88,13 @@ function carregarLocal() {
    dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
 var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'inspecoes', 'sqp', 'blitz', 'dds', 'irregularidades'];
 function foiRecarga() { try { var n = performance.getEntriesByType('navigation')[0]; return !!n && (n.type === 'reload' || n.type === 'back_forward'); } catch (e) { return false; } /* vigia: sem a medida, vale a abertura nova (o cartão vence) */ }
+/* O `toque` é o número que a casca põe no endereço a cada toque no cartão (Date.now()). A página reaberta pelo navegador
+   leva o MESMO endereço, logo o mesmo número; um toque novo traz outro. Só vale número positivo: um link montado à mão
+   com texto ou zero cai na regra da recarga. */
+function toqueDoContexto(c) { var n = c && typeof c === 'object' ? Number(c.toque) : 0; return isFinite(n) && n > 0 ? n : 0; }
+/* Rascunho recuperado com cartão de outra tela no endereço: é a mesma abertura (câmera matou a página) ou um toque novo?
+   Com o toque nos dois lados, o número diz. Sem ele (cartão antigo, rascunho de antes da 0.7.4), vale a regra da recarga. */
+function eRestauracao() { return S.toque && S.toqueRascunho ? S.toque === S.toqueRascunho : foiRecarga(); }
 function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
 function podeAbrir(t) {
   if (t === 'sqp' || t === 'blitz' || t === 'irregularidades' || t === 'inspecoes') return !!S.pacote && ehDe(INSPECIONA);
@@ -300,7 +309,7 @@ var RASCUNHO_HORAS = 12, _rascunhoTimer = null;
 function guardarRascunho() {
   clearTimeout(_rascunhoTimer);
   _rascunhoTimer = setTimeout(function () {
-    segGravarConfig('rascunho', S.form ? { tela: S.tela, alvo: S.alvo, form: S.form, em: new Date().toISOString(), matricula: S.pessoa.matricula } : null);
+    segGravarConfig('rascunho', S.form ? { tela: S.tela, alvo: S.alvo, form: S.form, em: new Date().toISOString(), matricula: S.pessoa.matricula, toque: S.toque } : null);
   }, 300);
 }
 /* Salvo ou abandonado, o rascunho sai na hora, sem a espera de 300 ms do guardar: a página pode morrer logo depois. */
@@ -309,7 +318,7 @@ function recuperarRascunho() {
   return segConfig('rascunho').then(function (r) {
     if (!r || !r.form || String(r.matricula) !== String(S.pessoa.matricula)) return;
     if (Date.now() - new Date(r.em).getTime() > RASCUNHO_HORAS * 3600000) return segGravarConfig('rascunho', null);
-    S.tela = r.tela; S.alvo = r.alvo || null; S.form = r.form; S.recuperado = true;
+    S.tela = r.tela; S.alvo = r.alvo || null; S.form = r.form; S.recuperado = true; S.toqueRascunho = Number(r.toque) > 0 ? Number(r.toque) : 0;
   });
 }
 
