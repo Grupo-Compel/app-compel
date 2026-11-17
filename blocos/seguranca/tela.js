@@ -642,11 +642,12 @@ function conferirAoSeguir(f) {
   return '';
 }
 function telaSqp() {
-  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', etapa: 1, equipe: (S.contexto && S.contexto.prefixo) || '', local: '', placa: '', condutor: '', integrantesTxt: ((S.contexto && S.contexto.equipe) || []).map(function (p) { return p.matricula; }).join(', '), fotos: [], irr: [], busca: '', nova: null, anterior: {} };
+  var f = S.form = S.form || { id: novoId('sqp'), tipo: 'sqp', etapa: 1, equipe: (S.contexto && S.contexto.prefixo) || '', obra: '', local: '', placa: '', condutor: '', integrantesTxt: ((S.contexto && S.contexto.equipe) || []).map(function (p) { return p.matricula; }).join(', '), fotos: [], irr: [], busca: '', nova: null, anterior: {} };
   f.fotos = f.fotos || []; if (f.integrantesTxt === undefined) f.integrantesTxt = ''; /* rascunho guardado antes da 0.6.5 não tem estes campos */
+  if (f.obra === undefined) f.obra = ''; /* nem o número do projeto/obra: rascunho anterior à 0.7.5 (17/11/2026) */
   var n = etapaDe(f), html = barraDeEtapas(ETAPAS_SQP, n);
   if (n === 1) {
-    html += seletorDeBase() + quadroDoApp() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + responsavelDaEquipe(f) + '<div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + placasDaEquipe(f) + sobreAPlaca(f.placa) +
+    html += seletorDeBase() + quadroDoApp() + listaDePlacas() + '<div class="cartao">' + campoDaEquipe(f, 'equipe', 'Equipe (prefixo)') + campoDoEncarregado(f, 'equipe') + responsavelDaEquipe(f) + '<div class="campo"><label>Nº do projeto/obra</label><input data-campo="obra" maxlength="30" autocapitalize="characters" autocomplete="off" value="' + h(f.obra || '') + '"></div><div class="campo"><label>Local (endereço ou referência)</label><input data-campo="local" value="' + h(f.local) + '"></div><div class="campo"><label>Placa do veículo da equipe (se houver)</label><input data-campo="placa" list="segPlacas" value="' + h(f.placa) + '" autocapitalize="characters"></div>' + placasDaEquipe(f) + sobreAPlaca(f.placa) +
       campoCondutor(f, f.placa) + pessoasInspecionadas(f) + '</div>' + avisoDoAnterior(chavesDoSqp(f), 2);
   } else if (n === 2) {
     html += f.irr.map(function (x, i) {
@@ -663,7 +664,7 @@ function telaSqp() {
   } else {
     var antS = anteriorParaEnviar(f, chavesDoSqp(f)), pessoas = matsDoTexto(f.integrantesTxt), resp = matriculaDoResponsavel(f);
     html += '<div class="cartao">' +
-      linhaDaRevisao('Equipe e local', h(f.equipe || 'sem equipe') + (f.local ? ' · ' + h(f.local) : '') + (soPlaca(f.placa) ? ' · placa ' + h(soPlaca(f.placa)) + (matsDoTexto(f.condutor)[0] ? ', conduz ' + h(matsDoTexto(f.condutor)[0]) : ', sem condutor') : '') +
+      linhaDaRevisao('Equipe e local', h(f.equipe || 'sem equipe') + (String(f.obra || '').trim() ? ' · obra ' + h(String(f.obra).trim()) : ' · sem nº de obra') + (f.local ? ' · ' + h(f.local) : '') + (soPlaca(f.placa) ? ' · placa ' + h(soPlaca(f.placa)) + (matsDoTexto(f.condutor)[0] ? ', conduz ' + h(matsDoTexto(f.condutor)[0]) : ', sem condutor') : '') +
         '<br>' + (resp ? 'Responsável ' + h(resp) : 'Sem responsável') + ' · ' + (pessoas.length ? pessoas.length + ' pessoa(s) inspecionada(s)' : 'ninguém indicado'), 1) +
       linhaDaRevisao('Irregularidades', (f.irr.length ? f.irr.map(function (x) { return h(x.desvio); }).join(', ') : 'nenhuma') + (antS.length ? '<br>' + antS.length + ' da Blitz anterior conferido(s)' : ''), 2) +
       linhaDaRevisao('Fotos da inspeção', f.fotos.length ? f.fotos.length + ' foto(s)' : 'nenhuma (opcional)', 3) + '</div>';
@@ -1407,7 +1408,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'salvarSqp' && f.nova && falta('Acrescente ou cancele a irregularidade aberta, na etapa 2.')) return;
   if (a === 'salvarSqp' && valeSemQuem(f, chavesDoSqp(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
   if (a === 'salvarSqp') { var antS = anteriorParaEnviar(f, chavesDoSqp(f));
-    return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS, integrantes: matsDoTexto(f.integrantesTxt), responsavel: matriculaDoResponsavel(f), fotos: f.fotos.slice() } },
+    return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, obra: String(f.obra || '').trim(), local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS, integrantes: matsDoTexto(f.integrantesTxt), responsavel: matriculaDoResponsavel(f), fotos: f.fotos.slice() } },
       'Inspeção SQP salva (' + f.irr.length + ' irregularidade(s)' + (antS.length ? ', ' + antS.length + ' da Blitz anterior conferido(s)' : '') + ').'); }
   if (a === 'salvarBlitz' && !String(f.alvoId).trim() && falta('Diga quem ou o que foi inspecionado (matrícula, placa ou prefixo).')) return;
   if (a === 'salvarBlitz' && valeSemQuem(f, chavesDaBlitz(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
