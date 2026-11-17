@@ -29,7 +29,9 @@ concurrency:
 
 jobs:
   conferir:
-    runs-on: ubuntu-latest
+    # Preso na 24.04 em 17/11/2026: o "ubuntu-latest" passou a ser a 26.04, onde o Playwright 1.56
+    # recusa instalar o Chromium e a conferência falhava sem o código ter mudado.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
