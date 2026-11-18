@@ -1,6 +1,11 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "Operação 7v.1-app2 · 18/11/2026", "itens": [
+      "Diário da equipe: o encarregado liga o celular à equipe com um toque, sem pedir código ao supervisor.",
+      "Quem tem duas equipes no mês escolhe qual delas está ligando.",
+      "Ligar um celular novo desliga o celular anterior da equipe; o app avisa antes.",
+      "Ao encerrar o dia, o app diz com todas as letras se o diário ainda não foi enviado." ] },
     { "titulo": "App 1.26.0 · 18/11/2026", "itens": [
       "Quando sair uma versão nova, um aviso cobre a tela e você atualiza com um toque.",
       "O botão \"O que mudou\" mostra estas notas." ] },

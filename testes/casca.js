@@ -1269,7 +1269,7 @@ var TESTES = {
     // "Ana Teste · 99901" só aparece na aba Hoje, depois de entrar (a tela de Entrar também diz o nome e a equipe).
     await p.waitForFunction(function () { return /Ana Teste · 99901/.test(document.getElementById('corpo').textContent); }, null, { timeout: 15000 });
     var lig = S.operacao.filter(function (c) { return c.acao === 'ligar'; }), ses = S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
-    afirmar(lig.length === 1 && lig[0].codigo === '123456' && lig[0].app === 'campo' && lig[0].versao === '7v.1-app1', 'o ligar devia ir ao servidor da Operação com o código, o app "campo" e a versão do bloco: ' + JSON.stringify(lig[0]));
+    afirmar(lig.length === 1 && lig[0].codigo === '123456' && lig[0].app === 'campo' && lig[0].versao === '7v.1-app2', 'o ligar devia ir ao servidor da Operação com o código, o app "campo" e a versão do bloco: ' + JSON.stringify(lig[0]));
     afirmar(ses.length === 1 && ses[0].aparelho === 'chave-eq' && /^tok-/.test(ses[0].token), 'a entrada devia ser o sessaoDoNucleo com a chave do ligar e o token do Núcleo: ' + JSON.stringify(ses[0]));
     afirmar(JSON.stringify(S.operacao).indexOf(x.cpf) < 0, 'nenhum pedido à Operação pode levar o CPF');
     afirmar((await p.evaluate(function () { return Casca.temSessao(); })).tem, 'a sessão da Operação devia ficar guardada na casca');
@@ -1299,6 +1299,72 @@ var TESTES = {
     afirmar(!(await p.$('#ligCodigo')) && !(await p.$('[data-acao="entrar"]')), 'sem sinal, quem já entrou não devia ver Ligar nem Entrar');
     afirmar(S.operacao.length === antes, 'sem sinal, nada podia ir ao servidor');
     await a.ctx.close();
+  },
+  /* Ligar sem código (Operação 7v.1-app2, cartas nº 18/19 da Operação, 18/11/2026): um toque liga o celular à equipe pelo
+     sessaoDoNucleo SEM `aparelho`; depois da ligação, toda entrada leva a chave guardada; duas equipes pedem escolha;
+     quem não é encarregado lê a frase do servidor e ainda tem o código. */
+  T66_ligar_sem_codigo: async function () {
+    var OP = { modulo: 'OPERACAO', nome: 'Operação', url: SERVIDOR_OPERACAO, perfil: 'ENCARREGADO', liberado: true };
+    var sessao = function (extra) { return Object.assign({ ok: true, sessao: 'sop-1', valeAte: Date.now() + 30 * 864e5, mat: '99901', nome: 'Ana Teste', funcoes: ['ENCARREGADO'], prefixos: ['CPL-DOU-B210'], via: 'NUCLEO' }, extra || {}); };
+    var abrirTela = async function (S) {
+      var x = loginComAna({ modulos: [OP] }), a = await abrir(x.L, { servidor: S }), p = a.page;
+      await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+      await p.click('#atalhos [data-atalho="diario"]'); await p.waitForSelector('#ligCodigo');
+      return { a: a, p: p, x: x };
+    };
+    // 1) Um toque liga; o pedido não leva `aparelho`; a entrada seguinte leva a chave.
+    var S = novoServidor();
+    S.responderOperacao = function (c) {
+      if (c.acao === 'sessaoDoNucleo') return c.aparelho ? sessao() : sessao({ ligacao: { token: 'chave-eq', prefixo: 'CPL-DOU-B210', base: 'DOU', aparelho: 'Celular 7', login: true } });
+      if (c.acao === 'pacote') return { ok: false, erro: 'Sem pacote na bateria.' };
+      // O envio que a tela faz sozinha ao ligar não pode levar o diário do R6 antes de a tela dizer que ele está na fila.
+      if (c.acao === 'lancamento') return { ok: false, erro: 'Servidor ocupado.' };
+      return { ok: true };
+    };
+    var t = await abrirTela(S), p = t.p;
+    afirmar(!!(await p.$('[data-acao="ligarApp"]')), 'a tela devia ter o botão de ligar com um toque');
+    afirmar(!S.operacao || S.operacao.length === 0, 'abrir a tela não pode chamar o servidor (cada chamada sem chave desliga o celular da equipe)');
+    await p.click('[data-acao="ligarApp"]');
+    await p.waitForFunction(function () { return /Ana Teste · 99901/.test(document.getElementById('corpo').textContent); }, null, { timeout: 15000 });
+    var ses = S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
+    afirmar(ses.length === 1 && ses[0].aparelho === undefined && typeof ses[0].celular === 'string' && ses[0].celular.length <= 80, 'o primeiro pedido vai sem `aparelho` e com o `celular`: ' + JSON.stringify(ses[0]));
+    afirmar(S.operacao.filter(function (c) { return c.acao === 'ligar'; }).length === 0, 'sem código, não há pedido de ligar');
+    await p.evaluate(function () { return entrarPeloApp(); });
+    ses = S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
+    afirmar(ses.length === 2 && ses[1].aparelho === 'chave-eq', 'depois de ligado, a entrada leva SEMPRE a chave guardada: ' + JSON.stringify(ses[1]));
+    // Celular ligado que perdeu a chave não chama o servidor sem ela.
+    await p.evaluate(function () { E.cfg.token = ''; return entrarPeloApp(); });
+    afirmar(S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; }).length === 2, 'sem chave guardada, a entrada não pode ir ao servidor sem `aparelho`');
+    // R6: diário encerrado e ainda na fila => a tela diz que NÃO foi enviado.
+    await p.evaluate(function () {
+      var d = { id: 'd-r6', dia: hojeLocal(), estado: 'encerrado', encerradoEm: new Date().toISOString(), fotos: {}, arquivos: {},
+        form: { prefixo: 'CPL-DOU-B210', matEnc: '99901', nomeEnc: 'Ana Teste', tipoDia: 'PLANTAO', pessoas: [], codigos: [] } };
+      return guardarDiario(d).then(function () { return recarregarDiarios(); }).then(function () { E.aberto = d; irPara('encerrar'); });
+    });
+    await esperarTexto(p, 'Ainda NÃO foi enviado');
+    await t.a.ctx.close();
+    // 2) Duas equipes: escolher e pedir de novo com o prefixo.
+    var S2 = novoServidor();
+    S2.responderOperacao = function (c) {
+      if (c.acao === 'sessaoDoNucleo' && !c.prefixo && !c.aparelho) return { ok: false, escolherEquipe: true, equipes: [{ base: 'DOU', prefixo: 'CPL-DOU-B210' }, { base: 'DOU', prefixo: 'CPL-DOU-B211' }] };
+      if (c.acao === 'sessaoDoNucleo') return c.aparelho ? sessao() : sessao({ ligacao: { token: 'chave-2', prefixo: c.prefixo, base: 'DOU', aparelho: 'Celular 7', login: true } });
+      return { ok: false, erro: 'Sem pacote.' };
+    };
+    var t2 = await abrirTela(S2);
+    await t2.p.click('[data-acao="ligarApp"]'); await t2.p.waitForSelector('[data-acao="escolherEquipe"]');
+    afirmar((await t2.p.$$('[data-acao="escolherEquipe"]')).length === 2, 'uma opção por equipe');
+    await t2.p.click('[data-acao="escolherEquipe"][data-prefixo="CPL-DOU-B211"]');
+    await t2.p.waitForFunction(function () { return /Ana Teste · 99901/.test(document.getElementById('corpo').textContent); }, null, { timeout: 15000 });
+    var q = S2.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
+    afirmar(q.length === 2 && q[1].prefixo === 'CPL-DOU-B211' && q[1].aparelho === undefined, 'a escolha vai no pedido, ainda sem `aparelho`: ' + JSON.stringify(q[1]));
+    await t2.a.ctx.close();
+    // 3) Não é encarregado: a frase do servidor aparece e o código continua à mão.
+    var S3 = novoServidor();
+    S3.responderOperacao = function (c) { return c.acao === 'sessaoDoNucleo' ? { ok: false, semEquipe: true, erro: 'Você não é encarregado de nenhuma equipe neste mês.' } : { ok: true }; };
+    var t3 = await abrirTela(S3);
+    await t3.p.click('[data-acao="ligarApp"]'); await esperarTexto(t3.p, 'Você não é encarregado de nenhuma equipe neste mês.');
+    afirmar(!!(await t3.p.$('#ligCodigo')) && !!(await t3.p.$('[data-acao="ligar"]')), 'o código do supervisor continua disponível');
+    await t3.a.ctx.close();
   },
   /* Os atalhos ditos pelo bloco (casca 1.12.1, proposta da Operação nº 12): com a permissão de verdade vinda do servidor
      dele, o bloco diz quais dos atalhos declarados a pessoa usa, e o Início segue essa lista, e não o padrão do bloco.json.
