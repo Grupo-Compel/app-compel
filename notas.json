@@ -1,0 +1,15 @@
+{
+  "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
+  "versoes": [
+    { "titulo": "App 1.26.0 · 18/11/2026", "itens": [
+      "Quando sair uma versão nova, um aviso cobre a tela e você atualiza com um toque.",
+      "O botão \"O que mudou\" mostra estas notas." ] },
+    { "titulo": "Segurança 0.7.5 · 17/11/2026", "itens": [
+      "Inspeção SQP: novo campo \"Nº do projeto/obra\" na primeira etapa. É opcional." ] },
+    { "titulo": "Segurança 0.7.4 · 16/11/2026", "itens": [
+      "Tocar num cartão do Início abre a tela daquele cartão.",
+      "O rascunho só volta quando o app fechou sozinho no meio, por exemplo depois de usar a câmera." ] },
+    { "titulo": "App 1.24.0 · 14/11/2026", "itens": [
+      "Nova aba \"Dúvidas\" na barra de baixo, para quem tem o Suporte liberado." ] }
+  ]
+}

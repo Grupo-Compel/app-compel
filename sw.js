@@ -3,7 +3,8 @@
 
    PRIMEIRO O QUE ESTÁ GUARDADO: em campo, esperar a rede para depois cair no guardado deixa a tela branca até o tempo
    esgotar (aprendido no app do campo da Operação, 07/10/2026). Versão nova entra quando um arquivo deste service
-   worker muda (este, o servicos.js, o índice dos blocos ou o envio de um bloco), e o app avisa no alto da tela.
+   worker muda (este, o servicos.js, o índice dos blocos ou o envio de um bloco), e o app avisa com um aviso que cobre a
+   tela (casca.js, cascaMostrarVersaoNova; até 1.25.0 era uma faixa no alto).
 
    NENHUM POST PASSA PELO GUARDADO: só GET do próprio site é servido daqui. O login e os envios são POST, e uma
    resposta guardada seria uma entrada que o Núcleo não viu, ou um "enviado" que não chegou.
@@ -26,9 +27,9 @@ BLOCOS.forEach(function (b) {
   try { importScripts(b.envia.script); } catch (e) { b.quebrado = 'o envio não carregou: ' + (e && e.message); PROBLEMAS.push(b.id + ': ' + b.quebrado); }
 });
 
-var VERSAO_CASCA = 'app-compel-casca-1.25.0';
+var VERSAO_CASCA = 'app-compel-casca-1.26.0';
 var CACHE_DA_CASCA = VERSAO_CASCA + '-' + (typeof VERSAO_DOS_BLOCOS === 'string' ? VERSAO_DOS_BLOCOS : 'sem-blocos');
-var ARQUIVOS = ['./', './index.html', './app.js', './servicos.js', './casca.js', './config/login.js', './manifest.webmanifest', './icone-192.png', './icone-512.png', './icone-maskable-512.png',
+var ARQUIVOS = ['./', './index.html', './app.js', './servicos.js', './casca.js', './config/login.js', './notas.json', './manifest.webmanifest', './icone-192.png', './icone-512.png', './icone-maskable-512.png',
   './estilo/fontes.css', './estilo/nucleo.css', './estilo/agenda.css',
   './estilo/fontes/barlow-condensed-latin-500-normal.woff2',
   './estilo/fontes/barlow-condensed-latin-600-normal.woff2',

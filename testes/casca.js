@@ -1855,6 +1855,50 @@ var TESTES = {
     await p.click('#atalhos [data-atalho="epi"]'); await p.waitForURL(/\/blocos\/outro\/index\.html#ctx=/); await p.waitForSelector('#pronto');
     afirmar((await lerToque()) > t1, 'um novo toque no cartão devia trazer um toque maior que o anterior');
     await a.ctx.close();
+  },
+  T65_versao_nova_cobre_a_tela_e_so_sai_pela_atualizacao: async function () {
+    // 18/11/2026 (casca 1.26.0): a versão nova vira um aviso que cobre a tela, com um caminho só, e as notas atrás de um botão.
+    var ctx = await navegador.newContext({ viewport: { width: 390, height: 800 }, serviceWorkers: 'allow' });
+    var page = await ctx.newPage(), swArq = path.join(RAIZ, 'sw.js'), original = fs.readFileSync(swArq, 'utf8');
+    try {
+      await page.goto(base + '/index.html');
+      await page.evaluate(function () { return navigator.serviceWorker.ready; });
+      // A primeira instalação também assume a página (controllerchange): ali não há versão para trocar.
+      await page.waitForFunction(function () { return !!navigator.serviceWorker.controller; }); await page.waitForTimeout(600);
+      afirmar((await page.$('#casca-versao')) === null, 'na primeira instalação o aviso não devia aparecer');
+      await page.reload();
+      afirmar(await page.evaluate(function () { return !!navigator.serviceWorker.controller; }), 'o service worker não assumiu a página');
+      await page.waitForTimeout(600);
+      afirmar((await page.$('#casca-versao')) === null, 'sem versão nova, o aviso não devia aparecer');
+      // Sai uma versão nova: o sw.js muda de conteúdo, e o navegador a instala e a põe no lugar da velha.
+      fs.writeFileSync(swArq, original.replace(/app-compel-casca-[0-9.]+/, 'app-compel-casca-9.9.9-teste65'));
+      await page.evaluate(function () { return navigator.serviceWorker.getRegistration().then(function (r) { return r.update(); }); });
+      await page.waitForSelector('#casca-versao', { timeout: 15000 });
+      var v = await page.evaluate(function () {
+        var el = document.getElementById('casca-versao'), r = el.getBoundingClientRect(), b = el.querySelector('.cv-atualizar');
+        var fundo = document.querySelector('main');
+        return { cobre: r.width >= innerWidth && r.height >= innerHeight, botao: b.textContent, foco: document.activeElement === b,
+                 inerte: !!fundo && fundo.hasAttribute('inert'), semFechar: !el.querySelector('[aria-label="Fechar"], .cv-fechar'),
+                 alvo: Math.round(b.getBoundingClientRect().height) };
+      });
+      afirmar(v.cobre, 'o aviso devia cobrir a tela inteira: ' + JSON.stringify(v));
+      afirmar(v.botao === 'Atualizar agora' && v.foco, 'o botão devia ser "Atualizar agora" e estar em foco: ' + JSON.stringify(v));
+      afirmar(v.inerte, 'o resto da tela devia ficar inerte atrás do aviso');
+      afirmar(v.semFechar && v.alvo >= 48, 'não devia haver como fechar, e o botão devia ter alvo de toque grande: ' + JSON.stringify(v));
+      // Esc e toque no fundo não fecham.
+      await page.keyboard.press('Escape'); await page.mouse.click(5, 5);
+      afirmar((await page.$('#casca-versao')) !== null, 'Esc ou toque no fundo não podem fechar o aviso');
+      // O que mudou: abre o painel com as notas do repositório, sem sair do aviso.
+      await page.click('.cv-notas'); await page.waitForFunction(function () { return /App 1\.26\.0/.test(document.querySelector('.cv-painel').textContent); });
+      afirmar((await page.$('#casca-versao')) !== null, 'abrir as notas não devia fechar o aviso');
+      // Atualizar: a página avisa quem guarda rascunho e recarrega; o aviso sai porque a versão agora é a nova.
+      await page.evaluate(function () { window.__avisou = false; window.addEventListener('app-compel:vai-atualizar', function () { window.__avisou = true; }); });
+      var recarregou = page.waitForEvent('load'); recarregou.catch(function () { });
+      await page.click('.cv-atualizar');
+      afirmar(await page.evaluate(function () { return window.__avisou; }), 'a casca devia avisar a página antes de recarregar (app-compel:vai-atualizar)');
+      await recarregou; await page.waitForSelector('#corpo');
+      afirmar((await page.$('#casca-versao')) === null, 'depois de atualizar, o aviso devia sair');
+    } finally { fs.writeFileSync(swArq, original); await ctx.close(); }
   }
 };
 

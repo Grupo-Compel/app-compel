@@ -1311,7 +1311,6 @@ document.addEventListener('click', function (ev) {
   if (a === 'agExcluirSim') return agExcluir();
   if (a === 'agAbrirAtalho') return abrirAtalho(b.getAttribute('data-bloco'), b.getAttribute('data-atalho'));
   if (a === 'agAbrirTela') return abrirModulo(+b.getAttribute('data-i'));
-  if (a === 'atualizar') return location.reload();
   if (a === 'escolher') { E.escolhida = b.getAttribute('data-chave') || ''; E.erro = ''; E.matricula = null; desenhar(); var c = $(E.escolhida ? 'senha' : 'cpf'); if (c) c.focus(); return; }
   if (a === 'verSenha') return alternarVerSenha(b.getAttribute('data-campo'));
   if (a === 'entrarCpf') return entrarComCpf();
@@ -1375,16 +1374,8 @@ function registrarServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   // O segundo plano mexeu na fila: a tela relê.
   navigator.serviceWorker.addEventListener('message', function (ev) { if (ev.data && ev.data.fila) lerEnvio(); });
-  navigator.serviceWorker.register('sw.js').then(function (reg) {
-    reg.addEventListener('updatefound', function () {
-      var novo = reg.installing;
-      if (!novo) return;
-      novo.addEventListener('statechange', function () {
-        // Só avisa quando já havia uma versão antes: na primeira instalação não há o que trocar.
-        if (novo.state === 'activated' && navigator.serviceWorker.controller) $('barraVersao').classList.remove('oculto');
-      });
-    });
-  }).catch(function () { });
+  // O aviso de versão nova é da casca (casca.js, cascaMostrarVersaoNova): vale também dentro dos blocos.
+  navigator.serviceWorker.register('sw.js').catch(function () { });
 }
 
 /* ---------- abrir ---------- */

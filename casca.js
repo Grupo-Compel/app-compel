@@ -212,6 +212,87 @@ function cascaAjuda(elemento, texto) {
   desenha();
 }
 
+/* ---------- o aviso de versão nova ----------
+   18/11/2026, pedido do Dalton: a faixa cinza de "versão nova instalada" dava para ignorar, e quem a ignorava seguia na
+   versão velha. Agora a versão nova cobre a tela inteira e só deixa um caminho, "Atualizar agora". O botão "O que mudou"
+   mostra as notas (notas.json, mantido a cada publicação) sem tirar a pessoa do aviso.
+
+   O QUE DISPARA É O `controllerchange`, e não o `updatefound`: ele só acontece quando a versão nova JÁ assumiu a página
+   (o sw.js chama clients.claim), então o botão nunca leva para uma versão que ainda não está guardada inteira. A guarda
+   `cascaVersaoTinhaControle` existe porque a primeira instalação também assume a página, e ali não há o que trocar.
+   Vale em toda tela que carrega a casca, a do Início e a dos blocos: quem está dentro de um bloco quando a versão
+   chega também vê o aviso.
+
+   O QUE ESTÁ NA TELA NÃO SE PERDE: antes de recarregar, a casca avisa a página (`app-compel:vai-atualizar`) e espera
+   700 ms. O bloco que guarda o rascunho com atraso (a Segurança espera 300 ms) termina de gravar, e a recarga reabre o
+   mesmo endereço, que é o caso em que o rascunho vale (Segurança 0.7.4). A fila de envio fica no banco do celular. */
+var cascaVersaoTinhaControle = ('serviceWorker' in navigator) && !!navigator.serviceWorker.controller;
+var CASCA_ESPERA_DO_SALVAR_MS = 700;
+function cascaBaseDoSite() { var p = location.pathname, i = p.indexOf('/blocos/'); return i >= 0 ? p.slice(0, i + 1) : './'; }
+function cascaMostrarVersaoNova() {
+  if (document.getElementById('casca-versao')) return;
+  var st = document.createElement('style'); st.id = 'casca-versao-estilo';
+  st.textContent = '#casca-versao{position:fixed;inset:0;z-index:2147483000;background:rgba(35,31,32,.82);display:flex;align-items:center;justify-content:center;padding:22px;font-family:Inter,system-ui,sans-serif}' +
+    '#casca-versao .cv-cartao{background:#fff;color:#231F20;border-radius:16px;padding:22px 18px 16px;width:100%;max-width:380px;max-height:100%;overflow:auto;text-align:center;box-sizing:border-box}' +
+    '#casca-versao .cv-icone{width:48px;height:48px;border-radius:50%;background:#FDECEE;color:#B2101F;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:26px;line-height:1}' +
+    '#casca-versao h2{font-size:19px;font-weight:600;margin:0 0 8px}#casca-versao p{font-size:15px;line-height:1.5;margin:0 0 16px;color:#4a4a4a}' +
+    '#casca-versao button{font:inherit;cursor:pointer;width:100%;box-sizing:border-box}' +
+    '#casca-versao .cv-atualizar{min-height:52px;border:0;border-radius:12px;background:#B2101F;color:#fff;font-size:16px;font-weight:600}' +
+    '#casca-versao .cv-atualizar:disabled{opacity:.7;cursor:default}' +
+    '#casca-versao .cv-notas{min-height:44px;margin-top:8px;border:0;background:transparent;color:#B2101F;font-size:14px;font-weight:600;text-decoration:underline}' +
+    '#casca-versao .cv-painel{text-align:left;margin-top:6px;border-top:1px solid #E6E7EA;padding-top:10px}' +
+    '#casca-versao .cv-painel h3{font-size:13px;font-weight:600;margin:10px 0 4px;color:#231F20}#casca-versao .cv-painel ul{margin:0;padding-left:18px;font-size:14px;line-height:1.45;color:#4a4a4a}' +
+    '#casca-versao .cv-painel li{margin:0 0 3px}#casca-versao .cv-vazio{font-size:14px;color:#4a4a4a;margin:6px 0}';
+  document.head.appendChild(st);
+  var el = document.createElement('div'); el.id = 'casca-versao';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'cv-titulo');
+  el.innerHTML = '<div class="cv-cartao"><div class="cv-icone" aria-hidden="true">↻</div><h2 id="cv-titulo">Tem versão nova do app</h2>' +
+    '<p>Para continuar, atualize agora. Leva poucos segundos e o que você já digitou fica guardado.</p>' +
+    '<button type="button" class="cv-atualizar">Atualizar agora</button>' +
+    '<button type="button" class="cv-notas" aria-expanded="false">O que mudou</button><div class="cv-painel" hidden></div></div>';
+  document.body.appendChild(el);
+  // O resto da tela fica inerte: sem isto, o Tab e o leitor de tela chegavam aos botões de trás do aviso.
+  Array.prototype.forEach.call(document.body.children, function (n) { if (n !== el && n.tagName !== 'SCRIPT' && n.tagName !== 'STYLE') n.setAttribute('inert', ''); });
+  document.documentElement.style.overflow = 'hidden';
+  var atualizar = el.querySelector('.cv-atualizar'), notas = el.querySelector('.cv-notas'), painel = el.querySelector('.cv-painel'), carregadas = false;
+  atualizar.addEventListener('click', function () {
+    atualizar.disabled = true; atualizar.textContent = 'Atualizando…';
+    try { window.dispatchEvent(new CustomEvent('app-compel:vai-atualizar')); } catch (e) { }
+    setTimeout(function () { location.reload(); }, CASCA_ESPERA_DO_SALVAR_MS);
+  });
+  notas.addEventListener('click', function () {
+    var abrir = painel.hidden;
+    painel.hidden = !abrir; notas.setAttribute('aria-expanded', String(abrir)); notas.textContent = abrir ? 'Esconder o que mudou' : 'O que mudou';
+    if (!abrir || carregadas) return;
+    carregadas = true;
+    // Texto montado com textContent: as notas são do repositório, mas a tela nunca interpreta marcação vinda de arquivo.
+    var vazio = function (t) { painel.innerHTML = ''; var q = document.createElement('p'); q.className = 'cv-vazio'; q.textContent = t; painel.appendChild(q); carregadas = false; };
+    painel.innerHTML = ''; var c = document.createElement('p'); c.className = 'cv-vazio'; c.textContent = 'Abrindo as notas…'; painel.appendChild(c);
+    fetch(cascaBaseDoSite() + 'notas.json').then(function (r) { if (!r.ok) throw new Error('notas'); return r.json(); }).then(function (n) {
+      var lista = (n && n.versoes || []).slice(0, 3);
+      if (!lista.length) return vazio('Não há notas desta versão.');
+      painel.innerHTML = '';
+      lista.forEach(function (v) {
+        var h = document.createElement('h3'); h.textContent = String(v.titulo || ''); painel.appendChild(h);
+        var ul = document.createElement('ul');
+        (v.itens || []).forEach(function (i) { var li = document.createElement('li'); li.textContent = String(i); ul.appendChild(li); });
+        painel.appendChild(ul);
+      });
+    }).catch(function () { vazio('Não consegui abrir as notas agora. A atualização funciona do mesmo jeito.'); });
+  });
+  // O foco fica preso nos dois botões e o Esc não fecha: o aviso só sai pela atualização.
+  el.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Tab') return;
+    var a = atualizar.disabled ? [notas] : [atualizar, notas], i = a.indexOf(document.activeElement);
+    ev.preventDefault(); a[(i + (ev.shiftKey ? a.length - 1 : 1)) % a.length].focus();
+  });
+  atualizar.focus();
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', function () {
+  if (cascaVersaoTinhaControle) cascaMostrarVersaoNova();
+  cascaVersaoTinhaControle = true;
+});
+
 /* ---------- o objeto que a tela do bloco usa ---------- */
 var Casca = (function () {
   var estado = { id: '', bloco: null, guardada: null, pessoa: null, de: null };
