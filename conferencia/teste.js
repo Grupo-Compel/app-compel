@@ -146,6 +146,8 @@ casos.forEach(function (c) {
   ['um envio só da casca', ['index.html', 'casca/fila.js', 'README.md'], 0],
   ['um envio só de um bloco', ['blocos/operacao/app.js', 'blocos/operacao/bloco.json'], 0],
   ['a casca e um bloco juntos', ['index.html', 'blocos/operacao/app.js'], 1],
+  ['um bloco com a nota de atualização (notas.json)', ['blocos/operacao/app.js', 'notas.json'], 0],
+  ['a casca, um bloco e a nota', ['index.html', 'blocos/operacao/app.js', 'notas.json'], 1],
   ['dois blocos juntos', ['blocos/operacao/app.js', 'blocos/seguranca/app.js'], 1]
 ].forEach(function (p) {
   var n = C.conferirAreas(p[1]).length;

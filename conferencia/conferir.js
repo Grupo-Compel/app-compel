@@ -262,7 +262,9 @@ function areaDe(rel) {
 
 function conferirAreas(mudados) {
   var areas = {};
-  mudados.forEach(function (rel) { (areas[areaDe(rel)] = areas[areaDe(rel)] || []).push(rel); });
+  /* A nota de atualização (notas.json) vai na MESMA entrega do bloco por regra do Dalton (18/11/2026, decisão da casca 1.26.0:
+     "cada publicação acrescenta a nota"); contá-la como a casca barrava toda publicação de bloco (CI de 18/11, run 44320976111). */
+  mudados.filter(function (rel) { return rel !== 'notas.json'; }).forEach(function (rel) { (areas[areaDe(rel)] = areas[areaDe(rel)] || []).push(rel); });
   var nomes = Object.keys(areas);
   if (nomes.length <= 1) return [];
   return [{ arquivo: '(o envio)', regra: 5, msg: 'este envio mexe em ' + nomes.length + ' áreas (' + nomes.join('; ') +
