@@ -1400,6 +1400,36 @@ var TESTES = {
     afirmar((await texto(q, '#erro')).indexOf('matrícula') < 0, 'sem matrícula pedida, o erro não fala de matrícula: ' + await texto(q, '#erro'));
     await b.ctx.close();
   },
+  /* O cartão com a sessão morta (casca 1.26.2; vídeo do Bruno de 19/11/2026, 06h26): o login responde pedirCpf a quem entra
+     pelo nome, e a pessoa toca de novo no próprio nome. O cartão tem de passar a pedir o CPF, continuar assim depois de
+     fechar e abrir o app, e voltar a ser só a senha depois de uma entrada pelo CPF. */
+  T68_cartao_com_sessao_morta_pede_o_cpf: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="perfil"]'); await p.click('[data-acao="sair"]');
+    await esperarTexto(p, 'Já entraram neste celular');
+    x.L.sessoes = {};
+    var cartao = '[data-acao="escolher"][data-chave]:not([data-chave=""])';
+    await p.click(cartao); await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarEscolhida"]');
+    await p.waitForSelector('#erro');
+    afirmar(!!(await p.$(cartao + '.ativo')), 'o cartão da pessoa devia continuar escolhido');
+    afirmar(!!(await p.$('#cpf')) && !!(await p.$('[data-acao="entrarCpf"]')), 'o cartão escolhido devia pedir o CPF');
+    // Tocar de novo no próprio nome: continua pedindo o CPF (antes voltava a mandar a sessão morta).
+    await p.click(cartao);
+    afirmar(!!(await p.$('#cpf')) && !(await p.$('[data-acao="entrarEscolhida"]')), 'tocar no nome de novo devia continuar pedindo o CPF');
+    // Fechar e abrir o app: a marca está gravada no aparelho.
+    await p.reload(); await esperarTexto(p, 'Já entraram neste celular');
+    await p.click(cartao);
+    afirmar(!!(await p.$('#cpf')), 'depois de abrir de novo, o cartão devia continuar pedindo o CPF');
+    await p.fill('#cpf', formatado(x.cpf)); await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarCpf"]');
+    await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="perfil"]'); await p.click('[data-acao="sair"]');
+    await esperarTexto(p, 'Já entraram neste celular');
+    await p.click(cartao);
+    afirmar(!(await p.$('#cpf')) && !!(await p.$('[data-acao="entrarEscolhida"]')), 'depois da entrada pelo CPF, o cartão volta a ser só a senha');
+    afirmar(Object.keys(await p.evaluate(function () { return E.pessoas; })).length === 1, 'continua uma pessoa só no celular');
+    await a.ctx.close();
+  },
   /* Os atalhos ditos pelo bloco (casca 1.12.1, proposta da Operação nº 12): com a permissão de verdade vinda do servidor
      dele, o bloco diz quais dos atalhos declarados a pessoa usa, e o Início segue essa lista, e não o padrão do bloco.json.
      Id que o bloco.json não declara não vira botão. */
@@ -1989,7 +2019,9 @@ var TESTES = {
       await page.keyboard.press('Escape'); await page.mouse.click(5, 5);
       afirmar((await page.$('#casca-versao')) !== null, 'Esc ou toque no fundo não podem fechar o aviso');
       // O que mudou: abre o painel com as notas do repositório, sem sair do aviso.
-      await page.click('.cv-notas'); await page.waitForFunction(function () { return /App 1\.26\.0/.test(document.querySelector('.cv-painel').textContent); });
+      // A nota mais nova do notas.json (antes era uma versão fixa, e a quarta publicação a tirou das três mostradas).
+      var primeiraNota = JSON.parse(fs.readFileSync(path.join(RAIZ, 'notas.json'), 'utf8')).versoes[0].titulo;
+      await page.click('.cv-notas'); await page.waitForFunction(function (t) { return document.querySelector('.cv-painel').textContent.indexOf(t) >= 0; }, primeiraNota);
       afirmar((await page.$('#casca-versao')) !== null, 'abrir as notas não devia fechar o aviso');
       // Atualizar: a página avisa quem guarda rascunho e recarrega; o aviso sai porque a versão agora é a nova.
       await page.evaluate(function () { window.__avisou = false; window.addEventListener('app-compel:vai-atualizar', function () { window.__avisou = true; }); });

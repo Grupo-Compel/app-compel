@@ -203,8 +203,13 @@ function tratarResposta(r, chave, senha, credencial, corpo) {
       // Entrou pelo nome e o login não reconheceu o celular: a tela passa ao CPF. O campo da matrícula tem de estar armado
       // ANTES do desenho e a frase tem de dizer que agora são três campos (CPF, matrícula e senha); sem isso o campo novo
       // aparecia embaixo, sem aviso, e a pessoa entrava só com CPF e senha (hipótese de 19/11/2026 para o caso do Bruno).
-      E.escolhida = null; armarMatriculaDesdeOInicio(null);
-      return mostrarErro(fraseDoCpf(r.erro || 'Digite o CPF de novo.'));
+      /* A sessão guardada deste nome morreu no login. O cartão da pessoa continua escolhido, mas passa a pedir o CPF
+         (pedeCpf), até uma entrada pelo CPF guardar a sessão nova. Antes ele voltava a ser só "nome + senha", e quem
+         tocava no próprio nome de novo mandava a mesma sessão morta para sempre: o vídeo do Bruno de 19/11/2026, 06h26,
+         mostra três voltas assim, sem nunca digitar o CPF (1.26.1 publicada; a hipótese da matrícula não era). */
+      var peloNome = !!(credencial && credencial.sessao && E.pessoas[chave]);
+      E.escolhida = peloNome ? chave : null; armarMatriculaDesdeOInicio(null);
+      return (peloNome ? marcarPedeCpf(chave) : Promise.resolve()).then(function () { mostrarErro(fraseDoCpf(r.erro || 'Digite o CPF de novo.')); });
     }
     /* Matrícula deixada em branco onde ela é pedida desde o começo: o login recusa com a MESMA frase de senha errada (entrega
        62 do Núcleo), e quem tem matrícula não sabe que foi ela. A dica do campo diz "quem não tem deixa em branco", e é
@@ -248,7 +253,7 @@ function perguntarSePedeMatricula() {
     gravarKv('pedeMatricula', r.pede);
     // Redesenha só a entrada com CPF e sem pedido andando; o que já foi digitado (inclusive a senha) é guardado pelo desenhar.
     // O campo é armado ANTES do desenho: o desenhar só guarda a senha digitada quando já vê o campo da matrícula armado.
-    if (E.tela === 'entrar' && !E.ocupado) { armarMatriculaDesdeOInicio(E.escolhida && E.pessoas[E.escolhida]); desenhar(); }
+    if (E.tela === 'entrar' && !E.ocupado) { var quem = E.escolhida && E.pessoas[E.escolhida]; armarMatriculaDesdeOInicio(quem && !cartaoPedeCpf(quem) ? quem : null); desenhar(); }
   }, function () { });
 }
 function armarMatriculaDesdeOInicio(comNome) {
@@ -406,10 +411,18 @@ function senhaMudou(erro) {
    mudou em outro celular), pelo nome, com a senha nova — a sessão revive. Nada do que ela deixou guardado sai. */
 function exigirEntrada(peloCpf, msg) {
   var chave = E.atual && E.atual.chave;
-  E.atual = null; E.avisos = null; E.escolhida = peloCpf ? null : chave;
+  E.atual = null; E.avisos = null; E.escolhida = chave && E.pessoas[chave] ? chave : null;
   if (peloCpf) armarMatriculaDesdeOInicio(null);
-  return gravarAtual().then(function () { E.tela = 'entrar'; mostrarErro(peloCpf ? fraseDoCpf(msg) : msg); });
+  return (peloCpf && chave ? marcarPedeCpf(chave) : Promise.resolve()).then(gravarAtual).then(function () { E.tela = 'entrar'; mostrarErro(peloCpf ? fraseDoCpf(msg) : msg); });
 }
+/* O cartão da pessoa passa a pedir o CPF (ver o pedirCpf no tratarResposta). Fica gravado no aparelho: fechar e abrir o
+   app não pode devolver o cartão que só manda a sessão morta. A entrada pelo CPF regrava a pessoa inteira e limpa a marca. */
+function marcarPedeCpf(chave) {
+  var p = E.pessoas[chave]; if (!p) return Promise.resolve();
+  p.pedeCpf = true;
+  return gravarPessoas();
+}
+function cartaoPedeCpf(p) { return !!(p && p.pedeCpf); }
 /* Quando a entrada volta para o CPF e o login pede a matrícula desde o começo, a frase avisa dos três campos. */
 function fraseDoCpf(msg) {
   return E.pedeMatricula === true ? (msg || 'Entre de novo com o seu CPF.') + ' Digite o CPF, a matrícula e a senha.' : msg;
@@ -685,11 +698,13 @@ function telaEntrar() {
       return '<button type="button" data-acao="escolher" data-chave="' + esc(x.chave) + '" class="' + (E.escolhida === x.chave ? 'ativo' : '') + '"><span class="app-inicial">' + esc(primeiroNome(x.p.nome).charAt(0)) + '</span><span class="app-quem"><b>' + esc(x.p.nome) + '</b><small>' + esc(x.p.funcao || '') + '</small></span>' + (trava ? '<span class="selo andando">aguarde</span>' : '') + '</button>';
     }).join('') + '<button type="button" data-acao="escolher" data-chave="" class="' + (comNome ? '' : 'ativo') + '"><span class="app-inicial">+</span><span class="app-quem"><b>Outra pessoa</b><small>Entrar com o CPF</small></span></button></div>';
   }
-  if (comNome) h += '<p class="n-saudacao app-ola">Olá, ' + esc(primeiroNome(comNome.nome)) + '.</p>' + campoSenha('senha', 'Senha de ' + primeiroNome(comNome.nome));
+  var peloCpf = !comNome || cartaoPedeCpf(comNome);
+  if (comNome && !peloCpf) h += '<p class="n-saudacao app-ola">Olá, ' + esc(primeiroNome(comNome.nome)) + '.</p>' + campoSenha('senha', 'Senha de ' + primeiroNome(comNome.nome));
+  else if (comNome) h += '<p class="n-saudacao app-ola">Olá, ' + esc(primeiroNome(comNome.nome)) + '.</p><p class="app-dica-cpf">Desta vez o login pede o seu CPF. Depois desta entrada, volta a ser só a senha.</p>' + campoCpf() + campoSenha('senha', 'Senha de ' + primeiroNome(comNome.nome));
   else h += campoCpf() + campoSenha('senha', 'Sua senha');
-  armarMatriculaDesdeOInicio(comNome);
+  armarMatriculaDesdeOInicio(peloCpf ? null : comNome);
   h += campoMatricula();
-  h += botao(comNome ? 'entrarEscolhida' : 'entrarCpf', E.ocupado ? 'Entrando…' : 'Entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin());
+  h += botao(peloCpf ? 'entrarCpf' : 'entrarEscolhida', E.ocupado ? 'Entrando…' : 'Entrar', E.ocupado, false, E.ocupado || !enderecoDoLogin());
   h += botao('irPrimeiro', 'Primeiro acesso: criar a senha', false, true) + botao('irEsqueci', 'Esqueci minha senha', false, true);
   return telaDeEntrada('entrar', h);
 }
@@ -1326,7 +1341,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'agExcluirSim') return agExcluir();
   if (a === 'agAbrirAtalho') return abrirAtalho(b.getAttribute('data-bloco'), b.getAttribute('data-atalho'));
   if (a === 'agAbrirTela') return abrirModulo(+b.getAttribute('data-i'));
-  if (a === 'escolher') { E.escolhida = b.getAttribute('data-chave') || ''; E.erro = ''; E.matricula = null; desenhar(); var c = $(E.escolhida ? 'senha' : 'cpf'); if (c) c.focus(); return; }
+  if (a === 'escolher') { E.escolhida = b.getAttribute('data-chave') || ''; E.erro = ''; E.matricula = null; desenhar(); var c = $(E.escolhida && !cartaoPedeCpf(E.pessoas[E.escolhida]) ? 'senha' : 'cpf'); if (c) c.focus(); return; }
   if (a === 'verSenha') return alternarVerSenha(b.getAttribute('data-campo'));
   if (a === 'entrarCpf') return entrarComCpf();
   if (a === 'entrarEscolhida') return entrarComoEscolhida();

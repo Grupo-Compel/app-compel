@@ -1,6 +1,8 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "App 1.26.2 · 19/11/2026", "itens": [
+      "Entrada: quando o login não reconhece mais o celular, o seu nome continua na lista, mas passa a pedir o CPF junto com a senha. Depois dessa entrada, volta a ser só a senha." ] },
     { "titulo": "App 1.26.1 · 19/11/2026", "itens": [
       "Entrada: quando o login pede o CPF de novo, a tela avisa que agora são três campos (CPF, matrícula e senha) e já mostra o campo da matrícula.",
       "Se a matrícula ficar em branco e o login recusar, o app diz que foi ela que faltou." ] },
