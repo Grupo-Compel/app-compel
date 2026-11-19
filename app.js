@@ -199,8 +199,18 @@ function tratarResposta(r, chave, senha, credencial, corpo) {
   }
   if (!r || r.ok !== true) {
     if (r && r.semSenha) { E.tela = 'primeiro'; return mostrarErro(r.erro || 'Você ainda não tem senha. Crie a sua aqui.'); }
-    if (r && r.pedirCpf) { E.escolhida = null; return mostrarErro(r.erro || 'Digite o CPF de novo.'); }
-    return mostrarErro((r && r.erro) || 'O login recusou a entrada.');
+    if (r && r.pedirCpf) {
+      // Entrou pelo nome e o login não reconheceu o celular: a tela passa ao CPF. O campo da matrícula tem de estar armado
+      // ANTES do desenho e a frase tem de dizer que agora são três campos (CPF, matrícula e senha); sem isso o campo novo
+      // aparecia embaixo, sem aviso, e a pessoa entrava só com CPF e senha (hipótese de 19/11/2026 para o caso do Bruno).
+      E.escolhida = null; armarMatriculaDesdeOInicio(null);
+      return mostrarErro(fraseDoCpf(r.erro || 'Digite o CPF de novo.'));
+    }
+    /* Matrícula deixada em branco onde ela é pedida desde o começo: o login recusa com a MESMA frase de senha errada (entrega
+       62 do Núcleo), e quem tem matrícula não sabe que foi ela. A dica do campo diz "quem não tem deixa em branco", e é
+       fácil de ler como "é opcional". */
+    var emBranco = corpo && corpo.cpf && !corpo.matricula && E.matricula && E.matricula.desdeOInicio;
+    return mostrarErro(((r && r.erro) || 'O login recusou a entrada.') + (emBranco ? ' A matrícula ficou em branco: quem tem matrícula (crachá ou contracheque) precisa digitá-la no campo da matrícula.' : ''));
   }
   if (r.pessoa && r.pessoa.trocarSenha) {
     // Senha temporária (a do "esqueci a senha"): nada fica guardado até a pessoa criar a dela.
@@ -397,7 +407,12 @@ function senhaMudou(erro) {
 function exigirEntrada(peloCpf, msg) {
   var chave = E.atual && E.atual.chave;
   E.atual = null; E.avisos = null; E.escolhida = peloCpf ? null : chave;
-  return gravarAtual().then(function () { E.tela = 'entrar'; mostrarErro(msg); });
+  if (peloCpf) armarMatriculaDesdeOInicio(null);
+  return gravarAtual().then(function () { E.tela = 'entrar'; mostrarErro(peloCpf ? fraseDoCpf(msg) : msg); });
+}
+/* Quando a entrada volta para o CPF e o login pede a matrícula desde o começo, a frase avisa dos três campos. */
+function fraseDoCpf(msg) {
+  return E.pedeMatricula === true ? (msg || 'Entre de novo com o seu CPF.') + ' Digite o CPF, a matrícula e a senha.' : msg;
 }
 
 /* ---------- o termo (APP-09) ---------- */

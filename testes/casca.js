@@ -1366,6 +1366,40 @@ var TESTES = {
     afirmar(!!(await t3.p.$('#ligCodigo')) && !!(await t3.p.$('[data-acao="ligar"]')), 'o código do supervisor continua disponível');
     await t3.a.ctx.close();
   },
+  /* Caso do Bruno (19/11/2026, app 1.26.0): entrou pelo nome, o login não reconheceu o celular (pedirCpf) e a tela passou ao
+     CPF; com a matrícula pedida desde o começo, o campo novo aparecia sem aviso, a pessoa entrava só com CPF e senha e o login
+     recusava com a frase de senha errada. Agora a frase avisa dos três campos e, com a matrícula em branco, diz que foi ela. */
+  T67_pedirCpf_com_matricula_avisa_dos_tres_campos: async function () {
+    var x = loginComAna(); x.L.verificarAcesso = true; x.L.pedeNovo = true;
+    var a = await abrir(x.L), p = a.page;
+    await p.waitForSelector('#matricula');
+    await p.fill('#cpf', x.cpf); await p.fill('#senha', 'senha-da-ana'); await p.fill('#matricula', '99901'); await p.click('[data-acao="entrarCpf"]');
+    await esperarTexto(p, 'Olá, Ana');
+    await p.click('[data-aba="perfil"]'); await p.click('[data-acao="sair"]');
+    await esperarTexto(p, 'Já entraram neste celular');
+    // O login esquece o celular: a sessão guardada não vale mais.
+    x.L.sessoes = {};
+    await p.click('[data-acao="escolher"][data-chave]:not([data-chave=""])');
+    await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarEscolhida"]');
+    await esperarTexto(p, 'Digite o CPF, a matrícula e a senha.', '#erro');
+    afirmar(!!(await p.$('#cpf')) && !!(await p.$('#matricula')), 'a tela devia ter passado ao CPF, já com o campo da matrícula');
+    // A senha já digitada passa junto para a tela do CPF: só o armar do campo ANTES do desenho a preserva.
+    afirmar((await p.$eval('#senha', function (c) { return c.value; })) === 'senha-da-ana', 'a senha digitada devia continuar no campo');
+    // Sem a matrícula, o login recusa com a frase comum: o app diz que foi a matrícula em branco.
+    await p.fill('#cpf', x.cpf); await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarCpf"]');
+    await esperarTexto(p, 'A matrícula ficou em branco', '#erro');
+    // Com ela, entra.
+    await p.fill('#matricula', '99901'); await p.fill('#senha', 'senha-da-ana'); await p.click('[data-acao="entrarCpf"]');
+    await esperarTexto(p, 'Olá, Ana');
+    await a.ctx.close();
+    // Sem a matrícula pedida desde o começo, a frase do login fica como veio (nada de aviso de matrícula).
+    var y = loginComAna(); y.L.pedeNovo = false;
+    var b = await abrir(y.L), q = b.page;
+    await q.fill('#cpf', y.cpf); await q.fill('#senha', 'errada'); await q.click('[data-acao="entrarCpf"]');
+    await q.waitForSelector('#erro');
+    afirmar((await texto(q, '#erro')).indexOf('matrícula') < 0, 'sem matrícula pedida, o erro não fala de matrícula: ' + await texto(q, '#erro'));
+    await b.ctx.close();
+  },
   /* Os atalhos ditos pelo bloco (casca 1.12.1, proposta da Operação nº 12): com a permissão de verdade vinda do servidor
      dele, o bloco diz quais dos atalhos declarados a pessoa usa, e o Início segue essa lista, e não o padrão do bloco.json.
      Id que o bloco.json não declara não vira botão. */
