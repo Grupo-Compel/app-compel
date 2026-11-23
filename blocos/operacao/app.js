@@ -51,6 +51,7 @@ var E = {
   ligando: false,       // o toque em "Ligar à minha equipe" está em andamento (um toque a mais criaria outra ligação)
   erroLigarApp: '',     // o que o servidor disse ao ligar sem código (semEquipe, bloqueada, foraDaBase…)
   escolha: null,        // [{ base, prefixo }]: o encarregado de duas equipes no mês escolhe uma (escolherEquipe)
+  escolhaGestor: false, // a lista acima veio para um gestor (ADMIN ou SUPERVISOR; carta nº 23 da Operação, 23/11/2026)
   dias: {},             // 'aaaa-mm-dd|PREFIXO' -> o dia em horários da equipe (5b)
   equipe: '',           // a equipe escolhida, quando o encarregado tem mais de uma
   modoHoje: {},         // dia -> 'obra' | 'emergencia', o que a aba Hoje mostra (5b.1)
@@ -701,6 +702,9 @@ function desenhar() {
     h = (E.versaoNova ? '<div class="aviso ok">Versão nova do app instalada. <button type="button" class="btn medio" data-acao="recarregar">Abrir a versão nova</button></div>' : '') +
         (E.cfg.desligado ? '<div class="aviso erro"><b>Este celular foi desligado do sistema</b> (cortado na tela do supervisor, ou trocado por outro). Os diários continuam guardados aqui. Toque em "Ligar de novo" (um toque, sem código; se não der, peça um código ao supervisor).<button type="button" class="btn medio" data-acao="religar">Ligar de novo</button></div>' : '') +
         (E.aviso ? '<div class="aviso ' + E.aviso.tipo + '">' + esc(E.aviso.texto) + '</div>' : '') +
+        /* Fixo, em toda aba (sugestão da Operação, nº 23): o gestor abre o celular para olhar, e precisa saber que o que
+           ele lançar entra de verdade no diário da equipe. */
+        (ehGestor() ? '<div class="aviso atencao" id="avisoGestor"><b>Entrada de gestor:</b> o que você lançar vale e fica marcado como substituto.</div>' : '') +
         ({ hoje: telaHoje, diario: telaDiario, encerrar: telaEncerrar, envio: telaEnvio }[E.aba])();
   }
   corpo.innerHTML = h;
@@ -730,11 +734,14 @@ function telaLigar() {
   var l = E.ligar || { codigo: '' };
   var rodape = '<footer>Compel · Campo · versão ' + esc(VERSAO_CAMPO) + '</footer>';
   /* O encarregado de duas equipes no mesmo mês escolhe qual liga a este celular (carta nº 18 da Operação, 18/11/2026). */
+  /* O GESTOR (ADMIN ou SUPERVISOR no Núcleo; carta nº 23 da Operação, 23/11/2026) também escolhe, numa lista que traz a
+     base: o mesmo prefixo pode existir em duas bases, e por isso a base volta junto com o prefixo. */
   if (E.escolha) {
-    return '<div class="cartao"><div class="etiqueta">Qual equipe fica neste celular?</div>' +
-      '<p>Você é encarregado de mais de uma equipe neste mês. Escolha a que usa <b>este</b> celular.</p>' +
+    return '<div class="cartao"><div class="etiqueta">' + (E.escolhaGestor ? 'Qual equipe você vai acompanhar neste celular?' : 'Qual equipe fica neste celular?') + '</div>' +
+      (E.escolhaGestor ? '<p>Entrada de gestor: escolha a equipe. Este celular <b>não desliga</b> o celular da equipe, e o que você lançar vale (fica marcado como substituto).</p>'
+        : '<p>Você é encarregado de mais de uma equipe neste mês. Escolha a que usa <b>este</b> celular.</p>') +
       E.escolha.map(function (q) {
-        return '<button type="button" class="btn" data-acao="escolherEquipe" data-prefixo="' + esc(q.prefixo) + '"' + (E.ligando ? ' disabled' : '') + '>' + esc(q.prefixo) + (q.base ? ' · base ' + esc(q.base) : '') + '</button>';
+        return '<button type="button" class="btn" data-acao="escolherEquipe" data-prefixo="' + esc(q.prefixo) + '" data-base="' + esc(q.base || '') + '"' + (E.ligando ? ' disabled' : '') + '>' + esc(q.prefixo) + (q.base ? ' · base ' + esc(q.base) : '') + '</button>';
       }).join('') +
       (E.erroLigarApp ? '<div class="aviso erro">' + esc(E.erroLigarApp) + '</div>' : '') +
       '<button type="button" class="btn fantasma" data-acao="cancelarEscolha">Voltar</button></div>' + rodape;
@@ -745,7 +752,7 @@ function telaLigar() {
      continua valendo para quem não é encarregado no mês (semEquipe) ou para um servidor mais antigo. */
   var h = '<div class="cartao"><div class="etiqueta">Ligar este celular à sua equipe</div>' +
     '<p>Toque em <b>Ligar à minha equipe</b>. O sistema reconhece você como encarregado e liga este celular, sem código. Só uma vez, com sinal: depois, a Operação abre direto, com ou sem sinal.</p>' +
-    '<div class="aviso atencao">Se a sua equipe já tem outro celular ligado, <b>ele será desligado</b>: é um celular só por equipe, e a sua entrada na Operação passa a valer só neste.</div>' +
+    '<div class="aviso atencao">Se a sua equipe já tem outro celular ligado, <b>ele será desligado</b>: é um celular só por equipe, e a sua entrada na Operação passa a valer só neste. Supervisor ou administrador: o seu celular não desliga o da equipe.</div>' +
     (E.cfg && !E.cfg.desligado ? '<div class="aviso atencao">Este celular já está ligado ' + (E.cfg.login ? 'na equipe ' + esc(E.cfg.prefixo) : 'para ' + esc(E.cfg.nome)) + '. Ligar de novo troca o celular de dono.</div>' : '') +
     (E.erroLigarApp ? '<div class="aviso erro" id="ligErroApp">' + esc(E.erroLigarApp) + '</div>' : '') +
     '<button type="button" class="btn" data-acao="ligarApp"' + (E.ligando ? ' disabled' : '') + '>' + (E.ligando ? 'Ligando…' : 'Ligar à minha equipe') + '</button></div>' +
@@ -790,18 +797,21 @@ function ligar() {
    CUIDADO QUE DECIDE O DESENHO (nº 19): cada chamada SEM `aparelho` cria uma ligação NOVA e desliga a anterior da
    equipe. Por isso esta é a única função que chama sem `aparelho`, e só a partir de um toque (E.ligando trava o segundo
    toque); toda entrada depois da primeira ligação vai pelo entrarPeloApp, que sempre manda a chave guardada. */
-function ligarPeloApp(prefixo) {
+function ligarPeloApp(prefixo, base) {
   if (E.ligando) return Promise.resolve();
   var erro = function (t) { E.ligando = false; E.erroLigarApp = t; desenhar(); };
   if (!navigator.onLine) return erro('Sem sinal: ligar o celular precisa de sinal (o Wi-Fi da base).');
   E.ligando = true; E.erroLigarApp = ''; desenhar();
   var extra = { celular: resumoDoAparelho() };
   if (prefixo) extra.prefixo = prefixo;
+  if (prefixo && base) extra.base = base;
   return Casca.sessaoNova(extra).then(function (r) {
     if (r.escolherEquipe) {
       var eq = (Array.isArray(r.equipes) ? r.equipes : []).filter(function (q) { return q && typeof q.prefixo === 'string' && q.prefixo; });
       if (!eq.length) return erro('O servidor pediu para escolher a equipe, mas não disse quais. Use o código do supervisor.');
-      E.ligando = false; E.escolha = eq; E.erroLigarApp = ''; return desenhar();
+      // Em ordem de base e prefixo: a lista do gestor traz as equipes de todas as bases dele.
+      eq.sort(function (x, y) { return String(x.base || '').localeCompare(String(y.base || '')) || String(x.prefixo).localeCompare(String(y.prefixo)); });
+      E.ligando = false; E.escolha = eq; E.escolhaGestor = r.gestor === true; E.erroLigarApp = ''; return desenhar();
     }
     // semEquipe, bloqueada, foraDaBase e os erros da casca chegam com a frase pronta no `erro`.
     if (!r.ok) return erro(r.erro || 'O servidor da Operação não ligou este celular.');
@@ -809,7 +819,7 @@ function ligarPeloApp(prefixo) {
     if (!l || !l.token) return erro('O servidor da Operação ainda não liga o celular sozinho. Use o código do supervisor, mais abaixo.');
     E.cfg = { url: '', token: l.token, aparelho: l.aparelho || '', mat: l.mat || '', nome: l.nome || ('Equipe ' + (l.prefixo || '')), base: l.base || '',
               ligadoEm: new Date().toISOString(), desligado: false, prefixo: l.prefixo || '', login: true };
-    E.pessoa = null; E.ligando = false; E.escolha = null; E.erroLigarApp = '';
+    E.pessoa = null; E.ligando = false; E.escolha = null; E.escolhaGestor = false; E.erroLigarApp = '';
     return gravarConfig('pessoa', null).then(function () { return gravarConfig('servidor', E.cfg); }).then(function () {
       E.ligar = null; E.aba = 'hoje'; E.dia = hojeLocal();
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () { });
@@ -884,8 +894,10 @@ function entrarPeloApp() {
    amanhã. Vale para a entrada com a chave e para a que nasceu junto da ligação sem código. */
 function guardarEntrada(r) {
   var mat = matDoApp();
-  E.pessoas[mat] = { mat: mat, nome: r.nome || (E.daCasca && E.daCasca.nome) || '', funcoes: r.funcoes || [], prefixos: r.prefixos || [] };
-  E.pessoa = { mat: mat, nome: E.pessoas[mat].nome, funcoes: E.pessoas[mat].funcoes, prefixos: E.pessoas[mat].prefixos };
+  /* `gestor` (carta nº 23 da Operação): quem é ADMIN ou SUPERVISOR no Núcleo e não é encarregado de equipe. Fica guardado
+     por pessoa, como as funções, para a tela abrir sem sinal amanhã do mesmo jeito. */
+  E.pessoas[mat] = { mat: mat, nome: r.nome || (E.daCasca && E.daCasca.nome) || '', funcoes: r.funcoes || [], prefixos: r.prefixos || [], gestor: r.gestor === true };
+  E.pessoa = { mat: mat, nome: E.pessoas[mat].nome, funcoes: E.pessoas[mat].funcoes, prefixos: E.pessoas[mat].prefixos, gestor: E.pessoas[mat].gestor };
   E.entrar = { modo: 'entrar' };
   // A sessão nova vale para os diários que a anterior não conseguiu subir.
   var recusados = E.diarios.filter(function (d) { return d.sessaoRecusada && semZeros(d.form && d.form.matEnc) === mat; });
@@ -907,7 +919,9 @@ function ehEncarregadoDaEquipe(dia) {
   return !enc || semZeros(enc.mat) === semZeros(quem().mat);
 }
 function ehSubstituto(dia) { return !ehEncarregadoDaEquipe(dia) && !!E.substitutos[dia + '|' + semZeros(quem().mat)]; }
-function podeLancar(dia) { return ehEncarregadoDaEquipe(dia) || ehSubstituto(dia); }
+/* O gestor lança sem o "sou substituto": o servidor já marca o que ele lança como SUBSTITUTO (carta nº 23 da Operação). */
+function ehGestor() { return !!(E.cfg && E.cfg.login && E.pessoa && E.pessoa.gestor); }
+function podeLancar(dia) { return ehEncarregadoDaEquipe(dia) || ehSubstituto(dia) || ehGestor(); }
 function cartaoDaFuncao(dia) {
   var pac = pacoteDe(dia), enc = pac && pac.encarregadoDaEquipe;
   return '<div class="cartao" id="f-funcao"><div class="etiqueta">O diário da equipe ' + esc(E.cfg.prefixo) + '</div>' +
@@ -1218,7 +1232,7 @@ function telaDiario() {
   var n = 0, cab = function (t) { return '<div class="etiqueta"><span class="n">' + (++n) + '</span>' + t + '</div>'; };
   /* 1. a folha */
   h += '<div class="cartao secao">' + cab(f ? 'Folha da obra ' + esc(f.obra || '—') : 'Folha de atendimento emergencial (sem programação)') + '<div class="fraco" style="margin-bottom:4px">' + (f ? esc(f.codigo) + ' · ' : '') + esc(brDe(d.dia)) + '</div>' +
-    '<div><b>' + esc(quem().nome) + '</b> <span class="fraco">· encarregado' + (ehSubstituto(d.dia) ? ' substituto' : '') + ' · ' + esc(quem().mat) + '</span></div>' +
+    '<div><b>' + esc(quem().nome) + '</b> <span class="fraco">· ' + (ehGestor() && !ehEncarregadoDaEquipe(d.dia) ? 'gestor (vale como substituto)' : 'encarregado' + (ehSubstituto(d.dia) ? ' substituto' : '')) + ' · ' + esc(quem().mat) + '</span></div>' +
     (f ? botaoDoProjeto(pac, f.obra) : '') +
     '<div id="f-prefixo">' + (f ? '<div class="media">Equipe <b>' + esc(x.prefixo) + '</b></div>' :
       '<label for="i-prefixo">Equipe (prefixo)</label><select id="i-prefixo" data-f="prefixo" data-redesenha="1">' + opcoes((pac.equipes || []).map(function (e) { return [e.p, e.p + (e.t ? ' · ' + e.t : '')]; }), x.prefixo, 'Escolha a equipe') + '</select>') + '</div>' +
@@ -2060,8 +2074,8 @@ corpo.addEventListener('click', function (ev) {
   if (acao === 'voltarApp') return voltarAoApp();
   if (acao === 'souSubstituto') { E.substitutos[E.dia + '|' + semZeros(quem().mat)] = new Date().toISOString(); return gravarConfig('substitutos', E.substitutos).then(desenhar); }
   if (acao === 'ligarApp') return ligarPeloApp();
-  if (acao === 'escolherEquipe') return ligarPeloApp(a('data-prefixo'));
-  if (acao === 'cancelarEscolha') { E.escolha = null; E.erroLigarApp = ''; return desenhar(); }
+  if (acao === 'escolherEquipe') return ligarPeloApp(a('data-prefixo'), a('data-base'));
+  if (acao === 'cancelarEscolha') { E.escolha = null; E.escolhaGestor = false; E.erroLigarApp = ''; return desenhar(); }
   if (acao === 'cancelarLigar') { E.ligar = null; E.escolha = null; E.erroLigarApp = ''; return desenhar(); }
   if (acao === 'religar') { E.ligar = { codigo: '' }; E.escolha = null; E.erroLigarApp = ''; return desenhar(); }
   if (acao === 'recarregar') return location.reload();
@@ -2169,7 +2183,7 @@ Casca.iniciar('operacao').then(function (ini) {
   /* Quem está no celular é quem está no App Compel; se essa pessoa já entrou nesta equipe, a tela abre direto, mesmo
      sem sinal. */
   var g = pessoaGuardadaDoApp();
-  E.pessoa = g ? { mat: g.mat, nome: g.nome, funcoes: g.funcoes, prefixos: g.prefixos } : null;
+  E.pessoa = g ? { mat: g.mat, nome: g.nome, funcoes: g.funcoes, prefixos: g.prefixos, gestor: g.gestor === true } : null;
   return gravarConfig('pessoa', E.pessoa);
 }).then(function () {
   return recarregarDiarios();

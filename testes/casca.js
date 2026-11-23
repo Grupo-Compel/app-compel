@@ -1269,7 +1269,7 @@ var TESTES = {
     // "Ana Teste · 99901" só aparece na aba Hoje, depois de entrar (a tela de Entrar também diz o nome e a equipe).
     await p.waitForFunction(function () { return /Ana Teste · 99901/.test(document.getElementById('corpo').textContent); }, null, { timeout: 15000 });
     var lig = S.operacao.filter(function (c) { return c.acao === 'ligar'; }), ses = S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
-    afirmar(lig.length === 1 && lig[0].codigo === '123456' && lig[0].app === 'campo' && lig[0].versao === '7v.1-app2', 'o ligar devia ir ao servidor da Operação com o código, o app "campo" e a versão do bloco: ' + JSON.stringify(lig[0]));
+    afirmar(lig.length === 1 && lig[0].codigo === '123456' && lig[0].app === 'campo' && lig[0].versao === JSON.parse(fs.readFileSync(path.join(RAIZ, 'blocos/operacao/bloco.json'), 'utf8')).versao, 'o ligar devia ir ao servidor da Operação com o código, o app "campo" e a versão do bloco: ' + JSON.stringify(lig[0]));
     afirmar(ses.length === 1 && ses[0].aparelho === 'chave-eq' && /^tok-/.test(ses[0].token), 'a entrada devia ser o sessaoDoNucleo com a chave do ligar e o token do Núcleo: ' + JSON.stringify(ses[0]));
     afirmar(JSON.stringify(S.operacao).indexOf(x.cpf) < 0, 'nenhum pedido à Operação pode levar o CPF');
     afirmar((await p.evaluate(function () { return Casca.temSessao(); })).tem, 'a sessão da Operação devia ficar guardada na casca');
@@ -1365,6 +1365,37 @@ var TESTES = {
     await t3.p.click('[data-acao="ligarApp"]'); await esperarTexto(t3.p, 'Você não é encarregado de nenhuma equipe neste mês.');
     afirmar(!!(await t3.p.$('#ligCodigo')) && !!(await t3.p.$('[data-acao="ligar"]')), 'o código do supervisor continua disponível');
     await t3.a.ctx.close();
+  },
+  /* O gestor no celular da equipe (Operação 7v.1-app3, carta nº 23 da Operação, 23/11/2026): a escolha da equipe traz a
+     base e ela volta no pedido; a entrada com `gestor` lança sem o "sou substituto" e mostra o aviso fixo. */
+  T70_gestor_no_celular_da_equipe: async function () {
+    var OP = { modulo: 'OPERACAO', nome: 'Operação', url: SERVIDOR_OPERACAO, perfil: 'ADMIN', liberado: true };
+    var S = novoServidor();
+    S.responderOperacao = function (c) {
+      if (c.acao === 'sessaoDoNucleo' && !c.prefixo && !c.aparelho) return { ok: false, escolherEquipe: true, gestor: true, equipes: [{ base: 'NAN', prefixo: 'B203' }, { base: 'DOU', prefixo: 'B203' }] };
+      if (c.acao === 'sessaoDoNucleo') return { ok: true, sessao: 'sop-g', valeAte: Date.now() + 864e5, mat: '99901', nome: 'Ana Teste', gestor: true, funcoes: ['ENCARREGADO', 'CAMPO'], prefixos: ['B203'],
+        ligacao: c.aparelho ? undefined : { token: 'chave-g', prefixo: c.prefixo, base: c.base, aparelho: 'Celular G', login: true } };
+      return { ok: false, erro: 'Sem pacote na bateria.' };
+    };
+    var x = loginComAna({ modulos: [OP] }), a = await abrir(x.L, { servidor: S }), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    await p.click('#atalhos [data-atalho="diario"]'); await p.waitForSelector('#ligCodigo');
+    await p.click('[data-acao="ligarApp"]'); await p.waitForSelector('[data-acao="escolherEquipe"]');
+    await esperarTexto(p, 'não desliga');
+    var botoes = await p.$$eval('[data-acao="escolherEquipe"]', function (l) { return l.map(function (b) { return b.getAttribute('data-base'); }); });
+    afirmar(botoes.join(',') === 'DOU,NAN', 'a lista do gestor vem em ordem de base, com a base no botão: ' + botoes);
+    await p.click('[data-acao="escolherEquipe"][data-base="NAN"]');
+    await p.waitForSelector('#avisoGestor', { timeout: 15000 });
+    var q = S.operacao.filter(function (c) { return c.acao === 'sessaoDoNucleo'; });
+    afirmar(q.length === 2 && q[1].prefixo === 'B203' && q[1].base === 'NAN' && q[1].aparelho === undefined, 'a escolha leva o prefixo E a base: ' + JSON.stringify(q[1]));
+    // Com o encarregado do mês sendo outra pessoa, o gestor lança sem o "sou substituto"; sem `gestor`, não.
+    var r = await p.evaluate(function () {
+      pacoteDe = function () { return { encarregadoDaEquipe: { mat: '11111', nome: 'João' } }; };
+      var com = podeLancar(hojeLocal()); E.pessoa.gestor = false; var sem = podeLancar(hojeLocal()); E.pessoa.gestor = true;
+      return { com: com, sem: sem, guardado: E.pessoas['99901'] && E.pessoas['99901'].gestor };
+    });
+    afirmar(r.com === true && r.sem === false && r.guardado === true, 'o gestor lança sem declarar substituto, e o `gestor` fica guardado: ' + JSON.stringify(r));
+    await a.ctx.close();
   },
   /* Caso do Bruno (19/11/2026, app 1.26.0): entrou pelo nome, o login não reconheceu o celular (pedirCpf) e a tela passou ao
      CPF; com a matrícula pedida desde o começo, o campo novo aparecia sem aviso, a pessoa entrava só com CPF e senha e o login

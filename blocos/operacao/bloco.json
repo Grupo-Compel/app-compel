@@ -4,7 +4,7 @@
   "especie": "ambas",
   "quemVe": ["ENCARREGADO", "VIABILIZADOR", "FECHADOR", "SUPERVISOR", "PROGRAMADOR", "DIGITADOR", "DP", "ALMOXARIFADO", "CONSULTA", "ADMIN"],
   "servidor": "OPERACAO",
-  "versao": "7v.1-app2",
+  "versao": "7v.1-app3",
   "entrada": "index.html",
   "arquivos": ["index.html", "app.js", "fila.js", "pdfjs/pdf.min.js", "pdfjs/pdf.worker.min.js"],
   "cache": "operacao-campo-",
