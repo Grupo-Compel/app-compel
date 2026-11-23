@@ -777,8 +777,8 @@ function telaInicio() {
   /* O atalho "relato" vai para o topo, em largura toda (casca 1.22.0; desenho §2 e §11, Dalton 12/11/2026): quem precisa
      relatar um acidente está com pressa, e o botão no meio da grade parece mais um formulário. O primeiro que aparecer vale. */
   var relatar = todos.filter(function (x) { return x.atalho.id === 'relato'; })[0], atalhos = todos.filter(function (x) { return x !== relatar; });
-  if (relatar) h += '<button type="button" class="app-relatar" id="relatarTopo" data-acao="atalho" data-bloco="' + esc(relatar.bloco.id) + '" data-atalho="relato"' + (E.ocupado ? ' disabled' : '') + '>' +
-    '<span class="app-relatar-icone" aria-hidden="true">' + esc(relatar.atalho.icone || '⚠️') + '</span><span><b>' + esc(relatar.atalho.nome) + '</b><small>Funciona sem sinal</small></span></button>';
+  if (relatar) h += '<button type="button" class="app-relatar-inicio" id="relatarTopo" data-acao="atalho" data-bloco="' + esc(relatar.bloco.id) + '" data-atalho="relato"' + (E.ocupado ? ' disabled' : '') + '>' +
+    '<span class="app-relatar-inicio-icone" aria-hidden="true">' + esc(relatar.atalho.icone || '⚠️') + '</span><span><b>' + esc(relatar.atalho.nome) + '</b><small>Funciona sem sinal</small></span></button>';
   var mat = cascaMatricula(p.matricula);
   if (atalhos.length) h += '<p class="etiqueta n-secao">Acesso rápido</p><div class="app-atalhos" id="atalhos">' + atalhos.map(function (x) {
     var rb = ((E.resumos || {})[x.bloco.id] || {})[mat], r = rb && rb.itens && rb.itens[x.atalho.id];

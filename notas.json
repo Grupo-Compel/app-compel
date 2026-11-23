@@ -1,6 +1,8 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "App 1.26.3 · 23/11/2026", "itens": [
+      "O botão \"!\" da barra de cima voltou a ficar com o ponto de exclamação no meio." ] },
     { "titulo": "Segurança 0.7.6 · 19/11/2026", "itens": [
       "Inspeção SQP: aparecem as pendências da equipe ou da pessoa para você dizer se já foram corrigidas ou se ainda existem. O vale de prejuízo agora só se gera na Blitz." ] },
     { "titulo": "App 1.26.2 · 19/11/2026", "itens": [

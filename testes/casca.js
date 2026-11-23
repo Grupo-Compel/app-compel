@@ -1430,6 +1430,23 @@ var TESTES = {
     afirmar(Object.keys(await p.evaluate(function () { return E.pessoas; })).length === 1, 'continua uma pessoa só no celular');
     await a.ctx.close();
   },
+  /* O "!" da barra centrado (casca 1.26.3; foto do Dalton de 23/11/2026, "está torto"): o botão Relatar do Início usava a
+     mesma classe e o "!" herdava o flex, a borda e o texto à esquerda. Confere o centro do "!" contra o centro do botão. */
+  T69_o_ponto_de_exclamacao_fica_centrado: async function () {
+    var x = loginComAna(), a = await abrir(x.L), p = a.page;
+    x.L.avisosDaPessoa = [];
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Olá, Ana');
+    await p.waitForFunction(function () { return !document.getElementById('botaoRelato').classList.contains('oculto'); });
+    var m = await p.evaluate(function () {
+      var b = document.getElementById('botaoRelato'), r = document.createRange(); r.selectNodeContents(b);
+      var t = r.getBoundingClientRect(), q = b.getBoundingClientRect(), cs = getComputedStyle(b);
+      return { dx: Math.abs((t.left + t.width / 2) - (q.left + q.width / 2)), larg: q.width, borda: cs.borderTopWidth, fundo: cs.backgroundColor };
+    });
+    afirmar(m.dx <= 2, 'o "!" devia ficar no meio do botão: ' + JSON.stringify(m));
+    afirmar(m.larg <= 48, 'o botão do "!" é pequeno (44 px), não a largura do Relatar do Início: ' + JSON.stringify(m));
+    afirmar(m.fundo !== 'rgb(255, 245, 245)', 'o "!" não pode herdar o fundo rosa do Relatar do Início: ' + JSON.stringify(m));
+    await a.ctx.close();
+  },
   /* Os atalhos ditos pelo bloco (casca 1.12.1, proposta da Operação nº 12): com a permissão de verdade vinda do servidor
      dele, o bloco diz quais dos atalhos declarados a pessoa usa, e o Início segue essa lista, e não o padrão do bloco.json.
      Id que o bloco.json não declara não vira botão. */
