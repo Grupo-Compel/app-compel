@@ -33,8 +33,10 @@
   /* O "!" do relato, na barra grafite, e o que a tela do relato e os avisos da pessoa precisam (casca 1.9, 26/10/2026). */
   /* O fundo e o canto são os do .topo button da folha (o mesmo botão da barra do Portal); aqui só o tamanho do "!",
      grande o bastante para ser visto no sol (visto na tela em 26/10/2026: a 14px da folha, ele sumia). */
-  .topo .app-relatar { flex: 0 0 auto; width: 44px; padding: 0; margin-right: 10px; font-size: 22px; font-weight: 700; line-height: 1; }
-  .topo .app-relatar:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .topo .app-relatar, .topo .app-ajudar { flex: 0 0 auto; width: 44px; padding: 0; margin-right: 10px; font-size: 22px; font-weight: 700; line-height: 1; }
+  /* O "?" é o irmão do "!": mesmo tamanho, e fica branco com letra grafite enquanto a ajuda está aberta (24/11/2026). */
+  .topo .app-ajudar[aria-expanded="true"] { background: #fff; color: #231F20; }
+  .topo .app-relatar:focus-visible, .topo .app-ajudar:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .app-texto-longo { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1.5px solid var(--linha); border-radius: var(--raio-p);
     font: 17px 'Inter', sans-serif; color: var(--tinta); resize: vertical; }
   .app-texto-longo:focus { outline: none; border-color: var(--vermelho); box-shadow: 0 0 0 3px var(--vermelho-claro); }
@@ -103,6 +105,11 @@
   .app-dica-cpf { margin: -4px 0 10px; font-size: .9rem; color: var(--tinta-fraca); }
   .app-sem-margem { margin-top: 0; }
   .app-versao { text-align: center; font-size: 12px; color: var(--tinta-fraca); margin-top: 8px; }
+  /* O "?" da tela de entrada, no canto de cima da moldura (não há barra de cima nela). */
+  .login-tela .moldura { position: relative; }
+  .app-ajuda-entrada { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; padding: 0; border: 1.5px solid var(--linha); border-radius: 10px; background: #fff; color: var(--tinta); font: 700 20px/1 'Inter', sans-serif; cursor: pointer; }
+  .app-ajuda-entrada[aria-expanded="true"] { background: #231F20; color: #fff; border-color: #231F20; }
+  .app-ajuda-entrada:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 2px; }
   .login-tela .cartao .btn + .btn { margin-top: 10px; }
   /* Os avisos: a categoria e o "novo" na mesma linha, como o painel de comunicações do Portal. */
   .aviso-item { display: grid; gap: 6px; margin-bottom: 12px; }
@@ -161,6 +168,7 @@
 <header id="topo" class="topo oculto">
   <div class="marca-topo"><svg class="marca-svg" role="img" aria-label="Compel"><use href="#marca-horizontal"/></svg><span class="divisor-marca"></span><span class="sub">App</span></div>
   <div class="espaco"></div>
+  <button id="botaoAjuda" type="button" class="app-ajudar" data-acao="ajuda" aria-label="Ajuda desta tela" aria-expanded="false">?</button>
   <button id="botaoRelato" type="button" class="app-relatar oculto" data-acao="relatar" aria-label="Relatar um problema ou dar uma sugestão">!</button>
   <div class="acoes n-com-codigo"><span id="sinal" class="app-sinal off">Sem sinal</span><span id="codigo" class="n-codigo-tela"></span></div>
 </header>

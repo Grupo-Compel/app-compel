@@ -633,9 +633,19 @@ var AJUDAS = {
   relato: 'Algo deu errado no app, ou você tem uma ideia para ele? Marque "Deu erro" ou "Tenho uma sugestão" e conte com as suas palavras: no erro, o que você tentou fazer e o que apareceu; na sugestão, o que poderia melhorar. A tela, a versão do app e a hora vão junto, sozinhas. Se quiser, anexe um print (tire o print com o botão do celular antes de abrir aqui). Precisa de sinal. Quando o problema for corrigido, o aviso aparece em Avisos.',
   perfil: 'Os seus dados, como estão no cadastro. "Trocar de pessoa" deixa outra pessoa entrar neste celular. "Tirar meus dados deste celular" apaga daqui a sua entrada sem sinal. "Como está este celular" mostra a versão do app e de cada sistema que abre no celular, se o servidor confere e se o sistema abre sem sinal.'
 };
-function ajuda(tela) {
-  return '<button type="button" class="link-texto" data-acao="ajuda">' + (E.ajuda ? 'Fechar a ajuda' : 'Como funciona esta tela') + '</button>' +
-    (E.ajuda ? '<div class="aviso info" id="textoAjuda">' + esc(AJUDAS[tela]) + '</div>' : '');
+/* A ajuda da tela mora no "?" da barra de cima (pedido do Dalton, 24/11/2026: o pessoal já aprendeu que "toda tela tem
+   a ajuda em cima", e o link "Como funciona esta tela" lá embaixo deixava o app diferente do resto). O texto abre no
+   alto da tela, perto do botão, e não embaixo, onde o "?" tocado deixaria a pessoa sem ver nada mudar. */
+function caixaDeAjuda(tela, logado) {
+  if (!E.ajuda || !AJUDAS[tela]) return;
+  var alvo = logado ? $('corpo').firstElementChild : $('corpo').querySelector('.cartao');
+  if (!alvo) return;
+  var cx = document.createElement('div'); cx.className = 'aviso info'; cx.id = 'textoAjuda'; cx.textContent = AJUDAS[tela];
+  alvo.insertBefore(cx, alvo.firstChild);
+}
+/* Na entrada não há barra de cima (como no Portal): o "?" fica no canto de cima da moldura vermelha. */
+function botaoAjudaDaEntrada() {
+  return '<button type="button" class="app-ajuda-entrada" data-acao="ajuda" aria-label="Ajuda desta tela" aria-expanded="' + (E.ajuda ? 'true' : 'false') + '">?</button>';
 }
 function mensagens() {
   return (E.erro ? '<div class="aviso erro" id="erro" role="alert">' + esc(E.erro) + '</div>' : '') + (E.ok ? '<div class="aviso ok" id="ok">' + esc(E.ok) + '</div>' : '');
@@ -682,9 +692,9 @@ function semSinalNaEntrada() { return '<div class="aviso atencao app-sem-sinal' 
 // A tela de entrada é a do Portal: a moldura vermelha, a marca quadrada e o rodapé da Compel. O código da tela fica no
 // mesmo canto das outras telas, como no Portal (o App.html dele explica: quem liga para pedir ajuda procura ali).
 function telaDeEntrada(tela, corpo) {
-  return '<div class="login-tela"><span class="n-codigo-tela">' + CODIGOS[tela] + '</span><div class="moldura">' +
+  return '<div class="login-tela"><span class="n-codigo-tela">' + CODIGOS[tela] + '</span><div class="moldura">' + botaoAjudaDaEntrada() +
     '<div class="login-marca"><svg class="logo-oficial" role="img" aria-label="Grupo Compel"><use href="#marca-quadrada"/></svg><div class="sub">App</div></div>' +
-    '<div class="cartao">' + semLogin() + semSinalNaEntrada() + corpo + mensagens() + ajuda(tela) + '</div>' +
+    '<div class="cartao">' + semLogin() + semSinalNaEntrada() + corpo + mensagens() + '</div>' +
     '<div class="login-rodape">Desde 1983, excelência em energia elétrica</div><div class="app-versao">versão ' + esc(VERSAO_APP) + '</div></div></div>';
 }
 
@@ -805,7 +815,7 @@ function telaInicio() {
       (soltos.length ? grade(soltos) : '') +
       grupos.map(function (g) { return '<p class="etiqueta app-grupo">' + esc(g) + '</p>' + grade(porGrupo[g]); }).join('') + '</div>';
   } else if (!atalhos.length) h += '<div class="vazio" id="semModulos">Nenhum sistema liberado para você ainda.<br>Fale com o seu supervisor.</div>';
-  return '<div class="conteudo">' + h + ajuda('inicio') + '</div>';
+  return '<div class="conteudo">' + h + '</div>';
 }
 /* O atalho abre a tela do bloco direto no formulário: o contexto { abrir: id } vai no fragmento, que nunca sai do
    celular, e funciona sem sinal (o mesmo caminho do Casca.abrirBloco, desde a casca 1.7). Sem `de=`, de propósito: o
@@ -833,7 +843,7 @@ function telaAvisos() {
     }).join('') + '</div>';
     if ((E.avisos.fixas || []).length) h += '<div id="listaFixas">' + E.avisos.fixas.map(function (a) { return cartaoDeAviso(a, false, true); }).join('') + '</div>';
   }
-  return '<div class="conteudo">' + h + ajuda('avisos') + '</div>';
+  return '<div class="conteudo">' + h + '</div>';
 }
 function cartaoDeAviso(a, novo, fixa) {
   /* A `proporcao` sai das medidas da imagem desde 22/10/2026 (carta nº 15 do Núcleo), e pode vir com decimal
@@ -871,7 +881,7 @@ function telaRelato() {
     botao('enviarRelato', E.ocupado ? 'Enviando…' : T.enviar, E.ocupado, false, E.ocupado || falta || !comSinal()) +
     '<p class="ajuda' + (falta ? '' : ' oculto') + '" id="relatoFalta">Escreva pelo menos uma frase para enviar.</p>' +
     botao('voltarDoRelato', 'Voltar', false, true) + '</div>';
-  return '<div class="conteudo">' + h + ajuda('relato') + '</div>';
+  return '<div class="conteudo">' + h + '</div>';
 }
 function quandoDe(iso) {
   if (!iso) return '';
@@ -899,18 +909,18 @@ function telaEnvio() {
       x.acordadas.slice().reverse().map(function (a) { return '<li>' + esc(quandoDe(a.quando)) + ': ' + esc(a.resultado) + '</li>'; }).join('') + '</ul></details>';
     return c.replace('data-acao="enviarBloco"', 'data-acao="enviarBloco" data-bloco="' + esc(b.id) + '"') + '</div>';
   }).join('');
-  return '<div class="conteudo">' + h + ajuda('envio') + '</div>';
+  return '<div class="conteudo">' + h + '</div>';
 }
 function telaTermo() {
   var t = E.termo;
-  if (!t) return '<div class="conteudo"><div class="vazio">Nenhum termo para aceitar.</div>' + ajuda('termo') + '</div>';
+  if (!t) return '<div class="conteudo"><div class="vazio">Nenhum termo para aceitar.</div>' + '</div>';
   return '<div class="conteudo"><p class="etiqueta n-secao app-sem-margem">Termo</p>' + mensagens() +
     (t.quantos > 1 ? '<div class="aviso atencao" id="quantosTermos">Há ' + t.quantos + ' termos para aceitar. Este é o primeiro.</div>' : '') +
     '<div class="cartao" id="termo"><b class="app-titulo">' + esc(t.titulo) + '</b>' +
     (t.texto ? '<p class="app-termo-texto">' + esc(t.texto) + '</p>' : '') +
     (t.link ? '<a class="link-texto" href="' + esc(t.link) + '" target="_blank" rel="noopener">Ler o documento completo</a>' : '') +
     botao('aceitarTermo', E.ocupado ? 'Gravando…' : 'Li e aceito', E.ocupado, false, E.ocupado || !comSinal()) +
-    '<button type="button" class="btn fantasma" data-aba="inicio">Agora não</button></div>' + ajuda('termo') + '</div>';
+    '<button type="button" class="btn fantasma" data-aba="inicio">Agora não</button></div>' + '</div>';
 }
 function telaPerfil() {
   var p = pessoaAtual(), par = parametrosDe(p);
@@ -922,7 +932,7 @@ function telaPerfil() {
     '<dt>Sem sinal</dt><dd>' + (p.verif ? 'entra com a senha, até ' + par.diasSemSinal + ' dias sem falar com o login' : 'só entra com sinal') + '</dd>' +
     (p.sessaoAte ? '<dt>Aparelho</dt><dd>registrado até ' + esc(brDe(p.sessaoAte)) + ' (renova a cada entrada com sinal)</dd>' : '') + '</dl>' +
     botao('sair', 'Trocar de pessoa') + botao('esquecer', 'Tirar meus dados deste celular', false, true) + '</div>' +
-    saudeDoCelular() + ajuda('perfil') + '<p class="app-versao">App Compel · versão ' + esc(VERSAO_APP) + '</p></div>';
+    saudeDoCelular() + '<p class="app-versao">App Compel · versão ' + esc(VERSAO_APP) + '</p></div>';
 }
 /* "COMO ESTÁ ESTE CELULAR" (casca 1.23.0, proposta do App na carta nº 5 à Linha, 13/11/2026). Do shell, o App não alcança
    o site nem o celular: cada "já está no ar?" virava pergunta ao Dalton, e o mapa ficava em "instalado, uso a conferir".
@@ -977,6 +987,7 @@ function desenhar() {
   // Na entrada não há barra (como no Portal); dentro, a barra grafite com a marca e as abas de baixo.
   $('topo').classList.toggle('oculto', !logado);
   $('abas').classList.toggle('oculto', !logado);
+  $('botaoAjuda').setAttribute('aria-expanded', E.ajuda ? 'true' : 'false');
   $('botaoRelato').classList.toggle('oculto', !(logado && E.relatoLigado && tela !== 'relato'));
   Array.prototype.forEach.call(document.querySelectorAll('#abas button'), function (b) { b.classList.toggle('ativo', b.getAttribute('data-aba') === tela); });
   var n = logado ? quantosNovos() : 0, bol = $('bolinha'); bol.classList.toggle('oculto', !n); bol.textContent = n > 9 ? '9+' : n;
@@ -995,6 +1006,7 @@ function desenhar() {
   E.telaDesenhada = tela;
   var html = { entrar: telaEntrar, primeiro: telaPrimeiro, trocar: telaTrocar, esqueci: telaEsqueci, inicio: telaInicio, avisos: telaAvisos, envio: telaEnvio, termo: telaTermo, perfil: telaPerfil, relato: telaRelato, agenda: telaAgenda }[tela];
   $('corpo').innerHTML = html ? html() : '<div class="carregando">Abrindo…</div>';
+  if (html) caixaDeAjuda(tela, logado);
   Object.keys(guardados).forEach(function (id) { var c = $(id); if (c) c.value = guardados[id]; });
   if (E.cpfLevar) { var cc = $('cpf'); if (cc && !cc.value) cc.value = mascaraDoCpf(E.cpfLevar); E.cpfLevar = ''; }
 }
@@ -1225,7 +1237,7 @@ function agForm() {
 }
 function telaAgenda() {
   var A = E.agenda, h = '<p class="etiqueta n-secao app-sem-margem">Agenda</p>' + mensagens();
-  if (!comSinal()) return '<div class="conteudo">' + h + '<div class="aviso atencao" id="agSemSinal">A agenda precisa de sinal. Quando o celular tiver sinal, ela aparece aqui.</div>' + ajuda('agenda') + '</div>';
+  if (!comSinal()) return '<div class="conteudo">' + h + '<div class="aviso atencao" id="agSemSinal">A agenda precisa de sinal. Quando o celular tiver sinal, ela aparece aqui.</div>' + '</div>';
   if (!A.ancora) A.ancora = agHoje();
   h += '<div class="n-ag-barra"><div class="n-ag-nav"><button type="button" class="n-ag-btn" data-acao="agAnt" aria-label="Semana anterior">‹</button>' +
     '<button type="button" class="n-ag-btn" data-acao="agHoje">Hoje</button><button type="button" class="n-ag-btn" data-acao="agProx" aria-label="Próxima semana">›</button></div>' +
@@ -1239,7 +1251,7 @@ function telaAgenda() {
     var it = agSelecionado();
     h += A.form ? agForm() : it ? agDetalhe(it) : '';
   }
-  return '<div class="conteudo">' + h + ajuda('agenda') + '</div>';
+  return '<div class="conteudo">' + h + '</div>';
 }
 
 /* ---------- o formulário ---------- */
@@ -1324,7 +1336,7 @@ document.addEventListener('click', function (ev) {
   var b = ev.target.closest('[data-acao]');
   if (!b || b.disabled) return;
   var a = b.getAttribute('data-acao');
-  if (a === 'ajuda') { E.ajuda = !E.ajuda; return desenhar(); }
+  if (a === 'ajuda') { E.ajuda = !E.ajuda; desenhar(); window.scrollTo(0, 0); return; }
   if (a === 'agDia') return agIrPara(b.getAttribute('data-iso'));
   if (a === 'agAnt') return agIrPara(agSoma(E.agenda.ancora, -7));
   if (a === 'agProx') return agIrPara(agSoma(E.agenda.ancora, 7));

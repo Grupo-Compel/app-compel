@@ -551,7 +551,7 @@ var TESTES = {
         var passa = await a.page.evaluate(function () { return document.documentElement.scrollWidth - document.documentElement.clientWidth; });
         afirmar(passa <= 0, 'a tela ' + nome + ' passa ' + passa + ' px da largura de ' + largura);
       };
-      await a.page.click('[data-acao="ajuda"]'); await conferir('Entrar com a ajuda aberta');
+      await a.page.click('[data-acao="ajuda"]:visible'); await conferir('Entrar com a ajuda aberta');
       await a.page.click('[data-acao="irPrimeiro"]'); await conferir('Primeiro acesso');
       await a.page.click('[data-acao="irEntrar"]'); await a.page.click('[data-acao="irEsqueci"]'); await conferir('Esqueci a senha');
       await a.page.click('[data-acao="irEntrar"]');
@@ -566,7 +566,7 @@ var TESTES = {
   T15_toda_tela_tem_ajuda: async function () {
     var x = loginComAna(), a = await abrir(x.L);
     var conferir = async function (nome) {
-      await a.page.click('[data-acao="ajuda"]');
+      await a.page.click('[data-acao="ajuda"]:visible');
       var t = await a.page.textContent('#textoAjuda').catch(function () { return ''; });
       afirmar(t && t.length > 40, 'a tela ' + nome + ' não tem ajuda');
     };
@@ -654,11 +654,11 @@ var TESTES = {
       r.forEach(function (t) { achados.push(nome + ': "' + t + '"'); });
     };
     await a.page.fill('#cpf', '123'); await a.page.click('[data-acao="entrarCpf"]'); await a.page.waitForSelector('#erro');
-    await a.page.click('[data-acao="ajuda"]'); await conferir('Entrar (com erro e ajuda)');
+    await a.page.click('[data-acao="ajuda"]:visible'); await conferir('Entrar (com erro e ajuda)');
     await a.page.click('[data-acao="irPrimeiro"]'); await conferir('Primeiro acesso');
     await a.page.click('[data-acao="irEntrar"]');
     await entrarCpf(a.page, x.cpf, 'senha-da-ana'); await esperarTexto(a.page, 'Olá, Ana');
-    await a.page.click('[data-acao="ajuda"]'); await conferir('Início');
+    await a.page.click('[data-acao="ajuda"]:visible'); await conferir('Início');
     await a.page.click('[data-aba="avisos"]'); await a.page.waitForSelector('#listaAvisos'); await conferir('Avisos');
     await a.page.click('[data-aba="envio"]'); await a.page.waitForSelector('.app-envio'); await conferir('Envio');
     await a.page.click('[data-aba="perfil"]'); await conferir('Perfil');
@@ -845,7 +845,7 @@ var TESTES = {
     afirmar((await texto(a.page, '#codigo')) === 'APP-09', 'o termo pendente devia abrir a tela do termo');
     afirmar(a.ctx.pages().length === 1, 'com o termo pendente, nenhuma janela de sistema podia ficar aberta');
     afirmar(!(await a.page.$('#quantosTermos')), 'com um termo só, não há aviso de quantos');
-    await a.page.click('[data-acao="ajuda"]');
+    await a.page.click('[data-acao="ajuda"]:visible');
     afirmar(((await a.page.textContent('#textoAjuda').catch(function () { return ''; })) || '').length > 40, 'a tela do termo não tem ajuda');
     for (var largura of [360, 412]) {
       await a.page.setViewportSize({ width: largura, height: 800 });
@@ -1841,6 +1841,30 @@ var TESTES = {
   /* O "Relatar" no topo e o resumo de cada cartão (casca 1.22.0; desenho §2 e §11 de 12/11/2026): o atalho "relato" sai da
      grade e vira o botão largo do alto; o bloco manda número, linha e barrinha por Casca.resumoDosAtalhos, só para ids que
      ele declarou, e o Início mostra o que ficou guardado. */
+  T71_a_ajuda_fica_no_ponto_de_interrogacao_de_cima: async function () {
+    // Pedido do Dalton, 24/11/2026: o "?" mora na barra de cima, ao lado do "!", em toda tela; o link de baixo não existe mais.
+    var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true };
+    var x = loginComAna({ modulos: [OUTRO] }), a = await abrir(x.L), p = a.page;
+    afirmar(await p.isVisible('.app-ajuda-entrada'), 'a tela de entrada devia ter o "?" no canto de cima');
+    await entrarCpf(p, x.cpf, 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    afirmar(await p.isVisible('#botaoAjuda'), 'o Início devia ter o "?" na barra de cima');
+    afirmar(!(await p.evaluate(function () { return document.body.innerText.indexOf('Como funciona esta tela') >= 0; })), 'o link "Como funciona esta tela" não devia existir mais');
+    await p.click('#botaoAjuda');
+    var emCima = await p.evaluate(function () { var t = document.getElementById('textoAjuda'), c = document.querySelector('#corpo .conteudo'); return !!t && t.parentNode === c && c.firstChild === t; });
+    afirmar(emCima, 'o texto da ajuda devia abrir no alto da tela');
+    await p.click('#botaoAjuda');
+    afirmar(!(await p.$('#textoAjuda')), 'o segundo toque no "?" devia fechar a ajuda');
+    // Dentro do bloco: o "?" da faixa do bloco abre o texto que ele registrou com Casca.ajuda.
+    await p.click('#relatarTopo'); await p.waitForSelector('#pronto');
+    afirmar(await p.isVisible('#casca-barra .cb-aj'), 'a faixa do bloco devia ter o "?"');
+    afirmar(!(await p.$('[data-casca-ajuda]')), 'o link de baixo do bloco não devia existir mais');
+    await p.click('#casca-barra .cb-aj');
+    var t = await p.textContent('#casca-ajuda').catch(function () { return ''; });
+    afirmar(/A tela do outro bloco/.test(t || ''), 'o "?" do bloco devia abrir o texto registrado: "' + t + '"');
+    await p.click('#casca-barra .cb-aj');
+    afirmar(!(await p.$('#casca-ajuda')), 'o segundo toque devia fechar a ajuda do bloco');
+    await a.ctx.close();
+  },
   T61_relatar_no_topo_e_o_resumo_dos_atalhos: async function () {
     var OUTRO = { modulo: 'OUTRO', nome: 'Segurança', url: SERVIDOR_OUTRO, perfil: 'ELETRICISTA', liberado: true };
     var x = loginComAna({ modulos: [OUTRO] }), a = await abrir(x.L), p = a.page;
@@ -1947,7 +1971,7 @@ var TESTES = {
     afirmar(e.tipo === 'password' && e.olho === 'nao' && !e.cortado && e.nome === 'Mostrar senha', 'o segundo toque devia esconder de novo, com o olho aberto');
     // Mostrada e a tela refeita (a ajuda redesenha): volta escondida.
     await p.click('#ver_senha');
-    await p.click('[data-acao="ajuda"]');
+    await p.click('[data-acao="ajuda"]:visible');
     e = await estado('senha');
     afirmar(e.tipo === 'password' && e.olho === 'nao', 'a senha ficou à vista depois de a tela ser refeita');
     // Outra tela, com senha e confirmação: cada uma tem o seu botão, e um não mexe no outro.

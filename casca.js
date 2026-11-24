@@ -199,18 +199,10 @@ function cascaLerPosicao() {
 }
 
 /* ---------- a ajuda ----------
-   Toda tela tem a ajuda dela (a regra da conferência, FRONTEIRA §4), com o mesmo jeito das telas da casca: o link
-   "Como funciona esta tela" e o texto num aviso informativo. */
-function cascaAjuda(elemento, texto) {
-  var aberto = false;
-  function desenha() {
-    elemento.innerHTML = '<button type="button" class="link-texto" data-casca-ajuda="1">' + (aberto ? 'Fechar a ajuda' : 'Como funciona esta tela') + '</button>' +
-      (aberto ? '<div class="aviso info" data-casca-texto-ajuda="1"></div>' : '');
-    if (aberto) elemento.querySelector('[data-casca-texto-ajuda]').textContent = texto;
-  }
-  elemento.addEventListener('click', function (ev) { if (ev.target.closest('[data-casca-ajuda]')) { aberto = !aberto; desenha(); } });
-  desenha();
-}
+   Toda tela tem a ajuda dela (a regra da conferência, FRONTEIRA §4). Desde 24/11/2026 (pedido do Dalton) ela mora no "?"
+   da faixa de cima, ao lado do "!", como nas telas da casca: o bloco continua chamando Casca.ajuda(elemento, texto), e a
+   casca só guarda o texto para o "?" (em Casca.ajuda, dentro do objeto, porque a faixa e o estado dela moram lá). O
+   elemento fica vazio, porque o link de baixo deixou de existir. */
 
 /* ---------- o aviso de versão nova ----------
    18/11/2026, pedido do Dalton: a faixa cinza de "versão nova instalada" dava para ignorar, e quem a ignorava seguia na
@@ -300,7 +292,7 @@ var Casca = (function () {
 /* A faixa padrão do app nas telas dos blocos (04/11/2026, pedido do Dalton): o nome Compel, o "!" do relato, o sinal e o
    "‹ Voltar" ficam em cima em toda tela, e os botões de voltar do corpo da tela podem subir para cá. Só o app mexe na
    faixa; o bloco escolhe o destino do "Voltar" com Casca.barra({ voltar: fn, rotulo: 'Voltar ao diário' }). */
-var cascaBarra = { voltar: null, rotulo: 'Voltar', relato: false };
+var cascaBarra = { voltar: null, rotulo: 'Voltar', relato: false, ajuda: '', ajudaAberta: false };
 function cascaDesenharBarra() {
   var el = document.getElementById('casca-barra');
   if (!el) {
@@ -310,20 +302,27 @@ function cascaDesenharBarra() {
       // Rótulo comprido (até 40 letras) cortava a marca em duas linhas e a faixa dobrava de altura (achado de 13/11/2026):
       // o "Voltar" fica numa linha só, com reticências, e a marca some antes de quebrar.
       '#casca-barra .cb-voltar{flex:0 1 auto;max-width:60%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-      '#casca-barra .cb-marca{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.04em}#casca-barra .cb-rel{width:44px;padding:0;font-size:22px;font-weight:700}' +
+      '#casca-barra .cb-marca{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.04em}#casca-barra .cb-rel,#casca-barra .cb-aj{width:44px;padding:0;font-size:22px;font-weight:700}' +
+      '#casca-barra .cb-aj[aria-expanded=true]{background:#fff;color:#231F20}' +
       '#casca-barra .cb-sinal{font-size:12px;padding:3px 9px;border-radius:12px;background:#FFF1D6;color:#8A5A00;white-space:nowrap}#casca-barra .cb-sinal.on{background:#DDF3E4;color:#1B7F3B}';
     document.head.appendChild(st);
     el = document.createElement('header'); el.id = 'casca-barra';
     el.innerHTML = '<button type="button" class="cb-voltar"></button><span class="cb-marca">COMPEL · App</span>' +
-      '<button type="button" class="cb-rel" aria-label="Relatar um problema ou dar uma sugestão">!</button><span class="cb-sinal"></span>';
+      '<button type="button" class="cb-aj" aria-label="Ajuda desta tela" aria-expanded="false">?</button><button type="button" class="cb-rel" aria-label="Relatar um problema ou dar uma sugestão">!</button><span class="cb-sinal"></span>';
     document.body.insertBefore(el, document.body.firstChild);
     el.querySelector('.cb-voltar').addEventListener('click', function () { if (cascaBarra.voltar) cascaBarra.voltar(); else Casca.voltar(); });
+    el.querySelector('.cb-aj').addEventListener('click', function () { cascaBarra.ajudaAberta = !cascaBarra.ajudaAberta; cascaDesenharBarra(); window.scrollTo(0, 0); });
     el.querySelector('.cb-rel').addEventListener('click', function () { location.href = raiz() + '#relatar'; });
     var atual = function () { var n = el.querySelector('.cb-sinal'); var on = navigator.onLine !== false; n.textContent = on ? 'Com sinal' : 'Sem sinal'; n.className = 'cb-sinal' + (on ? ' on' : ''); };
     window.addEventListener('online', atual); window.addEventListener('offline', atual); atual();
   }
   el.querySelector('.cb-voltar').textContent = '‹ ' + cascaBarra.rotulo;
   el.querySelector('.cb-rel').style.display = cascaBarra.relato ? '' : 'none';
+  // O "?" só aparece depois que a tela do bloco registra a ajuda dela; o texto abre logo abaixo da faixa.
+  var aj = el.querySelector('.cb-aj'), cx = document.getElementById('casca-ajuda'), aberta = !!(cascaBarra.ajuda && cascaBarra.ajudaAberta);
+  aj.style.display = cascaBarra.ajuda ? '' : 'none'; aj.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+  if (aberta && !cx) { cx = document.createElement('div'); cx.id = 'casca-ajuda'; cx.className = 'aviso info'; cx.style.margin = '12px 12px 0'; el.parentNode.insertBefore(cx, el.nextSibling); }
+  if (cx) { if (aberta) cx.textContent = cascaBarra.ajuda; else cx.parentNode.removeChild(cx); }
 }
   function exigir() { if (!estado.pessoa) throw new Error('Casca.iniciar ainda não terminou'); }
   // O que a tela do bloco recebe de volta de um servidor: nunca a sessão nem o token, que ficam com a casca.
@@ -534,7 +533,11 @@ function cascaDesenharBarra() {
         return r;
       });
     },
-    ajuda: function (elemento, texto) { cascaAjuda(elemento, texto); },
+    ajuda: function (elemento, texto) {
+      if (elemento) elemento.textContent = '';
+      cascaBarra.ajuda = String(texto || ''); cascaBarra.ajudaAberta = false;
+      cascaDesenharBarra();
+    },
     /* Uma tela do sistema deste bloco (espécie ambas), com a pessoa já entrada. Chamar no toque. */
     abrirSistema: function () {
       exigir();
