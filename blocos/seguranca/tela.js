@@ -86,7 +86,7 @@ function carregarLocal() {
    virar uma tela que não existe. Os de quem inspeciona só abrem para quem inspeciona; sem o pacote ainda, vale o início.
    O bloco.json dá o padrão por perfil; depois do pacote, o bloco diz à casca quais a pessoa usa DE VERDADE pela função
    dela (Casca.atalhosDaPessoa): o teste de luvas só para quem faz luvas, o veicular só para quem dirige. */
-var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'inspecoes', 'sqp', 'blitz', 'dds', 'irregularidades'];
+var ATALHOS = ['inicio', 'epi', 'luvas', 'veicular', 'incidente', 'relato', 'inspecoes', 'sqp', 'blitz', 'dds', 'irregularidades', 'relatos'];
 function foiRecarga() { try { var n = performance.getEntriesByType('navigation')[0]; return !!n && (n.type === 'reload' || n.type === 'back_forward'); } catch (e) { return false; } /* vigia: sem a medida, vale a abertura nova (o cartão vence) */ }
 /* O `toque` é o número que a casca põe no endereço a cada toque no cartão (Date.now()). A página reaberta pelo navegador
    leva o MESMO endereço, logo o mesmo número; um toque novo traz outro. Só vale número positivo: um link montado à mão
@@ -97,7 +97,7 @@ function toqueDoContexto(c) { var n = c && typeof c === 'object' ? Number(c.toqu
 function eRestauracao() { return S.toque && S.toqueRascunho ? S.toque === S.toqueRascunho : foiRecarga(); }
 function telaDoAtalho(c) { var a = c && typeof c === 'object' ? String(c.abrir || '') : ''; return ATALHOS.indexOf(a) >= 0 ? a : ''; }
 function podeAbrir(t) {
-  if (t === 'sqp' || t === 'blitz' || t === 'irregularidades' || t === 'inspecoes') return !!S.pacote && ehDe(INSPECIONA);
+  if (t === 'sqp' || t === 'blitz' || t === 'irregularidades' || t === 'relatos' || t === 'inspecoes') return !!S.pacote && ehDe(INSPECIONA);
   if (t === 'dds') return !!S.pacote && ehDe(INSPECIONA.concat(['ENCARREGADO']));
   return true;
 }
@@ -107,7 +107,7 @@ function atalhosDestaPessoa() {
   if (e.epi) l.push('epi');
   if (e.luvas === 'DIARIO' || e.luvas === 'SEMANAL') l.push('luvas');
   if (e.veicular) l.push('veicular');
-  if (ehDe(INSPECIONA)) l.push('inspecoes', 'sqp', 'blitz', 'irregularidades');
+  if (ehDe(INSPECIONA)) l.push('inspecoes', 'sqp', 'blitz', 'irregularidades', 'relatos');
   if (ehDe(INSPECIONA.concat(['ENCARREGADO']))) l.push('dds');
   return l;
 }
@@ -227,12 +227,13 @@ function luvasNaSemana(mat) {
 }
 
 /* ---------- desenhar ---------- */
-var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou ocorrência', inspecoes: 'Inspeções' };
+var TITULOS = { inicio: 'Segurança', epi: 'Checklist EPI/EPC', luvas: 'Teste de luvas', veicular: 'Checklist veicular', sqp: 'Inspeção SQP', blitz: 'Blitz de Segurança', irregularidades: 'Irregularidades', relatos: 'Relatos', confirmacao: 'Confirmação de providências', dds: 'Presença no DDS', ddsAntigo: 'DDS no modelo antigo', meus: 'Meus dados', equipe: 'Equipe do dia', fila: 'O que falta enviar', incidente: 'Incidente rápido', relato: 'Relatar acidente ou ocorrência', inspecoes: 'Inspeções' };
 var AJUDAS = {
   inspecoes: 'Escolha a inspeção. SQP: em campo, com a equipe trabalhando; as irregularidades saem do catálogo de desvios. Blitz: na base, de uma pessoa, de um veículo ou de uma equipe, item por item.',
   incidente: 'Para quem está em campo: onde foi, o que aconteceu e a foto. Toque em "Adicionar foto" e escolha entre tirar na hora ou pegar da galeria. Um carro que bateu numa cerca, um poste avariado, um material que caiu. Se alguém se machucou, use o relato de acidente, no início. Sem sinal, fica guardado e sobe sozinho.',
   inicio: 'Os checklists que a sua função pede hoje. Verde: feito. O que você faz aqui fica guardado no celular e sobe sozinho quando houver sinal; o número no topo diz quanto ainda espera para subir.',
   irregularidades: 'As irregularidades achadas no SQP e na Blitz das suas bases. Pendentes: as vermelhas venceram, as âmbar vencem hoje, as azuis estão no prazo; toque num número para filtrar. Corrigidas: as dos últimos 90 dias. Para ver o histórico de uma pessoa ou de um carro, digite a matrícula ou a placa na busca. Ao abrir uma pendente, registre a correção: o que foi feito e a foto. Quem confere a correção é outra pessoa, no computador. Só quem inspeciona vê esta tela.',
+  relatos: 'Os relatos de acidente e ocorrência feitos pelo celular nas suas bases. Sem confirmação: ninguém da engenharia de segurança confirmou ainda o que está sendo feito; os mais antigos vêm primeiro. Confirmados: os dos últimos 30 dias, com quem confirmou e a providência. Toque num relato para ler. Só a engenharia de segurança confirma; para os demais, a tela é para acompanhar. Quem se machucou não aparece aqui: isso fica na tela de acidentes do computador.',
   epi: 'Marque cada item: OK, com problema (foto e o que houve) ou faltando. O que estiver com problema ou faltando vira pedido para o almoxarifado. Se você avisou e ninguém corrigiu, isso conta a seu favor numa inspeção — salvo EPI: sem o EPI em condição, exerça o direito de recusa.',
   luvas: 'Adicione cada luva que você testou: o número e a classe. Para cada uma, infle no dispositivo e faça o teste visual contra a luz. Se uma reprovar, só ela sai de uso: tire a foto do defeito e avise o almoxarifado. As outras seguem valendo. As luvas do seu último teste aparecem no alto, é só tocar para testar de novo.',
   veicular: 'O km é opcional: digite o que o painel mostra. Se for menor que o último km que a Frota tem para a placa (descontados 50 km), a tela avisa para você conferir; se estiver certo, pode seguir. Item por item: aprovado ou reprovado. Alguns itens têm também "N/A" (não se aplica a este veículo, como o limpador de para-brisa de um caminhão sem ele). Reprovado pede foto. Se reprovar um item crítico (os marcados com !), o veículo fica RETIDO: a equipe não sai com ele até um superior liberar no sistema.',
@@ -261,7 +262,7 @@ function desenhar() {
   if (S.msg === 'semCasca') avisos += '<div class="aviso atencao">Tudo o que você fizer fica guardado neste celular. O envio ao servidor da Segurança espera uma atualização do app (a sessão do módulo).</div>';
   else if (S.msg) avisos += '<div class="aviso erro">' + h(S.msg) + '</div>';
   if (!S.pacote) avisos += '<div class="aviso info">' + (Casca.sinal() ? 'Baixando os dados da Segurança…' : 'Abra a Segurança com sinal uma vez para baixar os itens da sua função e o catálogo. Até lá, só o checklist de EPI/EPC.') + '</div>';
-  var tela = ({ inspecoes: telaInspecoes, inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, irregularidades: telaIrregularidades, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
+  var tela = ({ inspecoes: telaInspecoes, inicio: telaInicio, epi: telaEpi, luvas: telaLuvas, veicular: telaVeicular, sqp: telaSqp, blitz: telaBlitz, irregularidades: telaIrregularidades, relatos: telaRelatos, dds: telaDds, ddsAntigo: telaDdsAntigo, meus: telaMeus, equipe: telaEquipe, fila: telaFila, relato: telaRelato, incidente: telaIncidente })[t]();
   corpo.innerHTML = topo + avisos + tela + '<div id="ajuda"></div>';
   rodapeFixo(corpo);
   Casca.ajuda($('ajuda'), AJUDAS[t]);
@@ -274,7 +275,7 @@ function desenhar() {
    faz por outra pessoa). É o que o botão do corpo da tela fazia até a 0.6.6. */
 function voltarDaTela() {
   // Na ficha de uma irregularidade, o Voltar da faixa volta à lista, e não ao início (13/11/2026).
-  if (S.tela === 'irregularidades' && S.form && S.form.aberta) { S.form.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  if ((S.tela === 'irregularidades' || S.tela === 'relatos') && S.form && S.form.aberta) { S.form.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
   if (S.tela === 'inicio') { avisarResumo(); return Casca.voltar(); }
   return ir(S.alvo ? 'equipe' : 'inicio');
 }
@@ -331,9 +332,10 @@ function telaInicio() {
   /* Uma porta só (desenho do App §9; Dalton, 13/11/2026): o incidente rápido virou uma das escolhas dentro do relato. */
   html += '<button type="button" class="btn secundario seg-relatar" data-acao="abrir" data-tela="relato">⚠ Relatar acidente ou ocorrência</button>';
   if (ehDe(INSPECIONA)) {
-    var p = S.pacote, meta = p.meta || { sqp: 0 }, sqpMes = sqpNoMes(), irrC = contaDasIrregularidades(), irrV = irrC.vencidas, irrP = irrC.pendentes;
+    var p = S.pacote, meta = p.meta || { sqp: 0 }, sqpMes = sqpNoMes(), irrC = contaDasIrregularidades(), irrV = irrC.vencidas, irrP = irrC.pendentes, relPend = contaDosRelatos().semConfirmacao;
     html += '<div class="seg-tiles">' + tile('sqp', 'Inspeção SQP', 'em campo', '⚑') + tile('blitz', 'Blitz', 'na base', '✓') + tile('dds', 'DDS', 'presença pela lista', '☰') +
-      tile('irregularidades', 'Irregularidades', irrV ? irrV + ' vencida(s)' : irrP ? irrP + ' pendente(s)' : 'nada pendente', '🚩', irrV ? 'ruim' : irrP ? 'pend' : '') + '</div>';
+      tile('irregularidades', 'Irregularidades', irrV ? irrV + ' vencida(s)' : irrP ? irrP + ' pendente(s)' : 'nada pendente', '🚩', irrV ? 'ruim' : irrP ? 'pend' : '') +
+      tile('relatos', 'Relatos', relPend ? relPend + ' sem confirmação' : 'tudo confirmado', '📋', relPend ? 'pend' : '') + '</div>';
     if (meta.sqp) html += '<div class="cartao seg-meta">' + anel(sqpMes, meta.sqp) + '<div><b>Sua meta do mês</b><br><span class="seg-sub">' + sqpMes + ' de ' + meta.sqp + ' inspeções SQP</span></div></div>';
     var hojeBase = p.hoje || {}, n = Object.keys(hojeBase).length;
     html += '<div class="cartao"><b>Checklists de hoje nas suas bases</b><p class="seg-sub">' + (n ? n + ' pessoa(s) já mandaram (até a última vez que o celular falou com o servidor).' : 'Nenhum checklist chegou ainda hoje.') + ' Quem não fez depende da equipe do dia, que vem da Operação.</p></div>';
@@ -1070,6 +1072,71 @@ function fichaDaIrr(f, x) {
     '<button type="button" class="btn" data-acao="salvarCorrecao"' + (faltaFoto ? ' disabled' : '') + '>Registrar correção</button>' + (faltaFoto ? '<p class="seg-sub">Falta a foto da correção.</p>' : '');
 }
 
+/* ---------- relatos (bloco 0.7.7, 24/11/2026) ----------
+   O desenho do App (§10) com a decisão do Dalton de 24/11/2026: quem inspeciona VÊ a lista dos relatos de acidente e
+   ocorrência feitos pelo celular nas suas bases; quem CONFIRMA as providências é só quem tem LANCAR na ACESSO_ACIDENTES
+   (os engenheiros), como o servidor já fazia desde 13/11/2026. O pacote traz `relatos` e `podeConfirmarRelato`
+   (servidor seg-0.9.25): é o servidor que decide quem confirma, e o botão só aparece para quem ele diz que pode.
+   Não aparece aqui quem se machucou (matrícula e nome): o servidor nem manda. A confirmação sobe pela fila, como a
+   correção; a que este celular enviou e ainda não voltou no pacote aparece como "enviada por você", para ninguém
+   confirmar duas vezes. */
+var REL_TIPO = { lesao: 'Alguém se machucou', quase: 'Quase acidente', transito: 'Acidente de trânsito', dano: 'Dano a veículo, equipamento ou instalação', incidente: 'Incidente', condicao: 'Condição insegura' };
+var REL_ROTULO = { novo: 'Novo', andamento: 'Em andamento', enviada: 'Confirmação enviada por você', confirmado: 'Confirmado' };
+function listaDeRelatos() { return (S.pacote && S.pacote.relatos) || []; }
+function confirmacaoDoCelular(id) { return (S.registros || []).filter(function (r) { return r.tipo === 'confirmacao' && r.confirmacao && r.confirmacao.idRelato === id && r.estado !== 'recusado'; })[0]; }
+/* "Em andamento" é o relato que ainda não foi confirmado, mas cuja investigação já saiu do "relatado" (a engenharia já mexeu). */
+function situacaoDoRelato(x) {
+  if (x.e) return 'confirmado';
+  if (confirmacaoDoCelular(x.i)) return 'enviada';
+  return x.s && x.s !== 'RELATADO' ? 'andamento' : 'novo';
+}
+function contaDosRelatos() { return { semConfirmacao: listaDeRelatos().filter(function (x) { return situacaoDoRelato(x) !== 'confirmado'; }).length }; }
+/* "12/11 às 14:05", no relógio do celular; se o texto não for uma data, mostra o que veio. */
+function quandoDoRelato(iso) {
+  try {
+    var d = new Date(iso); if (isNaN(d.getTime())) return String(iso || '');
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) { return String(iso || ''); } /* vigia: sem a formatação, vale o texto que o servidor mandou */
+}
+function quemConfirmouDoRelato(x) { return '✓ ' + (x.cp || 'Alguém da engenharia') + ' confirmou em ' + quandoDoRelato(x.e); }
+function telaRelatos() {
+  var f = S.form = S.form || { id: novoId('conf'), tipo: 'relatos', aba: 'sem', base: '', aberta: '', frase: '' };
+  if (!S.pacote || !S.pacote.relatos) return '<div class="aviso atencao">A lista de relatos vem com o pacote do servidor (versão seg-0.9.25 ou mais nova). Abra a Segurança com sinal.</div>';
+  var todos = listaDeRelatos();
+  if (f.aberta) { var x = todos.filter(function (y) { return y.i === f.aberta; })[0]; if (x) return fichaDoRelato(f, x); f.aberta = ''; }
+  var bases = []; todos.forEach(function (y) { if (y.b && bases.indexOf(y.b) < 0) bases.push(y.b); }); bases.sort();
+  var daBase = todos.filter(function (y) { return !f.base || y.b === f.base; });
+  var nSem = daBase.filter(function (y) { return situacaoDoRelato(y) !== 'confirmado'; }).length;
+  var html = '<p class="seg-sub">🔒 Só quem inspeciona vê esta tela. Os relatos feitos pelo celular nas suas bases.</p>';
+  if (bases.length > 1) html += '<div class="seg-chips">' + [['', 'Todas as bases']].concat(bases.map(function (b) { return [b, b]; })).map(function (b) { return '<button type="button" class="chip' + (f.base === b[0] ? ' ativo' : '') + '" data-acao="relBase" data-v="' + h(b[0]) + '">' + h(b[1]) + '</button>'; }).join('') + '</div>';
+  html += '<div class="seg-dois seg-abas">' + [['sem', 'Sem confirmação · ' + nSem], ['conf', 'Confirmados · ' + (daBase.length - nSem)]].map(function (a) { return '<button type="button" class="chip' + (f.aba === a[0] ? ' ativo' : '') + '" data-acao="relAba" data-v="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
+  var lista = daBase.filter(function (y) { return (f.aba === 'sem') === (situacaoDoRelato(y) !== 'confirmado'); });
+  if (!lista.length) html += '<p class="seg-sub">' + (f.aba === 'sem' ? 'Nenhum relato esperando confirmação.' : 'Nenhum relato confirmado nos últimos 30 dias.') + '</p>';
+  return html + lista.map(function (y) {
+    var s = situacaoDoRelato(y), resumo = String(y.x || '');
+    return '<button type="button" class="seg-irr seg-rel-' + h(y.t) + '" data-acao="relAbrir" data-v="' + h(y.i) + '"><small>' + h((REL_TIPO[y.t] || 'Relato') + ' · ' + diaBr(y.d) + (y.h ? ' ' + y.h : '') + ' · ' + y.b) + '</small>' +
+      '<b>' + h(resumo.length > 90 ? resumo.slice(0, 90) + '…' : resumo || 'sem descrição') + '</b>' + (y.l ? '<span class="seg-sub">' + h(y.l) + '</span>' : '') +
+      '<span class="seg-irr-pe"><span class="selo seg-sel-' + s + '">' + h(REL_ROTULO[s]) + '</span>' + (y.e ? ' <small>' + h(quemConfirmouDoRelato(y)) + '</small>' : '') + '</span></button>';
+  }).join('');
+}
+function fichaDoRelato(f, x) {
+  var s = situacaoDoRelato(x), pode = !!(S.pacote && S.pacote.podeConfirmarRelato) && (s === 'novo' || s === 'andamento');
+  var linha = function (k, v) { return v ? '<dt>' + h(k) + '</dt><dd>' + v + '</dd>' : ''; };
+  var html = (typeof Casca.barra === 'function' ? '' : '<button type="button" class="link-texto" data-acao="relFechar">‹ Voltar à lista</button>') +
+    '<div class="cartao seg-irr-ficha seg-rel-' + h(x.t) + '"><small>' + h(x.b) + '</small><h2 class="seg-h2">' + h(REL_TIPO[x.t] || 'Relato') + '</h2>' +
+    '<span class="selo seg-sel-' + s + '">' + h(REL_ROTULO[s]) + '</span>' +
+    '<dl class="seg-ficha">' + linha('Base', h(x.b)) + linha('Quando', h(diaBr(x.d) + (x.h ? ' às ' + x.h : ''))) + linha('Local', h(x.l)) + linha('Relatado por', h(x.r)) + '</dl></div>' +
+    '<div class="cartao"><b>O que aconteceu</b><p class="seg-sub">' + h(x.x || 'sem descrição') + '</p></div>';
+  html += '<div class="cartao"><b>Providências</b>' +
+    (x.e ? '<p class="seg-sub">' + h(quemConfirmouDoRelato(x)) + '.</p>' + (x.v ? '<p class="seg-sub">' + h(x.v) + '</p>' : '')
+      : s === 'enviada' ? '<p class="seg-sub">Você confirmou; sobe quando houver sinal.</p>'
+      : '<p class="seg-sub">Ninguém da engenharia de segurança confirmou ainda.' + (S.pacote && S.pacote.podeConfirmarRelato ? '' : ' Quem confirma é a engenharia de segurança.') + '</p>') + '</div>';
+  if (!pode) return html;
+  return html + seletorDeBase() + '<div class="cartao"><b>Confirmar providências</b><p class="seg-sub">Numa frase, o que está sendo feito. Confirmar é dizer "estamos cuidando", e não "investigado". Vale uma vez só.</p>' +
+    '<div class="campo"><label>O que está sendo feito</label><textarea class="seg-texto" rows="3" data-campo="frase">' + h(f.frase) + '</textarea></div></div>' +
+    '<button type="button" class="btn" data-acao="salvarConfirmacao">Confirmar providências</button>';
+}
+
 /* ---------- DDS ---------- */
 function telaDds() {
   /* Só o DDS NA BASE. O DDS em campo é da Operação: o diário marca a presença de toda a equipe e pede a foto da lista
@@ -1377,6 +1444,16 @@ document.addEventListener('click', function (ev) {
   if (a === 'irrFechar') { f.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
   if (a === 'irrHistorico') { f.aberta = ''; f.busca = v; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
   if (a === 'irrFoto') return pedirFoto(function (id) { f.foto = id; }, false, false, true);
+  /* Relatos (0.7.7): filtros, ficha e a confirmação das providências. */
+  if (a === 'relAba') { f.aba = v; return desenhar(); }
+  if (a === 'relBase') { f.base = v; return desenhar(); }
+  if (a === 'relAbrir') { f.aberta = v; f.id = novoId('conf'); f.frase = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'relFechar') { f.aberta = ''; S.msg = ''; desenhar(); window.scrollTo(0, 0); return; }
+  if (a === 'salvarConfirmacao') {
+    var fraseC = String(f.frase || '').trim();
+    if (fraseC.length < 10 && falta('Escreva numa frase o que está sendo feito (pelo menos 10 letras).')) return;
+    return concluir({ id: f.id, tipo: 'confirmacao', confirmacao: { idRelato: f.aberta, frase: fraseC } }, 'Confirmação registrada.', 'relatos');
+  }
   if (a === 'salvarCorrecao') {
     var txtC = String(f.oQueFoiFeito || '').trim();
     if (txtC.length < 5 && falta('Escreva o que foi feito na correção.')) return;
