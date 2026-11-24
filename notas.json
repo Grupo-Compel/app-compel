@@ -1,6 +1,8 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "Prestar contas · Financeiro 0.1.0 · 24/11/2026", "itens": [
+      "Novo cartão \"Prestar contas\": tire a foto do cupom, diga o valor e onde foi, e salve cada gasto do seu caixa direto pelo celular. Precisa de sinal." ] },
     { "titulo": "App 1.27.0 · 24/11/2026", "itens": [
       "A ajuda de cada tela agora fica no botão \"?\" da barra de cima, ao lado do \"!\". O link \"Como funciona esta tela\", que ficava lá embaixo, saiu." ] },
     { "titulo": "Operação 7v.1-app3 · 23/11/2026", "itens": [

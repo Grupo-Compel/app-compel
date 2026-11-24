@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prestar contas · App Compel</title>
+<!-- Bloco Financeiro 0.1.0 (19/11/2026): prestar contas do caixa, 100% no app (decisão do Dalton, 18/11/2026, 16h30).
+     O estilo é o da casca; o que o bloco inventou leva o prefixo fin- e fica aqui, curto, para não virar uma segunda
+     folha. A ordem dos scripts é a do bloco Segurança 0.7.5 (a do Suporte não está na base), sem os arquivos da fila:
+     este bloco é com sinal e sem fila. -->
+<link rel="stylesheet" href="../../estilo/fontes.css">
+<link rel="stylesheet" href="../../estilo/nucleo.css">
+<style>
+  .fin-h1 { font: 700 26px/1.15 Inter, sans-serif; margin: 6px 0 4px; }
+  .fin-h2 { font: 600 15px Inter, sans-serif; margin: 16px 0 8px; }
+  .fin-sub { color: var(--tinta-media, #5A5C63); font-size: 13px; display: block; margin: 2px 0 8px; }
+  /* Texto de campo em 16 px ou mais: abaixo disso o iPhone dá zoom ao tocar e a tela some para o lado. */
+  .fin-campo { display: block; margin: 12px 0; }
+  .fin-campo > span { display: block; font: 600 13px Inter, sans-serif; margin-bottom: 4px; }
+  .fin-campo input, .fin-campo select, .fin-campo textarea { width: 100%; box-sizing: border-box; min-height: 48px; padding: 10px 12px; border: 1.5px solid var(--linha, #E2E4E8); border-radius: var(--raio-p, 10px); font: 17px Inter, sans-serif; color: var(--tinta, #231F20); background: #fff; }
+  .fin-campo textarea { min-height: 72px; resize: vertical; }
+  .fin-campo input:focus, .fin-campo select:focus, .fin-campo textarea:focus { outline: none; border-color: var(--vermelho, #ED1C24); box-shadow: 0 0 0 3px var(--vermelho-claro, #FDE8E9); }
+  .fin-dois { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fin-caixa { display: block; width: 100%; text-align: left; margin: 8px 0; padding: 12px 14px; border: 1.5px solid #D9DBDF; border-left: 5px solid #8A8D94; border-radius: 14px; background: #fff; font: 14px Inter, sans-serif; color: var(--tinta, #231F20); cursor: pointer; }
+  .fin-caixa b { display: block; font-size: 16px; margin-bottom: 2px; }
+  .fin-caixa small { display: block; color: var(--tinta-media, #5A5C63); }
+  .fin-caixa.atrasado { border-left-color: #D3121A; }
+  .fin-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .fin-foto { position: relative; width: 96px; height: 96px; border-radius: 12px; overflow: hidden; border: 1.5px solid #D9DBDF; background: #EEF0F2; }
+  .fin-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fin-foto button { position: absolute; top: 0; right: 0; width: 44px; height: 44px; border: 0; border-radius: 0 0 0 16px; background: rgba(35,31,32,.75); color: #fff; font: 18px/1 Inter, sans-serif; cursor: pointer; }
+  .fin-foto-vazia { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; color: var(--tinta-media, #5A5C63); }
+  .btn.fin-foto-obrig { width: 100%; background: #fff; border: 1.5px dashed #D3121A; color: #A50E15; }
+  .fin-rodape { position: sticky; bottom: 0; z-index: 5; margin-top: 10px; padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--fundo, #F4F5F7); box-shadow: 0 -10px 10px -10px rgba(35,31,32,.25); }
+  .fin-rodape .btn { width: 100%; margin-top: 6px; }
+  .fin-falta { color: #6B4400; text-align: center; margin: 6px 0 0; font-size: 13px; }
+  .fin-resumo { background: #EEF0F2; border-radius: 14px; padding: 10px 12px; margin: 8px 0 10px; font-size: 14px; }
+  .fin-resumo b { font-size: 17px; }
+  /* Alvo de toque de 48 px mesmo que a folha da casca mude: a pessoa está na rua, de luva ou com a mão ocupada. */
+  .fin-rodape .btn, .btn.fin-foto-obrig { min-height: 48px; }
+  .oculto { display: none; }
+</style>
+</head>
+<body>
+<main class="conteudo" id="corpo"><div class="carregando">Abrindo…</div></main>
+<input type="file" id="arquivoFoto" accept="image/*" capture="environment" class="oculto">
+<script src="../../config/login.js"></script>
+<script src="../../servicos.js"></script>
+<script src="../indice.js"></script>
+<script src="../../casca.js"></script>
+<script src="tela.js"></script>
+</body>
+</html>
