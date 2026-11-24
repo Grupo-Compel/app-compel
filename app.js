@@ -695,7 +695,7 @@ function telaDeEntrada(tela, corpo) {
   return '<div class="login-tela"><span class="n-codigo-tela">' + CODIGOS[tela] + '</span><div class="moldura">' + botaoAjudaDaEntrada() +
     '<div class="login-marca"><svg class="logo-oficial" role="img" aria-label="Grupo Compel"><use href="#marca-quadrada"/></svg><div class="sub">App</div></div>' +
     '<div class="cartao">' + semLogin() + semSinalNaEntrada() + corpo + mensagens() + '</div>' +
-    '<div class="login-rodape">Desde 1983, excelência em energia elétrica</div><div class="app-versao">versão ' + esc(VERSAO_APP) + '</div></div></div>';
+    '<div class="login-rodape">Desde 1983, entregando excelência em energia elétrica.</div><div class="app-versao">versão ' + esc(VERSAO_APP) + '</div></div></div>';
 }
 
 function telaEntrar() {
