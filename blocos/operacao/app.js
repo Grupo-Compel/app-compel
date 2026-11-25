@@ -659,8 +659,10 @@ function conferirDiario(d) {
   if (R.validarAprDoApp) R.validarAprDoApp(d.apr || null, p, (pac.listas || {}).aprPadrao || '', retratoDoDia(diaDaEquipe(d.dia, d.form.prefixo))).forEach(junta);
   val.erros.forEach(function (e) { if (CAMPOS_DO_DIA.indexOf(e.campo) < 0 || !out.erros.some(function (x) { return x.doDia; })) junta(e); });
   var x = d.form;
-  var semMarcar = x.pessoas.filter(function (q) { return q.estado !== 'foi' && q.estado !== 'faltou'; });
-  if (semMarcar.length) junta({ campo: 'pessoas', msg: 'Componentes: marque Foi ou Faltou em ' + semMarcar.map(function (q) { return q.nome || q.mat; }).join(', ') + '.' });
+  /* "na" (N/A): a pessoa saiu em outra equipe e quem lança o PS dela responde por ela; não conta como presente nem
+     ausente (carta nº 25 da Operação, 24/11/2026). fila.js já deixa quem é "na" fora de pessoas e de faltaram. */
+  var semMarcar = x.pessoas.filter(function (q) { return q.estado !== 'foi' && q.estado !== 'faltou' && q.estado !== 'na'; });
+  if (semMarcar.length) junta({ campo: 'pessoas', msg: 'Componentes: marque Foi, Não foi ou N/A em ' + semMarcar.map(function (q) { return q.nome || q.mat; }).join(', ') + '.' });
   if (!d.fotos || !d.fotos.FRENTE || !d.fotos.VERSO) junta({ campo: 'fotos', msg: 'Fotos do PS: a frente e o verso do papel.' });
   /* 7t.4: o DDS em campo pede a foto da lista de presença, que a base revisa na conferência. Só quando o servidor
      a conhece (o pacote diz): o app no GitHub vai na frente da instalação, e não pode cobrar o que o servidor recusa. */
@@ -1255,12 +1257,12 @@ function telaDiario() {
   /* 3. componentes */
   var naLista = {}; x.pessoas.forEach(function (p) { naLista[semZeros(p.mat)] = 1; }); naLista[semZeros(quem().mat)] = 1;
   var paraAdd = (pac.pessoasDaBase || []).filter(function (p) { return !naLista[semZeros(p.mat)]; });
-  h += '<div class="cartao secao" id="f-pessoas">' + cab('Componentes da equipe') + '<div class="ajuda" style="margin:-2px 0 6px">Marque cada um: <b>Foi</b> ou <b>Faltou</b>.</div>' +
+  h += '<div class="cartao secao" id="f-pessoas">' + cab('Componentes da equipe') + '<div class="ajuda" style="margin:-2px 0 6px">Marque cada um: <b>Foi</b>, <b>Não foi</b> ou <b>N/A</b> (saiu em outra equipe).</div>' +
     (x.pessoas.length ? x.pessoas.map(function (p, i) {
       var imp = impedidoNoPacote(pac, p.mat);
       return '<div class="pessoa"><div><b>' + esc(p.nome || '?') + '</b><small>' + esc(p.mat) + (p.sugerido ? '' : ' · adicionado · <a href="#" data-tirar-p="' + i + '">tirar</a>') + '</small>' +
         (imp ? '<div class="erro-campo">Impedido neste dia: ' + esc(imp.motivo) + '</div>' : '') + '</div>' +
-        seg('foi', [['foi', 'Foi'], ['faltou', 'Faltou']], p.estado, 'foi').replace(/data-foi="/g, 'data-i="' + i + '" data-foi="') + '</div>';
+        seg('foi', [['foi', 'Foi'], ['faltou', 'Não foi'], ['na', 'N/A']], p.estado, 'foi').replace(/data-foi="/g, 'data-i="' + i + '" data-foi="') + '</div>';
     }).join('') : '<p class="media">Nenhum sugerido. Adicione quem foi.</p>') +
     '<label for="addPessoa">Adicionar quem foi</label><select id="addPessoa">' + opcoes(paraAdd.map(function (p) { return [p.mat, p.nome + ' · ' + p.mat]; }), '', paraAdd.length ? 'Escolha na lista da base…' : 'Ninguém mais na lista da base') + '</select>' +
     '<div class="duas" style="margin-top:6px"><div><input id="addMat" inputmode="numeric" maxlength="8" placeholder="ou a matrícula" autocomplete="off"></div><div><button type="button" class="btn medio secundario" style="margin-top:0" data-acao="addPessoa">Adicionar</button></div></div>' +
@@ -1716,11 +1718,11 @@ function telaEncerrar() {
     avisos.forEach(function (a) { h += '<div class="aviso atencao">' + esc(a) + '</div>'; });
     if (!n) {
       h += '<div class="cartao"><div class="etiqueta">Confira antes de assinar</div>' + rasc.map(function (d) {
-        var c = conferirDiario(d), v = c.v || {}, x = d.form, foram = x.pessoas.filter(function (p) { return p.estado === 'foi'; }), faltaram = x.pessoas.filter(function (p) { return p.estado === 'faltou'; });
+        var c = conferirDiario(d), v = c.v || {}, x = d.form, foram = x.pessoas.filter(function (p) { return p.estado === 'foi'; }), faltaram = x.pessoas.filter(function (p) { return p.estado === 'faltou'; }), emOutra = x.pessoas.filter(function (p) { return p.estado === 'na'; });
         return '<div class="folha-resumo"><b>' + esc(nomeDaFolha(d)) + '</b><dl class="resumo">' +
           '<dt>Dia</dt><dd>' + esc(NOME_DO_TIPO_DIA[x.tipoDia]) + '</dd><dt>Placa</dt><dd>' + esc(v.placa) + '</dd>' +
           '<dt>Expediente</dt><dd>' + esc(v.expIni + ' às ' + v.expFim) + (v.almIni ? ' · almoço ' + esc(v.almIni + '–' + v.almFim) : '') + '</dd>' +
-          '<dt>Foram</dt><dd>' + (foram.length + 1) + ' (com você)</dd>' + (faltaram.length ? '<dt>Faltaram</dt><dd>' + esc(faltaram.map(function (p) { return p.nome || p.mat; }).join(', ')) + '</dd>' : '') +
+          '<dt>Foram</dt><dd>' + (foram.length + 1) + ' (com você)</dd>' + (emOutra.length ? '<dt>N/A (outra equipe)</dt><dd>' + esc(emOutra.map(function (p) { return p.nome || p.mat; }).join(', ')) + '</dd>' : '') + (faltaram.length ? '<dt>Não foram</dt><dd>' + esc(faltaram.map(function (p) { return p.nome || p.mat; }).join(', ')) + '</dd>' : '') +
           (x.tipoDia === 'PRODUCAO' ? '<dt>Atividades</dt><dd>' + esc(v.ini ? v.ini + ' às ' + v.fim : '—') + '</dd><dt>Pendência</dt><dd>' + esc(x.execucao.pendencia) + '</dd>' +
             '<dt>Book</dt><dd>' + esc(resumoDoBook(d)) + '</dd>' : '') +
           '<dt>Códigos</dt><dd>' + esc((v.codigos || []).map(function (k) { return k.cod + ' × ' + String(k.qtd).replace('.', ',') + (k.adc ? ' (+' + Math.round(k.adc * 100) + '%)' : ''); }).join('; ')) + '</dd></dl></div>';

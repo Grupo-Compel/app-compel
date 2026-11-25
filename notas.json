@@ -1,6 +1,8 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "Operação 7v.1-app4 · 25/11/2026", "itens": [
+      "No Diário da equipe, cada componente agora tem três escolhas: Foi, Não foi e N/A (saiu em outra equipe). Quem é N/A não conta como presente nem como ausente." ] },
     { "titulo": "App 1.27.1 · 24/11/2026", "itens": [
       "A frase de baixo da tela de entrada agora diz: Desde 1983, entregando excelência em energia elétrica." ] },
     { "titulo": "Segurança 0.7.7 · 24/11/2026", "itens": [
