@@ -723,8 +723,13 @@ function formIrregularidade(f) {
    placa). A lista vem no pacote, e a conferência funciona sem sinal. */
 function chaveDoPrefixo(t) { return normalizar(String(t || '').split(' - ')[0]).replace(/[^a-z0-9]/g, ''); }
 function soPlaca(p) { return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-/* AS PLACAS DA FROTA (01/11/2026): a lista vem no pacote, só as do estado da pessoa quando o servidor sabe a UF da base.
-   O campo continua aceitando qualquer placa digitada: carro novo ou alugado pode não estar no cadastro da Frota. */
+/* AS PLACAS DA FROTA (01/11/2026): a sugestão vem no pacote, só as do estado da pessoa quando o servidor sabe a UF da base.
+   DESDE A 0.7.8 (25/11/2026; Dalton, 24/11, 21h19): a placa de outra base pode ser digitada, mas tem de existir na frota
+   da Compel. O pacote traz a frota inteira em placasTodas (só as placas), para conferir sem sinal; o servidor confere de
+   novo na chegada. Sem essa lista (servidor antigo, ou a leitura da Frota falhou) o celular não tem como conferir e deixa
+   seguir, como antes: quem recusa é o servidor. */
+function placaForaDaFrota(p) { var x = soPlaca(p), t = S.pacote && S.pacote.placasTodas; return !!(x && t && t.length && t.indexOf(x) < 0); }
+function avisoDePlacaFora(p) { return 'A placa ' + soPlaca(p) + ' não está na frota da Compel. Confira a digitação; veículo novo entra pelo cadastro da Frota.'; }
 function placasDoPacote() {
   var l = (S.pacote && S.pacote.placas) || [], uf = ufDaBase(baseEscolhida());
   /* A placa sem UF fica: o cadastro da Frota não sabe de onde ela é. */
@@ -739,7 +744,9 @@ function sobreAPlaca(p) {
   var x = soPlaca(p); if (x.length < 7 || !placasDoPacote().length) return '';
   var q = placaDaFrota(x);
   return q ? '<p class="seg-sub">' + h([q.tipo || q.modelo, q.modelo && q.tipo ? q.modelo : '', q.base, q.parado ? 'parado no cadastro da Frota' : ''].filter(String).join(' · ')) + '</p>'
-    : '<p class="seg-sub">Esta placa não está no cadastro da Frota. Confira; se estiver certa, pode seguir.</p>';
+    : placaForaDaFrota(x) ? '<p class="seg-sub"><b>Esta placa não está na frota da Compel.</b> Confira a digitação: com ela o registro não é aceito.</p>'
+    : (S.pacote && S.pacote.placasTodas && S.pacote.placasTodas.length ? '<p class="seg-sub">Placa da frota da Compel, de outro estado.</p>'
+    : '<p class="seg-sub">Esta placa não está no cadastro da Frota. Confira; se estiver certa, pode seguir.</p>');
 }
 function matsDoTexto(t) { return String(t || '').split(/[^0-9]+/).map(function (m) { return m.replace(/^0+(?=\d)/, ''); }).filter(String); }
 /* "B203" acha "CPL-NAN-B203" pelo fim. Menos de três letras não compara: "B2" acharia meia base. */
@@ -1484,15 +1491,18 @@ document.addEventListener('click', function (ev) {
       reprovadas.length ? 'Reprovada(s): ' + reprovadas.join(', ') + '. Só ela(s) sai(em) de uso.' : 'Teste de luvas salvo.');
   }
   if (a === 'salvarVeicular' && !String(f.placa).trim() && falta('Digite a placa do veículo.')) return;
+  if (a === 'salvarVeicular' && placaForaDaFrota(f.placa) && falta(avisoDePlacaFora(f.placa))) return;
   if (a === 'salvarVeicular') { var reg = { id: f.id, tipo: 'veicular', fotoRosto: f.rosto, veiculo: { placa: f.placa, tipo: f.tipoV, km: kmDoCampo(f.km) }, retido: !!(f._retidos.length && S.pacote.retencaoLigada),
     itens: f._itens.map(function (it) { return { item: it.replace(/^Lataria /, 'Lataria '), estado: f.estados[it], obs: f.obs[it] || '', foto: f.fotos[it] || '' }; }) };
     return concluir(reg, reg.retido ? 'VEÍCULO RETIDO: não saia com ele até um superior liberar.' : 'Checklist veicular salvo.'); }
+  if (a === 'salvarSqp' && placaForaDaFrota(f.placa) && falta(avisoDePlacaFora(f.placa))) return;
   if (a === 'salvarSqp' && f.nova && falta('Acrescente ou cancele a irregularidade aberta, na etapa 2.')) return;
   if (a === 'salvarSqp' && valeSemQuem(f, chavesDoSqp(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
   if (a === 'salvarSqp') { var antS = anteriorParaEnviar(f, chavesDoSqp(f));
     return concluir({ id: f.id, tipo: 'sqp', inspecao: { equipe: f.equipe, obra: String(f.obra || '').trim(), local: f.local, placa: f.placa, condutor: soPlaca(f.placa) ? matsDoTexto(f.condutor)[0] || '' : '', irregularidades: f.irr, anterior: antS, integrantes: matsDoTexto(f.integrantesTxt), responsavel: matriculaDoResponsavel(f), fotos: f.fotos.slice() } },
       'Inspeção SQP salva (' + f.irr.length + ' irregularidade(s)' + (antS.length ? ', ' + antS.length + ' pendente(s) conferido(s)' : '') + ').'); }
   if (a === 'salvarBlitz' && !String(f.alvoId).trim() && falta('Diga quem ou o que foi inspecionado (matrícula, placa ou prefixo).')) return;
+  if (a === 'salvarBlitz' && placaForaDaFrota(placaDaBlitz(f)) && falta(avisoDePlacaFora(placaDaBlitz(f)))) return;
   if (a === 'salvarBlitz' && valeSemQuem(f, chavesDaBlitz(f)) && falta('Diga quem vai arcar com cada vale (a matrícula).')) return;
   if (a === 'salvarBlitz') {
     /* Os envolvidos de cada não conforme: a pessoa inspecionada; na equipe, quem estava presente (como o Controle da Blitz
