@@ -1397,6 +1397,33 @@ var TESTES = {
     afirmar(r.com === true && r.sem === false && r.guardado === true, 'o gestor lança sem declarar substituto, e o `gestor` fica guardado: ' + JSON.stringify(r));
     await a.ctx.close();
   },
+  /* N/A no diário (Operação 7v.1-app4, carta nº 25 da Operação, 24/11/2026): o componente tem três escolhas; "na" não
+     bloqueia o encerramento e não entra em `pessoas` nem em `faltaram` do que sobe ao servidor. */
+  T72_componente_na_nao_conta_como_presente_nem_ausente: async function () {
+    var OP = { modulo: 'OPERACAO', nome: 'Operação', url: SERVIDOR_OPERACAO, perfil: 'ADMIN', liberado: true };
+    var S = novoServidor();
+    S.responderOperacao = function (c) { return { ok: false, erro: 'Sem pacote na bateria.' }; };
+    var x = loginComAna({ modulos: [OP] }), a = await abrir(x.L, { servidor: S }), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    await p.click('#atalhos [data-atalho="diario"]'); await p.waitForSelector('#ligCodigo');
+    var r = await p.evaluate(function () {
+      function com(estados) {
+        // Só a conferência dos componentes está em jogo: o pacote e as regras do servidor entram como dublês vazios.
+        pacoteDe = function () { return { listas: {} }; };
+        regrasDe = function () { return { validarDiaDoApp: function () { return []; }, validarLancamentoPS: function () { return { v: {}, erros: [] }; } }; };
+        aplicarDia = function () {}; contextoDe = function () { return {}; }; retratoDoDia = function () { return {}; }; diaDaEquipe = function () { return {}; };
+        var d = { id: 'd1', dia: '2026-11-25', estado: 'rascunho', form: { prefixo: 'B203', tipoDia: 'OBRA', pessoas: estados.map(function (e, i) { return { mat: '1000' + i, nome: 'P' + i, estado: e }; }) }, fotos: {} };
+        var erros = (conferirDiario(d).erros || []).filter(function (e) { return e.campo === 'pessoas'; });
+        return { erros: erros.length, pac: pacoteDoDiario(d) };
+      }
+      var tres = com(['foi', 'faltou', 'na']), vazio = com(['foi', '']);
+      return { tresErros: tres.erros, pessoas: tres.pac.pessoas.map(function (q) { return q.mat; }), faltaram: tres.pac.faltaram, vazioErros: vazio.erros };
+    });
+    afirmar(r.tresErros === 0, 'foi, não foi e N/A fecham sem aviso de componentes: ' + JSON.stringify(r));
+    afirmar(r.pessoas.join() === '10000' && r.faltaram.join() === '10001', 'o N/A fica fora de pessoas e de faltaram: ' + JSON.stringify(r));
+    afirmar(r.vazioErros === 1, 'componente sem marca continua pedindo marca: ' + JSON.stringify(r));
+    await a.ctx.close();
+  },
   /* Caso do Bruno (19/11/2026, app 1.26.0): entrou pelo nome, o login não reconheceu o celular (pedirCpf) e a tela passou ao
      CPF; com a matrícula pedida desde o começo, o campo novo aparecia sem aviso, a pessoa entrava só com CPF e senha e o login
      recusava com a frase de senha errada. Agora a frase avisa dos três campos e, com a matrícula em branco, diz que foi ela. */
