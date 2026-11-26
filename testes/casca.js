@@ -1424,6 +1424,36 @@ var TESTES = {
     afirmar(r.vazioErros === 1, 'componente sem marca continua pedindo marca: ' + JSON.stringify(r));
     await a.ctx.close();
   },
+  /* Localização de cada lançamento (casca 1.28.0, Dalton 26/11/2026): `Casca.posicao()` devolve a posição do instante, ou
+     { semGps: true } quando a pessoa nega, o aparelho não tem GPS ou não responde; e `carimboComLocal` leva isso em `local`. */
+  T73_posicao_do_lancamento_no_carimbo: async function () {
+    var OP = { modulo: 'OPERACAO', nome: 'Operação', url: SERVIDOR_OPERACAO, perfil: 'ADMIN', liberado: true };
+    var S = novoServidor();
+    S.responderOperacao = function (c) { return { ok: false, erro: 'Sem pacote na bateria.' }; };
+    var x = loginComAna({ modulos: [OP] }), a = await abrir(x.L, { servidor: S }), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    await p.click('#atalhos [data-atalho="diario"]'); await p.waitForSelector('#ligCodigo');
+    var r = await p.evaluate(async function () {
+      function geo(modo) {
+        Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: function (ok, erro) {
+          if (modo === 'ok') ok({ coords: { latitude: -22.9, longitude: -43.2, accuracy: 12.4 } });
+          else if (modo === 'nega') erro({ code: 1 });
+          /* 'mudo': nunca responde; a casca tem de desistir sozinha. */
+        } } });
+      }
+      var out = {};
+      geo('ok'); out.ok = await Casca.posicao();
+      geo('nega'); out.nega = await Casca.posicao();
+      geo('mudo'); var t0 = Date.now(); out.mudo = await Casca.posicao(); out.mudoMs = Date.now() - t0;
+      geo('ok'); out.carimbo = await Casca.carimboComLocal();
+      return out;
+    });
+    afirmar(r.ok.lat === -22.9 && r.ok.lon === -43.2 && r.ok.precisao === 12 && r.ok.emMs > 0 && !r.ok.semGps, 'com GPS: lat, lon, precisão e hora: ' + JSON.stringify(r.ok));
+    afirmar(r.nega.semGps === true && r.nega.lat === undefined && r.nega.emMs > 0, 'negou a permissão: semGps com a hora: ' + JSON.stringify(r.nega));
+    afirmar(r.mudo.semGps === true && r.mudoMs >= 3500 && r.mudoMs < 6500, 'GPS mudo: desiste em ~4 s, não em 8: ' + r.mudoMs + ' ' + JSON.stringify(r.mudo));
+    afirmar(r.carimbo.local && r.carimbo.local.lat === -22.9 && r.carimbo.feitoPor && r.carimbo.feitoEm, 'o carimbo continua completo e leva o local: ' + JSON.stringify(r.carimbo));
+    await a.ctx.close();
+  },
   /* Caso do Bruno (19/11/2026, app 1.26.0): entrou pelo nome, o login não reconheceu o celular (pedirCpf) e a tela passou ao
      CPF; com a matrícula pedida desde o começo, o campo novo aparecia sem aviso, a pessoa entrava só com CPF e senha e o login
      recusava com a frase de senha errada. Agora a frase avisa dos três campos e, com a matrícula em branco, diz que foi ela. */

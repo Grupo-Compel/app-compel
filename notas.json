@@ -1,6 +1,8 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "App 1.28.0 · 26/11/2026", "itens": [
+      "Preparação para registrar onde cada lançamento foi feito (para o mapa da empresa). Nada muda na tela; a localização só é lida na hora de gravar um registro e só nos módulos que passarem a usá-la." ] },
     { "titulo": "Segurança 0.7.8 · 25/11/2026", "itens": [
       "No checklist veicular, na Inspeção SQP e na Blitz, a placa digitada agora precisa existir na frota da Compel (de qualquer estado). Placa que não está na frota é recusada na hora, com a explicação." ] },
     { "titulo": "Operação 7v.1-app4 · 25/11/2026", "itens": [

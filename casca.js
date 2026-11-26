@@ -186,11 +186,11 @@ function cascaReduzirFoto(arquivo, lados, teto, linhas) {
   });
 }
 /* A posição na hora da foto, ou nada em 8 segundos (sem sinal o GPS funciona, mas pode demorar; campo/, 5c). */
-function cascaLerPosicao() {
+function cascaLerPosicao(ms) {
   return new Promise(function (ok) {
     if (!navigator.geolocation) return ok(null);
     var feito = false, fim = function (v) { if (!feito) { feito = true; ok(v); } };
-    setTimeout(function () { fim(null); }, 8000);
+    setTimeout(function () { fim(null); }, ms || 8000);
     try {
       navigator.geolocation.getCurrentPosition(function (p) { fim({ lat: p.coords.latitude, lon: p.coords.longitude, precisao: Math.round(p.coords.accuracy || 0) }); },
         function () { fim(null); }, { enableHighAccuracy: true, timeout: 7500, maximumAge: 60000 });
@@ -513,6 +513,21 @@ function cascaDesenharBarra() {
     banco: function (nome, versao, lojas) { return cascaBanco(nome, versao, lojas); },
     /* Quem fez e em nome de quem (D20). Sem `emNomeDe`, é a própria pessoa. */
     carimbo: function (emNomeDe) { exigir(); return cascaCarimbo(estado.pessoa, emNomeDe); },
+    /* Onde a pessoa estava na hora de gravar (Dalton, 26/11/2026: localização de cada lançamento, para o mapa). Tira a
+       posição AGORA, não no envio: o registro pode esperar horas na fila. Espera no máximo 4 s (a foto espera 8) para não
+       travar o botão Salvar; aceita posição de até 60 s atrás. Negou a permissão, sem GPS ou demorou: { semGps: true },
+       a mesma forma do `gpsLimpo` da Operação, e o registro segue. Só no instante do lançamento, nada em segundo plano. */
+    posicao: function () {
+      return cascaLerPosicao(4000).then(function (p) {
+        var emMs = Date.now();
+        return p ? { lat: p.lat, lon: p.lon, precisao: p.precisao, emMs: emMs } : { semGps: true, emMs: emMs };
+      });
+    },
+    /* O mesmo carimbo de sempre, mais `local`. Um bloco que não chama esta função continua gravando como antes. */
+    carimboComLocal: function (emNomeDe) {
+      exigir(); var c = cascaCarimbo(estado.pessoa, emNomeDe);
+      return Casca.posicao().then(function (l) { c.local = l; return c; });
+    },
     /* "Guarde e mande quando der": o bloco já gravou o registro no banco dele; a casca pede ao Android que acorde o app
        e, com sinal, tenta agora. Devolve o resumo do envio (ou { esperando: true }, sem sinal). */
     pedirEnvio: function () {
