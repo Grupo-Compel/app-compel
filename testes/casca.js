@@ -253,6 +253,8 @@ async function abrir(L, op) {
     serviceWorkers: op.comServiceWorker ? 'allow' : 'block', isMobile: true, hasTouch: true });
   if (L) {
     await ctx.route('**/config/login.js', function (r) { r.fulfill({ contentType: 'text/javascript', body: "var ENDERECO_DO_LOGIN = '" + LOGIN + "';" }); });
+    // O modo da Operação (config/modo.js): o teste troca a palavra sem mexer no arquivo do repositório.
+    if (op.modoOperacao) await ctx.route('**/config/modo.js', function (r) { r.fulfill({ contentType: 'text/javascript', body: "var MODO_DA_OPERACAO = '" + op.modoOperacao + "';" }); });
     await ctx.route(LOGIN + '*', function (r) {
       var corpo = JSON.parse(r.request().postData() || '{}'), resposta = L.atender(corpo);
       // O relato gravado e a resposta perdida no caminho (casca 1.10): o login atende, e o app não recebe nada.
@@ -1426,6 +1428,30 @@ var TESTES = {
   },
   /* Localização de cada lançamento (casca 1.28.0, Dalton 26/11/2026): `Casca.posicao()` devolve a posição do instante, ou
      { semGps: true } quando a pessoa nega, o aparelho não tem GPS ou não responde; e `carimboComLocal` leva isso em `local`. */
+  /* O interruptor da Operação (carta nº 3 do App, 27/11/2026): no modo de hoje (Apps Script) o encarregado tem o "Diário da
+     equipe" no acesso rápido, que abre a tela do celular guardada no app, e nenhum cartão de sistema. No modo 'servidor'
+     o acesso rápido da Operação some e o cartão passa a abrir o sistema da Operação no endereço do login, com o token do
+     Núcleo, sem a pessoa digitar a senha de novo. O padrão do repositório é o de hoje. */
+  T74_o_interruptor_da_operacao: async function () {
+    var padrao = fs.readFileSync(path.join(RAIZ, 'config/modo.js'), 'utf8');
+    afirmar(/var MODO_DA_OPERACAO = 'appsscript';/.test(padrao), 'o padrão do repositório tem de ser appsscript (nada muda no celular)');
+    var OP = { modulo: 'OPERACAO', nome: 'Operação', url: 'https://modulo.teste.invalid/operacao/celular', perfil: 'ENCARREGADO', liberado: true };
+    var x = loginComAna({ modulos: [OP] }), a = await abrir(x.L), p = a.page;
+    await entrarCpf(p, formatado(x.cpf), 'senha-da-ana'); await esperarTexto(p, 'Acesso rápido');
+    afirmar(!!(await p.$('#atalhos [data-atalho="diario"]')), 'no modo de hoje o encarregado tem o Diário da equipe no acesso rápido');
+    afirmar(!(await p.$('#modulos .n-modulo')), 'no modo de hoje o encarregado não tem cartão de sistema completo');
+    await a.ctx.close();
+    var y = loginComAna({ modulos: [OP] }), b = await abrir(y.L, { modoOperacao: 'servidor' }), q = b.page;
+    await entrarCpf(q, formatado(y.cpf), 'senha-da-ana'); await esperarTexto(q, 'Olá, Ana');
+    afirmar(!(await q.$('#atalhos [data-atalho="diario"]')), 'no modo servidor o acesso rápido da Operação some');
+    afirmar(!!(await q.$('#modulos .n-modulo[data-i="0"]')), 'no modo servidor o cartão da Operação aparece');
+    var aguardar = b.ctx.waitForEvent('page');
+    await q.click('#modulos .n-modulo[data-i="0"]');
+    var janela = await aguardar;
+    await janela.waitForURL(/modulo\.teste\.invalid\/operacao\/celular\?t=tok-/);
+    afirmar(!/blocos/.test(q.url()), 'o app não podia abrir a tela guardada do bloco antigo: ' + q.url());
+    await b.ctx.close();
+  },
   T73_posicao_do_lancamento_no_carimbo: async function () {
     var OP = { modulo: 'OPERACAO', nome: 'Operação', url: SERVIDOR_OPERACAO, perfil: 'ADMIN', liberado: true };
     var S = novoServidor();

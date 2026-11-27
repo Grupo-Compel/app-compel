@@ -27,9 +27,9 @@ BLOCOS.forEach(function (b) {
   try { importScripts(b.envia.script); } catch (e) { b.quebrado = 'o envio não carregou: ' + (e && e.message); PROBLEMAS.push(b.id + ': ' + b.quebrado); }
 });
 
-var VERSAO_CASCA = 'app-compel-casca-1.28.0';
+var VERSAO_CASCA = 'app-compel-casca-1.29.0';
 var CACHE_DA_CASCA = VERSAO_CASCA + '-' + (typeof VERSAO_DOS_BLOCOS === 'string' ? VERSAO_DOS_BLOCOS : 'sem-blocos');
-var ARQUIVOS = ['./', './index.html', './app.js', './servicos.js', './casca.js', './config/login.js', './notas.json', './manifest.webmanifest', './icone-192.png', './icone-512.png', './icone-maskable-512.png',
+var ARQUIVOS = ['./', './index.html', './app.js', './servicos.js', './casca.js', './config/login.js', './config/modo.js', './notas.json', './manifest.webmanifest', './icone-192.png', './icone-512.png', './icone-maskable-512.png',
   './estilo/fontes.css', './estilo/nucleo.css', './estilo/agenda.css',
   './estilo/fontes/barlow-condensed-latin-500-normal.woff2',
   './estilo/fontes/barlow-condensed-latin-600-normal.woff2',

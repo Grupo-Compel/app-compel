@@ -361,7 +361,11 @@ function siglaDe(m) { return String(m.modulo || m.nome || '?').replace(/[^A-Za-z
    de nome (carta nº 18 dele); se a ordem mudar de novo, muda lá, e o app acompanha sem versão nova.
    O módulo que tem tela do celular neste app (um bloco de espécie celular ou ambas) abre a tela guardada no próprio
    celular, com ou sem sinal. O outro abre a tela do sistema, numa janela nova, com o token pedido no toque. */
-function telaDoCelular(m) { var b = cascaBlocoDoModulo(m.modulo); return b && b.entrada ? b : null; }
+/* O interruptor da virada da Operação (config/modo.js): em 'servidor', o módulo OPERACAO não tem tela do celular neste app, e
+   por isso o cartão dele cai no caminho do "sistema completo" (janela com o token do Núcleo) e o acesso rápido dele some
+   (atalhosDe usa esta mesma função). Qualquer outro valor, ou o arquivo ausente, deixa tudo como era. */
+function operacaoNoServidor(m) { return m.modulo === 'OPERACAO' && typeof MODO_DA_OPERACAO === 'string' && MODO_DA_OPERACAO === 'servidor'; }
+function telaDoCelular(m) { if (operacaoNoServidor(m)) return null; var b = cascaBlocoDoModulo(m.modulo); return b && b.entrada ? b : null; }
 /* O CARTÃO DE BAIXO ABRE O QUÊ (casca 1.11, 27/10/2026). Num bloco das duas espécies que tem acesso rápido, a tela do
    celular já está nos botões de cima: o cartão de "Sistemas completos" é o sistema inteiro, o do Google, que é o que o
    Dalton chamou de "módulo completo". Sem acesso rápido, o cartão continua abrindo a tela do celular, como antes. */

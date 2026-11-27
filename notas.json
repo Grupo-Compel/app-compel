@@ -1,6 +1,8 @@
 {
   "aviso": "Notas de atualização do App Compel. A mais nova vai em cima, em português claro, para quem usa o app no campo. Quem publica uma versão acrescenta a nota aqui na mesma entrega; a tela mostra as três primeiras.",
   "versoes": [
+    { "titulo": "App 1.29.0 · 27/11/2026", "itens": [
+      "Preparação para a troca da Operação para o servidor novo. Nada muda na tela agora: a troca só acontece num dia combinado, com a administração avisando antes." ] },
     { "titulo": "App 1.28.0 · 26/11/2026", "itens": [
       "Preparação para registrar onde cada lançamento foi feito (para o mapa da empresa). Nada muda na tela; a localização só é lida na hora de gravar um registro e só nos módulos que passarem a usá-la." ] },
     { "titulo": "Segurança 0.7.8 · 25/11/2026", "itens": [
